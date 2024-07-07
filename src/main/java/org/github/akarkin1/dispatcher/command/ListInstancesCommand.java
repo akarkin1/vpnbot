@@ -6,8 +6,8 @@ import org.apache.commons.lang3.StringUtils;
 import org.github.akarkin1.ec2.Ec2ClientProvider;
 import org.github.akarkin1.ec2.Ec2InstanceManager;
 import org.github.akarkin1.ec2.InstanceInfo;
+import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.ec2.Ec2Client;
-import software.amazon.awssdk.services.ec2.model.Region;
 
 import java.util.List;
 
@@ -21,8 +21,8 @@ public final class ListInstancesCommand implements BotCommand<TextCommandRespons
   @Override
   public TextCommandResponse run(List<String> args) {
     val responseContent = new StringBuilder();
-    for (Region region : this.getAllRegions()) {
-      Ec2Client client = clientProvider.getForRegion(region.regionName());
+    for (Region region : this.getSupportedRegions()) {
+      Ec2Client client = clientProvider.getForRegion(region.id());
       Ec2InstanceManager instanceManager = new Ec2InstanceManager(client);
       List<InstanceInfo> instances = instanceManager.getInstances();
       for (int i = 0; i < instances.size(); i++) {
@@ -35,7 +35,7 @@ public final class ListInstancesCommand implements BotCommand<TextCommandRespons
             .append(System.lineSeparator())
             .append(" - State: %s;".formatted(instance.getState()))
             .append(System.lineSeparator())
-            .append(" - Region: %s (%s);".formatted(region.regionName(), instance.getLocation()));
+            .append(" - Region: %s (%s);".formatted(region.id(), instance.getLocation()));
 
         if (isIpV4(instance.getPublicIp())) {
           responseContent
@@ -59,10 +59,8 @@ public final class ListInstancesCommand implements BotCommand<TextCommandRespons
         .matches(IP_V4_REGEX);
   }
 
-  private List<Region> getAllRegions() {
-    Ec2Client ec2Client = clientProvider.getForGlobal();
-    Ec2InstanceManager instanceManager = new Ec2InstanceManager(ec2Client);
-    return instanceManager.getAllRegions();
+  private List<Region> getSupportedRegions() {
+   return List.of(Region.US_EAST_1, Region.EU_WEST_2, Region.EU_NORTH_1);
   }
 
 }
