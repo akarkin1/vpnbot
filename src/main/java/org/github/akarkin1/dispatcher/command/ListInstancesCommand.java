@@ -26,10 +26,9 @@ public final class ListInstancesCommand implements BotCommand<TextCommandRespons
       Ec2InstanceManager instanceManager = new Ec2InstanceManager(client);
       List<InstanceInfo> instances = instanceManager.getInstances();
       for (int i = 0; i < instances.size(); i++) {
-        int pointNumber = i + 1;
         InstanceInfo instance = instances.get(i);
         responseContent
-            .append("%d. %s".formatted(pointNumber, instance.getName()))
+            .append("%d. %s".formatted(i + 1, instance.getName()))
             .append(System.lineSeparator())
             .append(" - InstanceId: %s;".formatted(instance.getId()))
             .append(System.lineSeparator())
@@ -40,9 +39,10 @@ public final class ListInstancesCommand implements BotCommand<TextCommandRespons
         if (isIpV4(instance.getPublicIp())) {
           responseContent
               .append(System.lineSeparator())
-              .append(instance.getPublicIp())
-              .append(System.lineSeparator());
+              .append(" - Public IP: %s;".formatted(instance.getPublicIp()));
         }
+        responseContent
+              .append(System.lineSeparator());
       }
     }
 
