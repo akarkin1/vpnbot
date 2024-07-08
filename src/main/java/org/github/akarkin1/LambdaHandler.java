@@ -17,8 +17,12 @@ import org.github.akarkin1.dispatcher.command.StopServerCommand;
 import org.github.akarkin1.dispatcher.command.TextCommandResponse;
 import org.github.akarkin1.dispatcher.command.VersionCommand;
 import org.github.akarkin1.ec2.Ec2ClientPool;
+import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.bots.AbsSender;
+
+import java.util.Optional;
 
 import static java.lang.System.getenv;
 import static org.github.akarkin1.TelegramBotFactory.sender;
@@ -85,6 +89,11 @@ public class LambdaHandler implements
       return;
     }
 
+    String userName = Optional.ofNullable(update.getMessage())
+        .map(Message::getFrom)
+        .map(User::getUserName)
+        .orElse("<Unknown>");
+    log.info("User {} communicated to the bot", userName);
     COMMAND_DISPATCHER.handle(update);
   }
 
