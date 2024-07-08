@@ -13,6 +13,7 @@ import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -21,7 +22,7 @@ import java.util.stream.Stream;
 @Log4j2
 public class CommandDispatcher {
 
-  private final Map<String, BotCommand<?>> registeredCommand = new HashMap<>();
+  private final Map<String, BotCommand<?>> registeredCommand = new LinkedHashMap<>();
 
   private final BotCommunicator botCommunicator;
 
