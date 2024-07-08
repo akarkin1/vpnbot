@@ -39,6 +39,8 @@ public class LambdaHandler implements
   private static final ObjectMapper MAPPER = new ObjectMapper();
   private static final CommandDispatcher COMMAND_DISPATCHER;
   private static final BotCommunicator COMMUNICATOR;
+  private static final String BOT_SERVER_ERROR = "The request finished with an error. Please reach "
+      + "out @karkin_ai or check CW logs, if you are an admin";
 
   static {
     final AbsSender sender = sender(getenv("BOT_TOKEN"), getenv("BOT_USERNAME"));
@@ -84,8 +86,7 @@ public class LambdaHandler implements
       update = MAPPER.readValue(receivedPayload, Update.class);
     } catch (Exception e) {
       log.error("Failed to parse update: ", e);
-      COMMUNICATOR.sendMessageToTheBot("The request failed with an error. Please reach out "
-                                           + "@karkin_ai or check CW logs if you are an admin");
+      COMMUNICATOR.sendMessageToTheBot(BOT_SERVER_ERROR);
       return new APIGatewayProxyResponseEvent()
           .withBody("{}")
           .withStatusCode(201);
@@ -95,8 +96,7 @@ public class LambdaHandler implements
       handleUpdate(update);
     } catch (Exception e) {
       log.error("Failed to handle update: ", e);
-      COMMUNICATOR.sendMessageToTheBot("The request failed with an error. Please reach out "
-                                           + "@karkin_ai or check CW logs if you are an admin");
+      COMMUNICATOR.sendMessageToTheBot(BOT_SERVER_ERROR);
       return new APIGatewayProxyResponseEvent()
           .withBody("{}")
           .withStatusCode(201);
