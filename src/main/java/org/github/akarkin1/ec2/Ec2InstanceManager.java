@@ -15,6 +15,7 @@ import software.amazon.awssdk.services.ec2.model.InstanceState;
 import software.amazon.awssdk.services.ec2.model.InstanceStateChange;
 import software.amazon.awssdk.services.ec2.model.InstanceStateName;
 import software.amazon.awssdk.services.ec2.model.Reservation;
+import software.amazon.awssdk.services.ec2.model.StartInstancesRequest;
 import software.amazon.awssdk.services.ec2.model.StopInstancesRequest;
 import software.amazon.awssdk.services.ec2.model.StopInstancesResponse;
 import software.amazon.awssdk.services.ec2.model.Tag;
@@ -111,6 +112,50 @@ public class Ec2InstanceManager {
     }
 
     return instanceInfos;
+  }
+
+  public void stopInstance(String instanceId) {
+    Optional<RegionInstance> regionInstanceOrEmpty = locateInstance(
+        instance -> instance.instanceId().equals(instanceId));
+
+    if (regionInstanceOrEmpty.isEmpty()) {
+      throw new CommandExecutionFailedException("No instance found with ID: %s".formatted(instanceId));
+    }
+    RegionInstance regionInstance = regionInstanceOrEmpty.get();
+    InstanceState state = regionInstance.instance().state();
+    InstanceStateName stateName = state.name();
+
+    Ec2Client ec2 = clientProvider.getForRegion(regionInstance.region().id());
+
+    if (stateName == InstanceStateName.STOPPING) {
+      return;
+    }
+
+    StopInstancesRequest request = StopInstancesRequest.builder()
+        .instanceIds(regionInstance.instance().instanceId()).build();
+    ec2.stopInstances(request);
+  }
+
+  public void startInstance(String instanceId) {
+    Optional<RegionInstance> regionInstanceOrEmpty = locateInstance(
+        instance -> instance.instanceId().equals(instanceId));
+
+    if (regionInstanceOrEmpty.isEmpty()) {
+      throw new CommandExecutionFailedException("No instance found with ID: %s".formatted(instanceId));
+    }
+    RegionInstance regionInstance = regionInstanceOrEmpty.get();
+    InstanceState state = regionInstance.instance().state();
+    InstanceStateName stateName = state.name();
+
+    Ec2Client ec2 = clientProvider.getForRegion(regionInstance.region().id());
+
+    if (stateName == InstanceStateName.RUNNING) {
+      return;
+    }
+
+    StartInstancesRequest request = StartInstancesRequest.builder()
+        .instanceIds(regionInstance.instance().instanceId()).build();
+    ec2.startInstances(request);
   }
 
   public StopResult stopInstanceGracefully(String instanceId) {

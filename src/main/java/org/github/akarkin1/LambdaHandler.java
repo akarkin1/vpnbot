@@ -10,10 +10,11 @@ import lombok.val;
 import org.apache.commons.lang3.StringUtils;
 import org.github.akarkin1.dispatcher.CommandDispatcher;
 import org.github.akarkin1.dispatcher.command.ListInstancesCommand;
+import org.github.akarkin1.dispatcher.command.StartInstanceCommand;
+import org.github.akarkin1.dispatcher.command.StopInstanceCommand;
 import org.github.akarkin1.dispatcher.command.TextCommandResponse;
 import org.github.akarkin1.dispatcher.command.VersionCommand;
 import org.github.akarkin1.ec2.Ec2ClientPool;
-import org.github.akarkin1.ec2.SimpleEc2ClientProvider;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.bots.AbsSender;
 
@@ -34,6 +35,8 @@ public class LambdaHandler implements
 
     COMMAND_DISPATCHER.registerCommand("/version", new VersionCommand());
     COMMAND_DISPATCHER.registerCommand("/servers", new ListInstancesCommand(ec2ClientProvider));
+    COMMAND_DISPATCHER.registerCommand("/startInstance", new StartInstanceCommand(ec2ClientProvider));
+    COMMAND_DISPATCHER.registerCommand("/stopInstance", new StopInstanceCommand(ec2ClientProvider));
   }
 
   @Override
