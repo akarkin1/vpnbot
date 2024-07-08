@@ -9,6 +9,9 @@ public sealed interface BotCommand<R extends CommandResponse> permits
     HelpCommand,
     StopInstanceCommand,
     StartInstanceCommand,
+    StartServerCommandV2,
+    StopServerCommandV2,
+    RestartServerCommand,
     StartServerCommand,
     StopServerCommand,
     RebootServerCommand {

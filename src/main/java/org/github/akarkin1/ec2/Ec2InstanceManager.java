@@ -3,7 +3,6 @@ package org.github.akarkin1.ec2;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.github.akarkin1.exception.CommandExecutionFailedException;
-import org.github.akarkin1.exception.InstanceNotFoundException;
 import org.github.akarkin1.waiter.InstanceStateWaiter;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.ec2.Ec2Client;
@@ -11,18 +10,17 @@ import software.amazon.awssdk.services.ec2.model.DescribeInstancesRequest;
 import software.amazon.awssdk.services.ec2.model.DescribeInstancesResponse;
 import software.amazon.awssdk.services.ec2.model.Instance;
 import software.amazon.awssdk.services.ec2.model.InstanceState;
-import software.amazon.awssdk.services.ec2.model.InstanceStateChange;
 import software.amazon.awssdk.services.ec2.model.InstanceStateName;
 import software.amazon.awssdk.services.ec2.model.RebootInstancesRequest;
 import software.amazon.awssdk.services.ec2.model.Reservation;
 import software.amazon.awssdk.services.ec2.model.StartInstancesRequest;
 import software.amazon.awssdk.services.ec2.model.StopInstancesRequest;
-import software.amazon.awssdk.services.ec2.model.StopInstancesResponse;
 import software.amazon.awssdk.services.ec2.model.Tag;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 @Log4j2
@@ -179,6 +177,100 @@ public class Ec2InstanceManager {
     callStartInstancesInTheRegion(regionInstance);
   }
 
+  public void startServerGracefully(String serverName, Consumer<String> messageConsumer) {
+    Optional<RegionInstance> regionInstanceOrEmpty = locateInstance(serverNameMatches(serverName));
+
+    if (regionInstanceOrEmpty.isEmpty()) {
+      throw new CommandExecutionFailedException("No instance found with ServerName: %s".formatted(serverName));
+    }
+
+    RegionInstance regionInstance = regionInstanceOrEmpty.get();
+    messageConsumer.accept("Starting the instance ...");
+    callStartInstancesInTheRegion(regionInstance);
+
+    Ec2Client ec2 = clientProvider.getForRegion(regionInstance.region().id());
+    Instance instance = regionInstance.instance();
+    String instanceId = instance.instanceId();
+    boolean isSucceed = waitForTheState(ec2, instanceId,
+                                        InstanceStateName.RUNNING);
+    if (isSucceed) {
+      messageConsumer.accept("Server %s has started successfully".formatted(serverName));
+      messageConsumer.accept(" - Instance ID: %s%n - Public IP:%s".formatted(
+          instanceId,
+          instance.publicIpAddress()));
+    } else {
+      messageConsumer.accept(("Failed to check instance state. Timeout %dms has exceeded."
+          + "Try to run /servers command later to ensure the server has started.")
+                                 .formatted(WAIT_TIMEOUT_MS));
+    }
+  }
+
+  public void stopServerGracefully(String serverName, Consumer<String> messageConsumer) {
+    Optional<RegionInstance> regionInstanceOrEmpty = locateInstance(serverNameMatches(serverName));
+
+    if (regionInstanceOrEmpty.isEmpty()) {
+      throw new CommandExecutionFailedException("No instance found with ServerName: %s".formatted(serverName));
+    }
+
+    RegionInstance regionInstance = regionInstanceOrEmpty.get();
+    messageConsumer.accept("Stopping the instance ...");
+    callStopInstancesInTheRegion(regionInstance);
+
+    Ec2Client ec2 = clientProvider.getForRegion(regionInstance.region().id());
+    Instance instance = regionInstance.instance();
+    String instanceId = instance.instanceId();
+    boolean isSucceed = waitForTheState(ec2, instanceId,
+                                        InstanceStateName.STOPPED);
+    if (isSucceed) {
+      messageConsumer.accept("Server %s has stopped successfully".formatted(serverName));
+    } else {
+      messageConsumer.accept(("Failed to check instance state. Timeout %dms has exceeded."
+          + "Try to run /servers command later to ensure the server has started.")
+                                 .formatted(WAIT_TIMEOUT_MS));
+    }
+  }
+
+  public void restartServerGracefully(String serverName, Consumer<String> messageConsumer) {
+    Optional<RegionInstance> regionInstanceOrEmpty = locateInstance(serverNameMatches(serverName));
+
+    if (regionInstanceOrEmpty.isEmpty()) {
+      throw new CommandExecutionFailedException("No instance found with ServerName: %s"
+                                                    .formatted(serverName));
+    }
+
+    RegionInstance regionInstance = regionInstanceOrEmpty.get();
+    messageConsumer.accept("Stopping the instance ...");
+    callStopInstancesInTheRegion(regionInstance);
+
+    Ec2Client ec2 = clientProvider.getForRegion(regionInstance.region().id());
+    Instance instance = regionInstance.instance();
+    String instanceId = instance.instanceId();
+    boolean isSucceed = waitForTheState(ec2, instanceId, InstanceStateName.STOPPED);
+    if (isSucceed) {
+      messageConsumer.accept("Server %s has stopped successfully".formatted(serverName));
+    } else {
+      messageConsumer.accept(("Failed to check instance state. Timeout %dms has exceeded."
+          + "Try to run /servers command later to ensure the server has started.")
+                                 .formatted(WAIT_TIMEOUT_MS));
+    }
+
+    messageConsumer.accept("Starting the instance ...");
+    callStartInstancesInTheRegion(regionInstance);
+
+    isSucceed = waitForTheState(ec2, instanceId, InstanceStateName.RUNNING);
+    if (isSucceed) {
+      messageConsumer.accept("Server %s has started successfully".formatted(serverName));
+      messageConsumer.accept(" - Instance ID: %s%n - Public IP:%s".formatted(
+          instanceId,
+          instance.publicIpAddress()));
+    } else {
+      messageConsumer.accept(("Failed to check instance state. Timeout %dms has exceeded."
+          + "Try to run /servers command later to ensure the server has started.")
+                                 .formatted(WAIT_TIMEOUT_MS));
+    }
+  }
+
+
   public void rebootServer(String serverName) {
     Optional<RegionInstance> regionInstanceOrEmpty = locateInstance(serverNameMatches(serverName));
 
@@ -231,67 +323,13 @@ public class Ec2InstanceManager {
     callStopInstancesInTheRegion(regionInstance);
   }
 
-  public StopResult stopInstanceGracefully(String instanceId) {
-    Optional<RegionInstance> regionInstanceOrEmpty = locateInstance(
-        instance -> instance.instanceId().equals(instanceId));
-
-    if (regionInstanceOrEmpty.isEmpty()) {
-      throw new CommandExecutionFailedException("No instance found with ID: %s".formatted(instanceId));
-    }
-
-    RegionInstance regionInstance = regionInstanceOrEmpty.get();
-    InstanceState state = regionInstance.instance().state();
-    InstanceStateName stateName = state.name();
-
-    Ec2Client ec2 = clientProvider.getForRegion(regionInstance.region().id());
-
-    if (stateName == InstanceStateName.STOPPING) {
-      return waitUntilStopped(ec2, instanceId);
-    } else if(stateName == InstanceStateName.STOPPED
-        || stateName == InstanceStateName.SHUTTING_DOWN
-        || stateName == InstanceStateName.TERMINATED) {
-
-      return StopResult.ALREADY_STOPPED;
-    }
-
-    StopInstancesRequest request = StopInstancesRequest.builder()
-        .instanceIds(regionInstance.instance().instanceId()).build();
-    StopInstancesResponse response = ec2.stopInstances(request);
-    Optional<InstanceState> currentInstState = response.stoppingInstances().stream()
-        .map(InstanceStateChange::currentState).findFirst();
-
-    if (currentInstState.isEmpty()) {
-      return StopResult.UNKNOWN;
-    } else {
-      return waitUntilStopped(ec2, instanceId);
-    }
-  }
-
-  private StopResult waitUntilStopped(Ec2Client ec2, String instanceId) {
+  private boolean waitForTheState(Ec2Client ec2, String instanceId, InstanceStateName state) {
     WaitParameters waitParams = WaitParameters.builder()
         .statusWaitStrategy(FixedDelayWaitStrategy.create(STATUS_CHECK_PAUSE_MS))
         .operationTimeout(WAIT_TIMEOUT_MS)
         .build();
     InstanceStateWaiter waiter = new InstanceStateWaiter(ec2, waitParams);
-    try {
-      boolean succeed = waiter.waitForStatus(instanceId, InstanceStateName.STOPPED);
-
-      if (succeed) {
-        return StopResult.STOP_SUCCEED;
-      } else {
-        return StopResult.STOP_WAIT_TIMEOUT;
-      }
-    } catch (InstanceNotFoundException e) {
-      return StopResult.INSTANCE_NOT_FOUND;
-    }
-  }
-
-  private static void sleepQuietly(long waitTime) {
-    try {
-      Thread.sleep(waitTime);
-    } catch (InterruptedException e) {
-      log.warn("Sleep failed", e);
-    }
+    return waiter.waitForStatus(instanceId, state);
   }
 
   private Optional<RegionInstance> locateInstance(Predicate<Instance> instancePredicate) {

@@ -3,7 +3,7 @@ package org.github.akarkin1.waiter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.github.akarkin1.ec2.WaitParameters;
-import org.github.akarkin1.exception.InstanceNotFoundException;
+import org.github.akarkin1.exception.CommandExecutionFailedException;
 import software.amazon.awssdk.services.ec2.Ec2Client;
 import software.amazon.awssdk.services.ec2.model.DescribeInstancesRequest;
 import software.amazon.awssdk.services.ec2.model.DescribeInstancesResponse;
@@ -30,7 +30,7 @@ public class InstanceStateWaiter {
 
       DescribeInstancesResponse response = ec2Client.describeInstances(request);
       if (!response.hasReservations()) {
-        throw new InstanceNotFoundException(instanceId);
+        failWithNotFoundError(instanceId, desiredState);
       }
 
       Optional<InstanceState> foundState = response.reservations().stream()
@@ -40,7 +40,7 @@ public class InstanceStateWaiter {
           .findFirst();
 
       if (foundState.isEmpty()) {
-        throw new InstanceNotFoundException(instanceId);
+        failWithNotFoundError(instanceId, desiredState);
       }
 
       InstanceStateName stateName = foundState.get().name();
@@ -55,6 +55,14 @@ public class InstanceStateWaiter {
         }
       }
     }
+  }
+
+  private static void failWithNotFoundError(String instanceId, InstanceStateName desiredState) {
+
+    String errorMessage = "Failed to check desired state: %s for the instance with ID: %s. "
+        + "Resource not found"
+        .formatted(desiredState.toString(), instanceId);
+    throw new CommandExecutionFailedException(errorMessage);
   }
 
   private static void sleepQuietly(long waitTime) {

@@ -6,26 +6,29 @@ import org.github.akarkin1.ec2.Ec2InstanceManager;
 import org.github.akarkin1.exception.InvalidCommandException;
 
 import java.util.List;
+import java.util.function.Consumer;
 
 @RequiredArgsConstructor
-public final class RebootServerCommand implements BotCommand<TextCommandResponse> {
+public final class StartServerCommandV2 implements BotCommand<EmptyResponse> {
 
+  private final Consumer<String> messageConsumer;
   private final Ec2ClientProvider clientProvider;
 
+
   @Override
-  public TextCommandResponse run(List<String> args) {
+  public EmptyResponse run(List<String> args) {
     if (args.isEmpty()) {
       throw new InvalidCommandException("Expected one argument: <ServerName>, but no argument is provided");
     }
     String serverName = args.get(0);
     Ec2InstanceManager instanceManager = new Ec2InstanceManager(clientProvider);
-    instanceManager.rebootServer(serverName);
+    instanceManager.startServerGracefully(serverName, messageConsumer);
 
-    return new TextCommandResponse("Rebooting the server with ServerName: %s ...".formatted(serverName));
+    return null;
   }
 
   @Override
   public String getDescription() {
-    return "reboot server with provided ServerName; reboot doesn't reassign IP to the instance";
+    return "starts server by given ServerName";
   }
 }

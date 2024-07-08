@@ -3,6 +3,7 @@ package org.github.akarkin1.dispatcher;
 import lombok.extern.log4j.Log4j2;
 import org.github.akarkin1.dispatcher.command.BotCommand;
 import org.github.akarkin1.dispatcher.command.CommandResponse;
+import org.github.akarkin1.dispatcher.command.EmptyResponse;
 import org.github.akarkin1.dispatcher.command.HelpCommand;
 import org.github.akarkin1.dispatcher.command.TextCommandResponse;
 import org.github.akarkin1.exception.CommandExecutionFailedException;
@@ -70,7 +71,7 @@ public class CommandDispatcher {
         String commandOutput = txtResp.text();
         log.debug("Sending the result to telegram bot...");
         sendTextMessageToTheBot(updateEvent, commandOutput);
-      } else {
+      } else if (!(resp instanceof EmptyResponse)) {
         throw new IllegalStateException(
             "Unsupported Command response type: %s".formatted(commandResponseType));
       }
@@ -86,7 +87,7 @@ public class CommandDispatcher {
 
   }
 
-  private void sendTextMessageToTheBot(Update updateEvent, String content)
+  public void sendTextMessageToTheBot(Update updateEvent, String content)
       throws TelegramApiException {
     SendMessage sendMessage = new SendMessage();
     sendMessage.setChatId(String.valueOf(updateEvent.getMessage().getChatId()));
