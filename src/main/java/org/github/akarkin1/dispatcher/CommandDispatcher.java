@@ -12,7 +12,6 @@ import org.github.akarkin1.tg.BotCommunicator;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -68,7 +67,7 @@ public class CommandDispatcher {
       if (resp instanceof TextCommandResponse txtResp) {
         String commandOutput = txtResp.text();
         log.debug("Sending the result to telegram bot...");
-        sendTextMessageToTheBot(commandOutput);
+        botCommunicator.sendMessageToTheBot(commandOutput);
       } else if (!(resp instanceof EmptyResponse)) {
         throw new IllegalStateException(
             "Unsupported Command response type: %s".formatted(commandResponseType));
@@ -76,30 +75,26 @@ public class CommandDispatcher {
     } catch (InvalidCommandException e) {
       String errMessage = "Invalid command syntax: " + e.getMessage();
       log.debug("Invalid command. Sending error message to telegram bot...", e);
-      sendTextMessageToTheBot(errMessage);
+      botCommunicator.sendMessageToTheBot(errMessage);
     } catch (CommandExecutionFailedException e) {
       log.debug("Failed to execute command {}. Sending error message to telegram bot...",
                 commandName, e);
-      sendTextMessageToTheBot(e.getMessage());
+      botCommunicator.sendMessageToTheBot(e.getMessage());
     }
 
-  }
-
-  public void sendTextMessageToTheBot(String content) {
-    botCommunicator.sendMessageToTheBot(content);
   }
 
   private void sendNotACommandError(Update updateEvent) {
     String userInput = updateEvent.getMessage().getText();
     String errorMessage = "Unsupported syntax: '%s'. Please enter a command (it should start with '/')"
         .formatted(userInput);
-    sendTextMessageToTheBot(errorMessage);
+    botCommunicator.sendMessageToTheBot(errorMessage);
   }
 
   private void sendUnknownCommandError(String command) {
     String errorMessage = "Unsupported command: '%s'. Please enter a valid command. "
         + "The following commands are supported: %n%s".formatted(command, getSupportedCommands());
-    sendTextMessageToTheBot(errorMessage);
+    botCommunicator.sendMessageToTheBot(errorMessage);
   }
 
   public String getSupportedCommands() {

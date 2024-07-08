@@ -22,12 +22,14 @@ public class InstanceStateWaiter {
   public boolean waitForStatus(String instanceId, InstanceStateName desiredState) {
     int attempt = 1;
     long started = System.currentTimeMillis();
+    log.debug("Start waiting for state: {}", desiredState.name());
 
     for(;;) {
       DescribeInstancesRequest request = DescribeInstancesRequest.builder()
           .instanceIds(instanceId)
           .build();
 
+      log.debug("Check for current instance state: attempt: {}", attempt);
       DescribeInstancesResponse response = ec2Client.describeInstances(request);
       if (!response.hasReservations()) {
         failWithNotFoundError(instanceId, desiredState);
@@ -44,13 +46,17 @@ public class InstanceStateWaiter {
       }
 
       InstanceStateName stateName = foundState.get().name();
+      log.debug("Current state: {}", stateName);
       if (desiredState == stateName) {
+        log.debug("Current state matches the desired state. Waiting is stopped");
         return true;
       } else {
         long waitTime = waitParameters.getStatusWaitStrategy().getWaitTime(attempt++);
+        log.debug("Current state doesn't match the desire state. Sleep for {}ms", waitTime);
         sleepQuietly(waitTime);
         long totalTimeWaited = System.currentTimeMillis() - started;
         if (totalTimeWaited > waitParameters.getOperationTimeout()) {
+          log.debug("Wait timeout!");
           return false;
         }
       }
