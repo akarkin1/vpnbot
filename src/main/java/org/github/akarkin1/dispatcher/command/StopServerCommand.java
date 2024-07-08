@@ -22,7 +22,7 @@ public final class StopServerCommand implements BotCommand<TextCommandResponse> 
     Ec2InstanceManager instanceManager = new Ec2InstanceManager(clientProvider);
     instanceManager.stopServer(serverName);
 
-    return new TextCommandResponse("Stop of server with ServerName: %s is initiated".formatted(serverName));
+    return new TextCommandResponse("Stop of the server with ServerName: %s is initiated".formatted(serverName));
   }
 
   @Override

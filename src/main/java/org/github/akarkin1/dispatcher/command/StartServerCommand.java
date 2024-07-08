@@ -21,7 +21,7 @@ public final class StartServerCommand implements BotCommand<TextCommandResponse>
     Ec2InstanceManager instanceManager = new Ec2InstanceManager(clientProvider);
     instanceManager.startServer(serverName);
 
-    return new TextCommandResponse("Start of server with ServerName: %s is initiated".formatted(serverName));
+    return new TextCommandResponse("Start of the server with ServerName: %s is initiated".formatted(serverName));
   }
 
   @Override
