@@ -199,7 +199,7 @@ public class Ec2Manager {
           instanceId,
           instance.publicIpAddress()));
     } else {
-      messageConsumer.accept(("Failed to check instance state. Timeout %ds has exceeded."
+      messageConsumer.accept(("Failed to check instance state. Timeout %ds has exceeded. "
           + "Try to run /servers command later to ensure the server has started.")
                                  .formatted(getWaitTimeoutSeconds()));
     }
@@ -224,7 +224,7 @@ public class Ec2Manager {
     if (isSucceed) {
       messageConsumer.accept("Server %s has stopped successfully".formatted(serverName));
     } else {
-      messageConsumer.accept(("Failed to check instance state. Timeout %ds has exceeded."
+      messageConsumer.accept(("Failed to check instance state. Timeout %ds has exceeded. "
           + "Try to run /servers command later to ensure the server has started.")
                                  .formatted(getWaitTimeoutSeconds()));
     }
@@ -249,7 +249,7 @@ public class Ec2Manager {
     if (isSucceed) {
       messageConsumer.accept("Server %s has stopped successfully".formatted(serverName));
     } else {
-      messageConsumer.accept(("Failed to check instance state. Timeout %ds has exceeded."
+      messageConsumer.accept(("Failed to check instance state. Timeout %ds has exceeded. "
           + "Try to run /servers command later to ensure the server has started.")
                                  .formatted(getWaitTimeoutSeconds()));
     }
@@ -264,7 +264,7 @@ public class Ec2Manager {
           instanceId,
           instance.publicIpAddress()));
     } else {
-      messageConsumer.accept(("Failed to check instance state. Timeout %ds has exceeded."
+      messageConsumer.accept(("Failed to check instance state. Timeout %ds has exceeded. "
           + "Try to run /servers command later to ensure the server has started.")
                                  .formatted(getWaitTimeoutSeconds()));
     }
