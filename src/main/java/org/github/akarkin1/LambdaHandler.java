@@ -13,8 +13,10 @@ import org.github.akarkin1.dispatcher.command.ListInstancesCommand;
 import org.github.akarkin1.dispatcher.command.RebootServerCommand;
 import org.github.akarkin1.dispatcher.command.RestartServerCommand;
 import org.github.akarkin1.dispatcher.command.StartInstanceCommand;
+import org.github.akarkin1.dispatcher.command.StartServerCommand;
 import org.github.akarkin1.dispatcher.command.StartServerCommandV2;
 import org.github.akarkin1.dispatcher.command.StopInstanceCommand;
+import org.github.akarkin1.dispatcher.command.StopServerCommand;
 import org.github.akarkin1.dispatcher.command.StopServerCommandV2;
 import org.github.akarkin1.dispatcher.command.TextCommandResponse;
 import org.github.akarkin1.dispatcher.command.VersionCommand;
@@ -46,16 +48,19 @@ public class LambdaHandler implements
 
     COMMAND_DISPATCHER.registerCommand("/version", new VersionCommand());
     COMMAND_DISPATCHER.registerCommand("/servers", new ListInstancesCommand(ec2ClientProvider));
+//    COMMAND_DISPATCHER.registerCommand("/startServer",
+//                                       new StartServerCommandV2(ec2ClientProvider,
+//                                                                COMMUNICATOR::sendMessageToTheBot));
+//    COMMAND_DISPATCHER.registerCommand("/stopServer",
+//                                       new StopServerCommandV2(ec2ClientProvider,
+//                                                               COMMUNICATOR::sendMessageToTheBot));
+//    COMMAND_DISPATCHER.registerCommand("/restartServer",
+//                                       new RestartServerCommand(ec2ClientProvider,
+//                                                                COMMUNICATOR::sendMessageToTheBot));
     COMMAND_DISPATCHER.registerCommand("/startServer",
-                                       new StartServerCommandV2(ec2ClientProvider,
-                                                                COMMUNICATOR::sendMessageToTheBot));
+                                       new StartServerCommand(ec2ClientProvider));
     COMMAND_DISPATCHER.registerCommand("/stopServer",
-                                       new StopServerCommandV2(ec2ClientProvider,
-                                                               COMMUNICATOR::sendMessageToTheBot));
-    COMMAND_DISPATCHER.registerCommand("/restartServer",
-                                       new RestartServerCommand(ec2ClientProvider,
-                                                                COMMUNICATOR::sendMessageToTheBot));
-    COMMAND_DISPATCHER.registerCommand("/rebootServer", new RebootServerCommand(ec2ClientProvider));
+                                       new StopServerCommand(ec2ClientProvider));
     COMMAND_DISPATCHER.registerCommand("/startInstance",
                                        new StartInstanceCommand(ec2ClientProvider));
     COMMAND_DISPATCHER.registerCommand("/stopInstance", new StopInstanceCommand(ec2ClientProvider));
