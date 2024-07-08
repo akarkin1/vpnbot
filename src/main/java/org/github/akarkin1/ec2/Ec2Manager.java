@@ -32,8 +32,8 @@ public class Ec2Manager {
   private static final String SERVICE_NAME_VAL = "openvpn-server";
   private static final String LOCATION_TAG = "Location";
   private static final String SERVER_NAME_TAG = "Name";
-  private static final long STATUS_CHECK_PAUSE_MS = 400;
-  private static final long WAIT_TIMEOUT_MS = 10_000;
+  private static final long STATUS_CHECK_PAUSE_MS = 500;
+  private static final long WAIT_TIMEOUT_MS = 60_000;
 
   private final Ec2ClientProvider clientProvider;
 
