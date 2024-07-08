@@ -12,7 +12,7 @@ public final class HelpCommand implements BotCommand<TextCommandResponse> {
   private static final String APP_DESCRIPTION = "The bot allows to control EC2 Instances (Servers) "
       + "deployed in AWS in multiple regions. Currently only 3 regions are supported: "
       + "us-east-1 (North Virginia), eu-north-1 (Stockholm), eu-west-2 (London)."
-      + "For more details please contact the developer: @karkin_ai . "
+      + "For more details please contact the developer: @karkin_ai . \n"
       + "The commands supported: %n%s";
 
   private final CommandDispatcher commandDispatcher;
