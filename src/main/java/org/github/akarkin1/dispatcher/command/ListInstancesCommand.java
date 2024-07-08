@@ -20,6 +20,10 @@ public final class ListInstancesCommand implements BotCommand<TextCommandRespons
   public TextCommandResponse run(List<String> args) {
     val responseContent = new StringBuilder();
 
+    responseContent
+        .append("The lists of the servers available:")
+        .append(System.lineSeparator());
+
     Ec2InstanceManager instanceManager = new Ec2InstanceManager(clientProvider);
     for (InstanceInfo instance : instanceManager.getAllInstances()) {
       responseContent
