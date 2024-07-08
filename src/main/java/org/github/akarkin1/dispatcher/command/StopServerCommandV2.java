@@ -24,7 +24,7 @@ public final class StopServerCommandV2 implements BotCommand<EmptyResponse> {
     Ec2Manager instanceManager = new Ec2Manager(clientProvider);
     instanceManager.stopServerGracefully(serverName, messageConsumer);
 
-    return null;
+    return EmptyResponse.NONE;
   }
 
   @Override

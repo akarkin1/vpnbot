@@ -69,7 +69,7 @@ public class CommandDispatcher {
       } else if (!(resp instanceof EmptyResponse)) {
         throw new IllegalStateException(
             "Unsupported Command response type: %s"
-                .formatted(resp == null ? "<UNKNOWN>" : resp.getClass().getSimpleName()));
+                .formatted(resp == null ? "null" : resp.getClass().getSimpleName()));
       }
     } catch (InvalidCommandException e) {
       String errMessage = "Invalid command syntax: " + e.getMessage();

@@ -24,7 +24,7 @@ public final class StartServerCommandV2 implements BotCommand<EmptyResponse> {
     Ec2Manager instanceManager = new Ec2Manager(clientProvider);
     instanceManager.startServerGracefully(serverName, messageConsumer);
 
-    return null;
+    return EmptyResponse.NONE;
   }
 
   @Override

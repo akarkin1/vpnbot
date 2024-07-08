@@ -23,7 +23,7 @@ public final class RestartServerCommand implements BotCommand<EmptyResponse> {
     Ec2Manager instanceManager = new Ec2Manager(clientProvider);
     instanceManager.restartServerGracefully(serverName, messageConsumer);
 
-    return null;
+    return EmptyResponse.NONE;
   }
 
   @Override
