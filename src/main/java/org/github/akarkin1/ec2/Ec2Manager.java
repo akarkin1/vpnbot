@@ -25,7 +25,7 @@ import java.util.function.Predicate;
 
 @Log4j2
 @RequiredArgsConstructor
-public class Ec2InstanceManager {
+public class Ec2Manager {
 
   private static final String SVC_NAME_TAG = "tag:ServiceName";
   private static final String NAME_TAG = "Name";
@@ -185,17 +185,16 @@ public class Ec2InstanceManager {
     }
 
     RegionInstance regionInstance = regionInstanceOrEmpty.get();
-    messageConsumer.accept("Starting the instance ...");
+    messageConsumer.accept("Starting the server %s ...".formatted(serverName));
     callStartInstancesInTheRegion(regionInstance);
 
     Ec2Client ec2 = clientProvider.getForRegion(regionInstance.region().id());
     Instance instance = regionInstance.instance();
     String instanceId = instance.instanceId();
-    boolean isSucceed = waitForTheState(ec2, instanceId,
-                                        InstanceStateName.RUNNING);
+    boolean isSucceed = waitForTheState(ec2, instanceId, InstanceStateName.RUNNING);
     if (isSucceed) {
       messageConsumer.accept("Server %s has started successfully".formatted(serverName));
-      messageConsumer.accept(" - Instance ID: %s%n - Public IP:%s".formatted(
+      messageConsumer.accept(" - Instance ID: %s\n - Public IP:%s".formatted(
           instanceId,
           instance.publicIpAddress()));
     } else {

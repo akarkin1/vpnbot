@@ -4,7 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.val;
 import org.apache.commons.lang3.StringUtils;
 import org.github.akarkin1.ec2.Ec2ClientProvider;
-import org.github.akarkin1.ec2.Ec2InstanceManager;
+import org.github.akarkin1.ec2.Ec2Manager;
 import org.github.akarkin1.ec2.InstanceInfo;
 
 import java.util.List;
@@ -24,7 +24,7 @@ public final class ListInstancesCommand implements BotCommand<TextCommandRespons
         .append("The lists of the servers available:")
         .append(System.lineSeparator());
 
-    Ec2InstanceManager instanceManager = new Ec2InstanceManager(clientProvider);
+    Ec2Manager instanceManager = new Ec2Manager(clientProvider);
     for (InstanceInfo instance : instanceManager.getAllInstances()) {
       responseContent
           .append("* %s".formatted(instance.getName()))
