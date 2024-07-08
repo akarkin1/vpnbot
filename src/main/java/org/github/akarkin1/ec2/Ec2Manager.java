@@ -330,7 +330,7 @@ public class Ec2Manager {
   private boolean waitForTheState(Ec2Client ec2, String instanceId, InstanceStateName state) {
     WaitParameters waitParams = WaitParameters.builder()
         .statusWaitStrategy(FixedDelayWaitStrategy.create(STATUS_CHECK_PAUSE_MS))
-        .operationTimeout(getWaitTimeoutSeconds())
+        .operationTimeout(WAIT_TIMEOUT_MS)
         .build();
     InstanceStateWaiter waiter = new InstanceStateWaiter(ec2, waitParams);
     return waiter.waitForStatus(instanceId, state);
