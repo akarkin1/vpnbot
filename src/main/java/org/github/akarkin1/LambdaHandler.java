@@ -93,7 +93,7 @@ public class LambdaHandler implements
         .map(Message::getFrom)
         .map(User::getUserName)
         .orElse("<Unknown>");
-    log.info("User {} communicated to the bot", userName);
+    log.info("User {} has started communication with the bot", userName);
     COMMAND_DISPATCHER.handle(update);
   }
 
