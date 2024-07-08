@@ -32,7 +32,7 @@ public class Ec2InstanceManager {
   private static final String NAME_TAG = "Name";
   private static final String SERVICE_NAME_VAL = "openvpn-server";
   private static final String LOCATION_TAG = "Location";
-  private static final String SERVER_NAME_TAG = "Nam";
+  private static final String SERVER_NAME_TAG = "Name";
   private static final long STATUS_CHECK_PAUSE_MS = 400;
   private static final long WAIT_TIMEOUT_MS = 10_000;
 
