@@ -58,11 +58,12 @@ public class Ec2InstanceManager {
     for (Region region : getSupportedRegions()) {
       Ec2Client ec2 = clientProvider.getForRegion(region.id());
 
-      Filter svcNameFilter = Filter.builder().name(SVC_NAME_TAG)
-          .values(SERVICE_NAME_VAL)
-          .build();
+      // It's even more interesting without the filter.
+//      Filter svcNameFilter = Filter.builder().name(SVC_NAME_TAG)
+//          .values(SERVICE_NAME_VAL)
+//          .build();
       DescribeInstancesRequest request = DescribeInstancesRequest.builder()
-          .filters(svcNameFilter)
+//          .filters(svcNameFilter)
           .build();
 
       log.debug("Sending Describe Instances request to AWS...");
