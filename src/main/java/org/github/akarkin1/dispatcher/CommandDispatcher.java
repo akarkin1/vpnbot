@@ -35,7 +35,7 @@ public class CommandDispatcher {
     registeredCommand.put(name, command);
   }
 
-  public void handle(Update updateEvent) throws TelegramApiException {
+  public void handle(Update updateEvent) {
     String userInput = updateEvent.getMessage().getText();
 
     if (userInput.startsWith("/")) {
@@ -62,15 +62,14 @@ public class CommandDispatcher {
     try {
       CommandResponse resp = botCommand.run(args);
 
-      String commandResponseType = resp.getClass().getSimpleName();
-      log.debug("Command result: {}", resp);
       if (resp instanceof TextCommandResponse txtResp) {
         String commandOutput = txtResp.text();
         log.debug("Sending the result to telegram bot...");
         botCommunicator.sendMessageToTheBot(commandOutput);
       } else if (!(resp instanceof EmptyResponse)) {
         throw new IllegalStateException(
-            "Unsupported Command response type: %s".formatted(commandResponseType));
+            "Unsupported Command response type: %s"
+                .formatted(resp == null ? "<UNKNOWN>" : resp.getClass().getSimpleName()));
       }
     } catch (InvalidCommandException e) {
       String errMessage = "Invalid command syntax: " + e.getMessage();

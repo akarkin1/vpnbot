@@ -48,19 +48,20 @@ public class LambdaHandler implements
 
     COMMAND_DISPATCHER.registerCommand("/version", new VersionCommand());
     COMMAND_DISPATCHER.registerCommand("/servers", new ListInstancesCommand(ec2ClientProvider));
-//    COMMAND_DISPATCHER.registerCommand("/startServer",
-//                                       new StartServerCommandV2(ec2ClientProvider,
-//                                                                COMMUNICATOR::sendMessageToTheBot));
-//    COMMAND_DISPATCHER.registerCommand("/stopServer",
-//                                       new StopServerCommandV2(ec2ClientProvider,
-//                                                               COMMUNICATOR::sendMessageToTheBot));
-//    COMMAND_DISPATCHER.registerCommand("/restartServer",
-//                                       new RestartServerCommand(ec2ClientProvider,
-//                                                                COMMUNICATOR::sendMessageToTheBot));
     COMMAND_DISPATCHER.registerCommand("/startServer",
-                                       new StartServerCommand(ec2ClientProvider));
+                                       new StartServerCommandV2(ec2ClientProvider,
+                                                                COMMUNICATOR::sendMessageToTheBot));
     COMMAND_DISPATCHER.registerCommand("/stopServer",
-                                       new StopServerCommand(ec2ClientProvider));
+                                       new StopServerCommandV2(ec2ClientProvider,
+                                                               COMMUNICATOR::sendMessageToTheBot));
+    COMMAND_DISPATCHER.registerCommand("/restartServer",
+                                       new RestartServerCommand(ec2ClientProvider,
+                                                                COMMUNICATOR::sendMessageToTheBot));
+    // Legacy version of the commands
+//    COMMAND_DISPATCHER.registerCommand("/startServer",
+//                                       new StartServerCommand(ec2ClientProvider));
+//    COMMAND_DISPATCHER.registerCommand("/stopServer",
+//                                       new StopServerCommand(ec2ClientProvider));
     COMMAND_DISPATCHER.registerCommand("/startInstance",
                                        new StartInstanceCommand(ec2ClientProvider));
     COMMAND_DISPATCHER.registerCommand("/stopInstance", new StopInstanceCommand(ec2ClientProvider));
