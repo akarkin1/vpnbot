@@ -9,7 +9,6 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.ec2.Ec2Client;
 import software.amazon.awssdk.services.ec2.model.DescribeInstancesRequest;
 import software.amazon.awssdk.services.ec2.model.DescribeInstancesResponse;
-import software.amazon.awssdk.services.ec2.model.Filter;
 import software.amazon.awssdk.services.ec2.model.Instance;
 import software.amazon.awssdk.services.ec2.model.InstanceState;
 import software.amazon.awssdk.services.ec2.model.InstanceStateChange;
@@ -33,6 +32,7 @@ public class Ec2InstanceManager {
   private static final String NAME_TAG = "Name";
   private static final String SERVICE_NAME_VAL = "openvpn-server";
   private static final String LOCATION_TAG = "Location";
+  private static final String SERVER_NAME_TAG = "ServerName";
   private static final long STATUS_CHECK_PAUSE_MS = 400;
   private static final long WAIT_TIMEOUT_MS = 10_000;
 
@@ -123,6 +123,10 @@ public class Ec2InstanceManager {
       throw new CommandExecutionFailedException("No instance found with ID: %s".formatted(instanceId));
     }
     RegionInstance regionInstance = regionInstanceOrEmpty.get();
+    callStopInstancesInTheRegion(regionInstance);
+  }
+
+  private void callStopInstancesInTheRegion(RegionInstance regionInstance) {
     InstanceState state = regionInstance.instance().state();
     InstanceStateName stateName = state.name();
 
@@ -145,6 +149,10 @@ public class Ec2InstanceManager {
       throw new CommandExecutionFailedException("No instance found with ID: %s".formatted(instanceId));
     }
     RegionInstance regionInstance = regionInstanceOrEmpty.get();
+    callStartInstancesInTheRegion(regionInstance);
+  }
+
+  private void callStartInstancesInTheRegion(RegionInstance regionInstance) {
     InstanceState state = regionInstance.instance().state();
     InstanceStateName stateName = state.name();
 
@@ -157,6 +165,36 @@ public class Ec2InstanceManager {
     StartInstancesRequest request = StartInstancesRequest.builder()
         .instanceIds(regionInstance.instance().instanceId()).build();
     ec2.startInstances(request);
+  }
+
+  public void startServer(String serverName) {
+    Optional<RegionInstance> regionInstanceOrEmpty = locateInstance(serverNameMatches(serverName));
+
+    if (regionInstanceOrEmpty.isEmpty()) {
+      throw new CommandExecutionFailedException("No instance found with ServerName: %s".formatted(serverName));
+    }
+
+    RegionInstance regionInstance = regionInstanceOrEmpty.get();
+    callStartInstancesInTheRegion(regionInstance);
+  }
+
+  private static Predicate<Instance> serverNameMatches(String serverName) {
+    return instance -> instance.tags()
+        .stream()
+        .filter(tag -> tag.key().equals(SERVER_NAME_TAG))
+        .filter(tag -> tag.value().equals(serverName))
+        .count() == 1;
+  }
+
+  public void stopServer(String serverName) {
+    Optional<RegionInstance> regionInstanceOrEmpty = locateInstance(serverNameMatches(serverName));
+
+    if (regionInstanceOrEmpty.isEmpty()) {
+      throw new CommandExecutionFailedException("No instance found with ServerName: %s".formatted(serverName));
+    }
+
+    RegionInstance regionInstance = regionInstanceOrEmpty.get();
+    callStopInstancesInTheRegion(regionInstance);
   }
 
   public StopResult stopInstanceGracefully(String instanceId) {
