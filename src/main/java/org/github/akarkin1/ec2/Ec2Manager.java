@@ -20,6 +20,7 @@ import software.amazon.awssdk.services.ec2.model.Tag;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
@@ -198,9 +199,9 @@ public class Ec2Manager {
           instanceId,
           instance.publicIpAddress()));
     } else {
-      messageConsumer.accept(("Failed to check instance state. Timeout %dms has exceeded."
+      messageConsumer.accept(("Failed to check instance state. Timeout %ds has exceeded."
           + "Try to run /servers command later to ensure the server has started.")
-                                 .formatted(WAIT_TIMEOUT_MS));
+                                 .formatted(getWaitTimeoutSeconds()));
     }
   }
 
@@ -223,9 +224,9 @@ public class Ec2Manager {
     if (isSucceed) {
       messageConsumer.accept("Server %s has stopped successfully".formatted(serverName));
     } else {
-      messageConsumer.accept(("Failed to check instance state. Timeout %dms has exceeded."
+      messageConsumer.accept(("Failed to check instance state. Timeout %ds has exceeded."
           + "Try to run /servers command later to ensure the server has started.")
-                                 .formatted(WAIT_TIMEOUT_MS));
+                                 .formatted(getWaitTimeoutSeconds()));
     }
   }
 
@@ -248,9 +249,9 @@ public class Ec2Manager {
     if (isSucceed) {
       messageConsumer.accept("Server %s has stopped successfully".formatted(serverName));
     } else {
-      messageConsumer.accept(("Failed to check instance state. Timeout %dms has exceeded."
+      messageConsumer.accept(("Failed to check instance state. Timeout %ds has exceeded."
           + "Try to run /servers command later to ensure the server has started.")
-                                 .formatted(WAIT_TIMEOUT_MS));
+                                 .formatted(getWaitTimeoutSeconds()));
     }
 
     messageConsumer.accept("Starting the instance ...");
@@ -263,10 +264,14 @@ public class Ec2Manager {
           instanceId,
           instance.publicIpAddress()));
     } else {
-      messageConsumer.accept(("Failed to check instance state. Timeout %dms has exceeded."
+      messageConsumer.accept(("Failed to check instance state. Timeout %ds has exceeded."
           + "Try to run /servers command later to ensure the server has started.")
-                                 .formatted(WAIT_TIMEOUT_MS));
+                                 .formatted(getWaitTimeoutSeconds()));
     }
+  }
+
+  private static long getWaitTimeoutSeconds() {
+    return TimeUnit.MILLISECONDS.toSeconds(WAIT_TIMEOUT_MS);
   }
 
 
@@ -325,7 +330,7 @@ public class Ec2Manager {
   private boolean waitForTheState(Ec2Client ec2, String instanceId, InstanceStateName state) {
     WaitParameters waitParams = WaitParameters.builder()
         .statusWaitStrategy(FixedDelayWaitStrategy.create(STATUS_CHECK_PAUSE_MS))
-        .operationTimeout(WAIT_TIMEOUT_MS)
+        .operationTimeout(getWaitTimeoutSeconds())
         .build();
     InstanceStateWaiter waiter = new InstanceStateWaiter(ec2, waitParams);
     return waiter.waitForStatus(instanceId, state);
