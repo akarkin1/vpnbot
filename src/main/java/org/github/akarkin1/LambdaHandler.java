@@ -12,7 +12,8 @@ import org.github.akarkin1.dispatcher.CommandDispatcher;
 import org.github.akarkin1.dispatcher.command.ListInstancesCommand;
 import org.github.akarkin1.dispatcher.command.TextCommandResponse;
 import org.github.akarkin1.dispatcher.command.VersionCommand;
-import org.github.akarkin1.ec2.Ec2ClientProvider;
+import org.github.akarkin1.ec2.Ec2ClientPool;
+import org.github.akarkin1.ec2.SimpleEc2ClientProvider;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.bots.AbsSender;
 
@@ -28,7 +29,7 @@ public class LambdaHandler implements
 
   static {
     final AbsSender sender = sender(getenv("BOT_TOKEN"), getenv("BOT_USERNAME"));
-    val ec2ClientProvider = new Ec2ClientProvider();
+    val ec2ClientProvider = new Ec2ClientPool();
     COMMAND_DISPATCHER = new CommandDispatcher(sender);
 
     COMMAND_DISPATCHER.registerCommand("/version", new VersionCommand());

@@ -1,6 +1,7 @@
 package org.github.akarkin1.dispatcher;
 
 import lombok.extern.log4j.Log4j2;
+import org.github.akarkin1.exception.InvalidCommandException;
 import org.github.akarkin1.dispatcher.command.BotCommand;
 import org.github.akarkin1.dispatcher.command.CommandResponse;
 import org.github.akarkin1.dispatcher.command.HelpCommand;
@@ -59,19 +60,30 @@ public class CommandDispatcher {
     log.debug("Running command: {}, with arguments: {}",
               botCommand.getClass().getSimpleName(),
               args);
-    CommandResponse resp = botCommand.run(args);
 
-    log.debug("Command result: {}", resp);
-    if (resp instanceof TextCommandResponse txtResp) {
-      String commandOutput = txtResp.text();
+    try {
+      CommandResponse resp = botCommand.run(args);
+
+      log.debug("Command result: {}", resp);
+      if (resp instanceof TextCommandResponse txtResp) {
+        String commandOutput = txtResp.text();
+        SendMessage sendMessage = new SendMessage();
+        sendMessage.setChatId(String.valueOf(updateEvent.getMessage().getChatId()));
+        sendMessage.setText(commandOutput);
+        log.debug("Sending the result to telegram bot...");
+        Message responseMessage = sender.execute(sendMessage);
+        log.debug("Received response: {}", responseMessage);
+      } else {
+        throw new IllegalStateException("Unsupported Command type: %s".formatted(resp.getClass()));
+      }
+    } catch (InvalidCommandException e) {
+      String errMessage = "Invalid command syntax: " + e.getMessage();
       SendMessage sendMessage = new SendMessage();
       sendMessage.setChatId(String.valueOf(updateEvent.getMessage().getChatId()));
-      sendMessage.setText(commandOutput);
-      log.debug("Sending the result to telegram bot...");
+      sendMessage.setText(errMessage);
+      log.debug("Invalid command. Sending error message to telegram bot...", e);
       Message responseMessage = sender.execute(sendMessage);
       log.debug("Received response: {}", responseMessage);
-    } else {
-      throw new IllegalStateException("Unsupported Command type: %s".formatted(resp.getClass()));
     }
 
   }

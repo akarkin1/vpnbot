@@ -11,4 +11,5 @@ public class InstanceInfo {
   private String state;
   private String publicIp;
   private String location;
+  private String region;
 }
