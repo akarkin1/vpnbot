@@ -6,11 +6,10 @@ name: VPN Bot Lambda CI-CD
 on:
   push:
     branches:
-      - master
+      - main
 
 jobs:
-  build:
-
+  ci-cd-build:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -30,8 +29,6 @@ jobs:
       run: mvn clean package shade:shade
     
     - name: Configure AWS Credentials
-      # You may pin to the exact commit or the version.
-      # uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502
       uses: aws-actions/configure-aws-credentials@v4
       with:
         aws-region: eu-north-1
