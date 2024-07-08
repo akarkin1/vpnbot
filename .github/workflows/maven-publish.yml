@@ -1,0 +1,44 @@
+# This workflow will build a package using Maven and then publish it to GitHub packages when a release is created
+# For more information see: https://github.com/actions/setup-java/blob/main/docs/advanced-usage.md#apache-maven-with-a-settings-path
+
+name: VPN Bot Lambda CI-CD
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up JDK 17
+      uses: actions/setup-java@v3
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        server-id: github # Value of the distributionManagement/repository/id field of the pom.xml
+        settings-path: ${{ github.workspace }} # location for the settings.xml file
+
+    - name: Build Lambda
+      run: mvn clean package shade:shade
+    
+    - name: Configure AWS Credentials
+      # You may pin to the exact commit or the version.
+      # uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-region: eu-north-1
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+    - name: Update AWS Lambda
+      run: |
+        aws lambda update-function-code --function-name openvpn-server-tgbot --zip-file fileb://target/vpnbot-1.0-SNAPSHOT.jar
+      
