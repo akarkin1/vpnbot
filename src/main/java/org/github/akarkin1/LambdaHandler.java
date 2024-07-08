@@ -84,18 +84,22 @@ public class LambdaHandler implements
       update = MAPPER.readValue(receivedPayload, Update.class);
     } catch (Exception e) {
       log.error("Failed to parse update: ", e);
+      COMMUNICATOR.sendMessageToTheBot("The request failed with an error. Please reach out "
+                                           + "@karkin_ai or check CW logs if you are an admin");
       return new APIGatewayProxyResponseEvent()
-          .withBody("Failed to parse event: " + gwEvent)
-          .withStatusCode(400);
+          .withBody("{}")
+          .withStatusCode(201);
     }
 
     try {
       handleUpdate(update);
     } catch (Exception e) {
       log.error("Failed to handle update: ", e);
+      COMMUNICATOR.sendMessageToTheBot("The request failed with an error. Please reach out "
+                                           + "@karkin_ai or check CW logs if you are an admin");
       return new APIGatewayProxyResponseEvent()
-          .withBody("Internal Server Error")
-          .withStatusCode(500);
+          .withBody("{}")
+          .withStatusCode(201);
     }
 
     return new APIGatewayProxyResponseEvent()
