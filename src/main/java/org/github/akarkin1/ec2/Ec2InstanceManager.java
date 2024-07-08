@@ -13,6 +13,7 @@ import software.amazon.awssdk.services.ec2.model.Instance;
 import software.amazon.awssdk.services.ec2.model.InstanceState;
 import software.amazon.awssdk.services.ec2.model.InstanceStateChange;
 import software.amazon.awssdk.services.ec2.model.InstanceStateName;
+import software.amazon.awssdk.services.ec2.model.RebootInstancesRequest;
 import software.amazon.awssdk.services.ec2.model.Reservation;
 import software.amazon.awssdk.services.ec2.model.StartInstancesRequest;
 import software.amazon.awssdk.services.ec2.model.StopInstancesRequest;
@@ -176,6 +177,39 @@ public class Ec2InstanceManager {
 
     RegionInstance regionInstance = regionInstanceOrEmpty.get();
     callStartInstancesInTheRegion(regionInstance);
+  }
+
+  public void rebootServer(String serverName) {
+    Optional<RegionInstance> regionInstanceOrEmpty = locateInstance(serverNameMatches(serverName));
+
+    if (regionInstanceOrEmpty.isEmpty()) {
+      throw new CommandExecutionFailedException("No instance found with ServerName: %s".formatted(serverName));
+    }
+
+    RegionInstance regionInstance = regionInstanceOrEmpty.get();
+    callRebootInstancesInTheRegion(regionInstance);
+  }
+
+  private void callRebootInstancesInTheRegion(RegionInstance regionInstance) {
+    InstanceState state = regionInstance.instance().state();
+    InstanceStateName stateName = state.name();
+
+    Ec2Client ec2 = clientProvider.getForRegion(regionInstance.region().id());
+    String instanceId = regionInstance.instance().instanceId();
+
+    if (stateName == InstanceStateName.STOPPED) {
+      StartInstancesRequest request = StartInstancesRequest.builder()
+          .instanceIds(instanceId).build();
+      ec2.startInstances(request);
+    } else if (stateName == InstanceStateName.RUNNING) {
+      RebootInstancesRequest rebootInstancesRequest = RebootInstancesRequest.builder()
+          .instanceIds(instanceId)
+          .build();
+
+      ec2.rebootInstances(rebootInstancesRequest);
+    } else {
+      throw new CommandExecutionFailedException("Invalid server state: %s".formatted(state.name()));
+    }
   }
 
   private static Predicate<Instance> serverNameMatches(String serverName) {

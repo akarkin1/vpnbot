@@ -5,7 +5,7 @@ import java.util.List;
 
 public sealed interface BotCommand<R extends CommandResponse>
     permits ListInstancesCommand, VersionCommand, HelpCommand, StopInstanceCommand,
-    StartInstanceCommand, StartServerCommand, StopServerCommand {
+    StartInstanceCommand, StartServerCommand, StopServerCommand, RebootServerCommand {
 
   R run(List<String> args);
 
