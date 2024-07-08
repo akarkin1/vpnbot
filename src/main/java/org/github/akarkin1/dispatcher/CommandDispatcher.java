@@ -8,10 +8,8 @@ import org.github.akarkin1.dispatcher.command.HelpCommand;
 import org.github.akarkin1.dispatcher.command.TextCommandResponse;
 import org.github.akarkin1.exception.CommandExecutionFailedException;
 import org.github.akarkin1.exception.InvalidCommandException;
-import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
-import org.telegram.telegrambots.meta.api.objects.Message;
+import org.github.akarkin1.tg.BotCommunicator;
 import org.telegram.telegrambots.meta.api.objects.Update;
-import org.telegram.telegrambots.meta.bots.AbsSender;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import java.util.HashMap;
@@ -25,10 +23,10 @@ public class CommandDispatcher {
 
   private final Map<String, BotCommand<?>> registeredCommand = new HashMap<>();
 
-  private final AbsSender sender;
+  private final BotCommunicator botCommunicator;
 
-  public CommandDispatcher(AbsSender sender) {
-    this.sender = sender;
+  public CommandDispatcher(BotCommunicator botCommunicator) {
+    this.botCommunicator = botCommunicator;
     this.registerCommand("/start", new HelpCommand(this));
     this.registerCommand("/help", new HelpCommand(this));
   }
@@ -47,18 +45,17 @@ public class CommandDispatcher {
           .skip(1)
           .toList();
       if (!registeredCommand.containsKey(command)) {
-        sendUnknownCommandError(updateEvent, command);
+        sendUnknownCommandError(command);
         return;
       }
 
-      runCommand(updateEvent, registeredCommand.get(command), args);
+      runCommand(registeredCommand.get(command), args);
     } else {
       sendNotACommandError(updateEvent);
     }
   }
 
-  private void runCommand(Update updateEvent, BotCommand<?> botCommand, List<String> args)
-      throws TelegramApiException {
+  private void runCommand(BotCommand<?> botCommand, List<String> args) {
     String commandName = botCommand.getClass().getSimpleName();
     log.debug("Running command: {}, with arguments: {}", commandName, args);
 
@@ -70,7 +67,7 @@ public class CommandDispatcher {
       if (resp instanceof TextCommandResponse txtResp) {
         String commandOutput = txtResp.text();
         log.debug("Sending the result to telegram bot...");
-        sendTextMessageToTheBot(updateEvent, commandOutput);
+        sendTextMessageToTheBot(commandOutput);
       } else if (!(resp instanceof EmptyResponse)) {
         throw new IllegalStateException(
             "Unsupported Command response type: %s".formatted(commandResponseType));
@@ -78,36 +75,30 @@ public class CommandDispatcher {
     } catch (InvalidCommandException e) {
       String errMessage = "Invalid command syntax: " + e.getMessage();
       log.debug("Invalid command. Sending error message to telegram bot...", e);
-      sendTextMessageToTheBot(updateEvent, errMessage);
+      sendTextMessageToTheBot(errMessage);
     } catch (CommandExecutionFailedException e) {
       log.debug("Failed to execute command {}. Sending error message to telegram bot...",
                 commandName, e);
-      sendTextMessageToTheBot(updateEvent, e.getMessage());
+      sendTextMessageToTheBot(e.getMessage());
     }
 
   }
 
-  public void sendTextMessageToTheBot(Update updateEvent, String content)
-      throws TelegramApiException {
-    SendMessage sendMessage = new SendMessage();
-    sendMessage.setChatId(String.valueOf(updateEvent.getMessage().getChatId()));
-    sendMessage.setText(content);
-    Message responseMessage = sender.execute(sendMessage);
-    log.debug("Received response: {}", responseMessage);
+  public void sendTextMessageToTheBot(String content) {
+    botCommunicator.sendMessageToTheBot(content);
   }
 
-  private void sendNotACommandError(Update updateEvent) throws TelegramApiException {
+  private void sendNotACommandError(Update updateEvent) {
     String userInput = updateEvent.getMessage().getText();
     String errorMessage = "Unsupported syntax: '%s'. Please enter a command (it should start with '/')"
         .formatted(userInput);
-    sendTextMessageToTheBot(updateEvent, errorMessage);
+    sendTextMessageToTheBot(errorMessage);
   }
 
-  private void sendUnknownCommandError(Update updateEvent, String command)
-      throws TelegramApiException {
+  private void sendUnknownCommandError(String command) {
     String errorMessage = "Unsupported command: '%s'. Please enter a valid command. "
         + "The following commands are supported: %n%s".formatted(command, getSupportedCommands());
-    sendTextMessageToTheBot(updateEvent, errorMessage);
+    sendTextMessageToTheBot(errorMessage);
   }
 
   public String getSupportedCommands() {

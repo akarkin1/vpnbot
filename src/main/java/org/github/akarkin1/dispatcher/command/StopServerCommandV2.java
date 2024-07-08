@@ -11,8 +11,8 @@ import java.util.function.Consumer;
 @RequiredArgsConstructor
 public final class StopServerCommandV2 implements BotCommand<EmptyResponse> {
 
-  private final Consumer<String> messageConsumer;
   private final Ec2ClientProvider clientProvider;
+  private final Consumer<String> messageConsumer;
 
 
   @Override

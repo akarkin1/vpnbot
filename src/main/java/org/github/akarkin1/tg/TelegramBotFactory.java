@@ -1,4 +1,4 @@
-package org.github.akarkin1;
+package org.github.akarkin1.tg;
 
 import org.telegram.telegrambots.bots.TelegramWebhookBot;
 import org.telegram.telegrambots.meta.api.methods.BotApiMethod;
