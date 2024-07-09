@@ -109,14 +109,20 @@ public class LambdaHandler implements
   }
 
   private void handleUpdate(Update update) throws Exception {
-    COMMUNICATOR.setChatId(update.getMessage().getChatId());
-    if (update.getMessage() == null) {
-      log.warn("Update message is missing. Update={}", update);
+    Message message = update.getMessage();
+    if (message == null) {
+      log.warn("Empty message received from a user. Update Event: {}", update);
       return;
     }
 
-    String userName = Optional.ofNullable(update.getMessage())
-        .map(Message::getFrom)
+    if(message.getChatId() == null) {
+      log.warn("Chat ID is missing. The bot cannot sent response back to user. Update Event: {}", update);
+      return;
+    }
+
+    COMMUNICATOR.setChatId(message.getChatId());
+
+    String userName = Optional.ofNullable(message.getFrom())
         .map(User::getUserName)
         .orElse("<Unknown>");
     log.info("User {} has started communication with the bot", userName);
