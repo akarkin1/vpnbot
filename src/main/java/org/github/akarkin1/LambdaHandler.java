@@ -8,10 +8,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.log4j.Log4j2;
 import lombok.val;
 import org.apache.commons.lang3.StringUtils;
+import org.github.akarkin1.deduplication.UpdateEventsRegistry;
+import org.github.akarkin1.deduplication.FSUpdateEventsRegistry;
 import org.github.akarkin1.dispatcher.CommandDispatcher;
 import org.github.akarkin1.dispatcher.command.ListInstancesCommand;
 import org.github.akarkin1.dispatcher.command.RebootServerCommand;
-import org.github.akarkin1.dispatcher.command.RestartServerCommand;
 import org.github.akarkin1.dispatcher.command.StartInstanceCommand;
 import org.github.akarkin1.dispatcher.command.StartServerCommandV2;
 import org.github.akarkin1.dispatcher.command.StopInstanceCommand;
@@ -26,6 +27,7 @@ import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.bots.AbsSender;
 
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 import static java.lang.System.getenv;
 import static org.github.akarkin1.tg.TelegramBotFactory.sender;
@@ -37,11 +39,18 @@ public class LambdaHandler implements
   private static final ObjectMapper MAPPER = new ObjectMapper();
   private static final CommandDispatcher COMMAND_DISPATCHER;
   private static final BotCommunicator COMMUNICATOR;
+  private static final UpdateEventsRegistry EVENTS_REGISTRY;
   private static final String BOT_SERVER_ERROR = "The request finished with an error. Please reach "
       + "out @karkin_ai or check CW logs, if you are an admin";
 
   static {
+    String envRegEventExpirationTime = getenv("REGISTERED_EVENT_EXPIRATION_TIME_SEC");
+    long eventExpirationTimeMs = TimeUnit.SECONDS.toMillis(Long.parseLong(
+        envRegEventExpirationTime));
+    EVENTS_REGISTRY = new FSUpdateEventsRegistry(eventExpirationTimeMs);
+
     final AbsSender sender = sender(getenv("BOT_TOKEN"), getenv("BOT_USERNAME"));
+
     val ec2ClientProvider = new Ec2ClientPool();
     COMMUNICATOR = new BotCommunicator(sender);
     COMMAND_DISPATCHER = new CommandDispatcher(COMMUNICATOR);
@@ -108,7 +117,15 @@ public class LambdaHandler implements
         .withStatusCode(201);
   }
 
-  private void handleUpdate(Update update) throws Exception {
+  private void handleUpdate(Update update) {
+    if (EVENTS_REGISTRY.hasAlreadyProcessed(update)) {
+      log.info("Skipping duplicated event: {}", update);
+      return;
+    }
+
+    log.info("Saving event to the registry (deduplication logic). Update: {}", update);
+    EVENTS_REGISTRY.registerEvent(update);
+
     Message message = update.getMessage();
     if (message == null) {
       log.warn("Empty message received from a user. Update Event: {}", update);
