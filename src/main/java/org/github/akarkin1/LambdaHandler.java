@@ -13,6 +13,7 @@ import org.github.akarkin1.deduplication.FSUpdateEventsRegistry;
 import org.github.akarkin1.dispatcher.CommandDispatcher;
 import org.github.akarkin1.dispatcher.command.ListInstancesCommand;
 import org.github.akarkin1.dispatcher.command.RebootServerCommand;
+import org.github.akarkin1.dispatcher.command.RestartServerCommand;
 import org.github.akarkin1.dispatcher.command.StartInstanceCommand;
 import org.github.akarkin1.dispatcher.command.StartServerCommandV2;
 import org.github.akarkin1.dispatcher.command.StopInstanceCommand;
@@ -65,10 +66,9 @@ public class LambdaHandler implements
                                                                COMMUNICATOR::sendMessageToTheBot));
     COMMAND_DISPATCHER.registerCommand("/rebootServer",
                                        new RebootServerCommand(ec2ClientProvider));
-    // ToDo: Lugging
-//    COMMAND_DISPATCHER.registerCommand("/restartServer",
-//                                       new RestartServerCommand(ec2ClientProvider,
-//                                                                COMMUNICATOR::sendMessageToTheBot));
+    COMMAND_DISPATCHER.registerCommand("/restartServer",
+                                       new RestartServerCommand(ec2ClientProvider,
+                                                                COMMUNICATOR::sendMessageToTheBot));
     // Legacy version of the commands
 //    COMMAND_DISPATCHER.registerCommand("/startServer",
 //                                       new StartServerCommand(ec2ClientProvider));
