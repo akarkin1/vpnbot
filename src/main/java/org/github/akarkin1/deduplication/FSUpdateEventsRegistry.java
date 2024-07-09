@@ -15,26 +15,27 @@ import java.util.stream.Stream;
 @RequiredArgsConstructor
 public class FSUpdateEventsRegistry implements UpdateEventsRegistry {
 
-  private static final String EVENT_IDS_ROOT_DIR = "/tmp/eventIds";
   private final long registeredEventExpirationTimeMs;
+  private final String rootDir;
 
   @Override
   public boolean hasAlreadyProcessed(Update update) {
     String updateId = String.valueOf(update.getUpdateId());
-    return Files.exists(Paths.get(EVENT_IDS_ROOT_DIR, updateId));
+    return Files.exists(Paths.get(rootDir, updateId));
   }
 
   @Override
   public void registerEvent(Update update) {
     String updateId = String.valueOf(update.getUpdateId());
 
-    Path rootPath = Paths.get(EVENT_IDS_ROOT_DIR);
+    Path rootPath = Paths.get(rootDir);
     try {
       if (Files.notExists(rootPath)) {
         Files.createDirectories(rootPath);
       }
 
-      Files.createFile(Paths.get(EVENT_IDS_ROOT_DIR, updateId));
+      Files.createFile(Paths.get(rootDir, updateId));
+      logListDir(rootDir);
     } catch (IOException e) {
       log.error("Failed to register event: {}", update, e);
     }
@@ -42,8 +43,15 @@ public class FSUpdateEventsRegistry implements UpdateEventsRegistry {
     deleteExpiredFiles();
   }
 
+  private void logListDir(String rootDir) throws IOException {
+    log.debug("ls {}", rootDir);
+    try (Stream<Path> ls = Files.list(Paths.get(rootDir))) {
+      ls.forEach(path -> log.debug("\t- {}", path.toString()));
+    }
+  }
+
   private void deleteExpiredFiles() {
-    try (Stream<Path> foundFiles = Files.list(Paths.get(EVENT_IDS_ROOT_DIR))) {
+    try (Stream<Path> foundFiles = Files.list(Paths.get(rootDir))) {
       foundFiles.forEach(path -> {
         val file = path.toFile();
 
@@ -58,7 +66,7 @@ public class FSUpdateEventsRegistry implements UpdateEventsRegistry {
         }
       });
     } catch (IOException e) {
-      log.error("Failed to list directory: {}", EVENT_IDS_ROOT_DIR, e);
+      log.error("Failed to list directory: {}", rootDir, e);
     }
   }
 

@@ -7,9 +7,10 @@ import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.log4j.Log4j2;
 import lombok.val;
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.github.akarkin1.deduplication.UpdateEventsRegistry;
 import org.github.akarkin1.deduplication.FSUpdateEventsRegistry;
+import org.github.akarkin1.deduplication.UpdateEventsRegistry;
 import org.github.akarkin1.dispatcher.CommandDispatcher;
 import org.github.akarkin1.dispatcher.command.ListInstancesCommand;
 import org.github.akarkin1.dispatcher.command.RebootServerCommand;
@@ -18,7 +19,6 @@ import org.github.akarkin1.dispatcher.command.StartInstanceCommand;
 import org.github.akarkin1.dispatcher.command.StartServerCommandV2;
 import org.github.akarkin1.dispatcher.command.StopInstanceCommand;
 import org.github.akarkin1.dispatcher.command.StopServerCommandV2;
-import org.github.akarkin1.dispatcher.command.TextCommandResponse;
 import org.github.akarkin1.dispatcher.command.VersionCommand;
 import org.github.akarkin1.ec2.Ec2ClientPool;
 import org.github.akarkin1.tg.BotCommunicator;
@@ -28,9 +28,12 @@ import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.bots.AbsSender;
 
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 
-import static java.lang.System.getenv;
+import static org.github.akarkin1.ConfigManager.getAppVersion;
+import static org.github.akarkin1.ConfigManager.getBotToken;
+import static org.github.akarkin1.ConfigManager.getBotUsernameEnv;
+import static org.github.akarkin1.ConfigManager.getEventRootDir;
+import static org.github.akarkin1.ConfigManager.getEventTtlSec;
 import static org.github.akarkin1.tg.TelegramBotFactory.sender;
 
 @Log4j2
@@ -45,12 +48,9 @@ public class LambdaHandler implements
       + "out @karkin_ai or check CW logs, if you are an admin";
 
   static {
-    String envRegEventExpirationTime = getenv("REGISTERED_EVENT_EXPIRATION_TIME_SEC");
-    long eventExpirationTimeMs = TimeUnit.SECONDS.toMillis(Long.parseLong(
-        envRegEventExpirationTime));
-    EVENTS_REGISTRY = new FSUpdateEventsRegistry(eventExpirationTimeMs);
+    EVENTS_REGISTRY = new FSUpdateEventsRegistry(getEventTtlSec(), getEventRootDir());
 
-    final AbsSender sender = sender(getenv("BOT_TOKEN"), getenv("BOT_USERNAME"));
+    final AbsSender sender = sender(getBotToken(), getBotUsernameEnv());
 
     val ec2ClientProvider = new Ec2ClientPool();
     COMMUNICATOR = new BotCommunicator(sender);
@@ -69,11 +69,6 @@ public class LambdaHandler implements
     COMMAND_DISPATCHER.registerCommand("/restartServer",
                                        new RestartServerCommand(ec2ClientProvider,
                                                                 COMMUNICATOR::sendMessageToTheBot));
-    // Legacy version of the commands
-//    COMMAND_DISPATCHER.registerCommand("/startServer",
-//                                       new StartServerCommand(ec2ClientProvider));
-//    COMMAND_DISPATCHER.registerCommand("/stopServer",
-//                                       new StopServerCommand(ec2ClientProvider));
     COMMAND_DISPATCHER.registerCommand("/startInstance",
                                        new StartInstanceCommand(ec2ClientProvider));
     COMMAND_DISPATCHER.registerCommand("/stopInstance", new StopInstanceCommand(ec2ClientProvider));
@@ -89,7 +84,8 @@ public class LambdaHandler implements
       log.debug("Received payload: {}", receivedPayload);
       if (StringUtils.isBlank(receivedPayload)) {
         return new APIGatewayProxyResponseEvent()
-            .withBody("Open VPN Configurer performs normally. %s ".formatted(getAppVersion()))
+            .withBody("Open VPN Configurer performs normally. Application version: %s "
+                          .formatted(getAppVersion()))
             .withStatusCode(200);
       }
 
@@ -132,8 +128,9 @@ public class LambdaHandler implements
       return;
     }
 
-    if(message.getChatId() == null) {
-      log.warn("Chat ID is missing. The bot cannot sent response back to user. Update Event: {}", update);
+    if (message.getChatId() == null) {
+      log.warn("Chat ID is missing. The bot cannot sent response back to user. Update Event: {}",
+               update);
       return;
     }
 
@@ -146,9 +143,4 @@ public class LambdaHandler implements
     COMMAND_DISPATCHER.handle(update);
   }
 
-  private static String getAppVersion() {
-    VersionCommand versionCommand = new VersionCommand();
-    TextCommandResponse response = versionCommand.run();
-    return response.text();
-  }
 }
