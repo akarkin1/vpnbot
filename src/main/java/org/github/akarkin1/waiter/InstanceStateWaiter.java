@@ -8,7 +8,6 @@ import software.amazon.awssdk.services.ec2.Ec2Client;
 import software.amazon.awssdk.services.ec2.model.DescribeInstancesRequest;
 import software.amazon.awssdk.services.ec2.model.DescribeInstancesResponse;
 import software.amazon.awssdk.services.ec2.model.Instance;
-import software.amazon.awssdk.services.ec2.model.InstanceState;
 import software.amazon.awssdk.services.ec2.model.InstanceStateName;
 
 import java.util.Optional;
@@ -19,7 +18,7 @@ public class InstanceStateWaiter {
   private final Ec2Client ec2Client;
   private final WaitParameters waitParameters;
 
-  public boolean waitForStatus(String instanceId, InstanceStateName desiredState) {
+  public Optional<Instance> waitForStatus(String instanceId, InstanceStateName desiredState) {
     int attempt = 1;
     long started = System.currentTimeMillis();
     log.debug("Start waiting for state: {}", desiredState.name());
@@ -35,21 +34,21 @@ public class InstanceStateWaiter {
         failWithNotFoundError(instanceId, desiredState);
       }
 
-      Optional<InstanceState> foundState = response.reservations().stream()
+      Optional<Instance> instanceOrEmpty = response.reservations().stream()
           .flatMap(reservation -> reservation.instances().stream())
           .filter(instance -> instance.instanceId().equals(instanceId))
-          .map(Instance::state)
           .findFirst();
 
-      if (foundState.isEmpty()) {
+      if (instanceOrEmpty.isEmpty()) {
         failWithNotFoundError(instanceId, desiredState);
       }
 
-      InstanceStateName stateName = foundState.get().name();
+      Instance latestInstance = instanceOrEmpty.get();
+      InstanceStateName stateName = latestInstance.state().name();
       log.debug("Current state: {}", stateName);
       if (desiredState == stateName) {
         log.debug("Current state matches the desired state. Waiting is stopped");
-        return true;
+        return Optional.of(latestInstance);
       } else {
         long waitTime = waitParameters.getStatusWaitStrategy().getWaitTime(attempt++);
         log.debug("Current state doesn't match the desire state. Sleep for {}ms", waitTime);
@@ -57,7 +56,7 @@ public class InstanceStateWaiter {
         long totalTimeWaited = System.currentTimeMillis() - started;
         if (totalTimeWaited > waitParameters.getOperationTimeout()) {
           log.debug("Wait timeout!");
-          return false;
+          return Optional.empty();
         }
       }
     }

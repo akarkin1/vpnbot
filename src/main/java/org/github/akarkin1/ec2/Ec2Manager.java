@@ -35,6 +35,10 @@ public class Ec2Manager {
   private static final String SERVER_NAME_TAG = "Name";
   private static final long STATUS_CHECK_PAUSE_MS = 500;
   private static final long WAIT_TIMEOUT_MS = 60_000;
+  public static final String TIMEOUT_EXCEEDED_MSG = (
+      "Failed to check instance state. Timeout %ds has exceeded. "
+          + "Try to run /servers command later to ensure the server has started.")
+      .formatted(getWaitTimeoutSeconds());
 
   private final Ec2ClientProvider clientProvider;
 
@@ -120,7 +124,8 @@ public class Ec2Manager {
         instance -> instance.instanceId().equals(instanceId));
 
     if (regionInstanceOrEmpty.isEmpty()) {
-      throw new CommandExecutionFailedException("No instance found with ID: %s".formatted(instanceId));
+      throw new CommandExecutionFailedException(
+          "No instance found with ID: %s".formatted(instanceId));
     }
     RegionInstance regionInstance = regionInstanceOrEmpty.get();
     callStopInstancesInTheRegion(regionInstance);
@@ -146,7 +151,8 @@ public class Ec2Manager {
         instance -> instance.instanceId().equals(instanceId));
 
     if (regionInstanceOrEmpty.isEmpty()) {
-      throw new CommandExecutionFailedException("No instance found with ID: %s".formatted(instanceId));
+      throw new CommandExecutionFailedException(
+          "No instance found with ID: %s".formatted(instanceId));
     }
     RegionInstance regionInstance = regionInstanceOrEmpty.get();
     callStartInstancesInTheRegion(regionInstance);
@@ -171,7 +177,8 @@ public class Ec2Manager {
     Optional<RegionInstance> regionInstanceOrEmpty = locateInstance(serverNameMatches(serverName));
 
     if (regionInstanceOrEmpty.isEmpty()) {
-      throw new CommandExecutionFailedException("No instance found with ServerName: %s".formatted(serverName));
+      throw new CommandExecutionFailedException(
+          "No instance found with ServerName: %s".formatted(serverName));
     }
 
     RegionInstance regionInstance = regionInstanceOrEmpty.get();
@@ -182,7 +189,8 @@ public class Ec2Manager {
     Optional<RegionInstance> regionInstanceOrEmpty = locateInstance(serverNameMatches(serverName));
 
     if (regionInstanceOrEmpty.isEmpty()) {
-      throw new CommandExecutionFailedException("No instance found with ServerName: %s".formatted(serverName));
+      throw new CommandExecutionFailedException(
+          "No instance found with ServerName: %s".formatted(serverName));
     }
 
     RegionInstance regionInstance = regionInstanceOrEmpty.get();
@@ -192,16 +200,17 @@ public class Ec2Manager {
     Ec2Client ec2 = clientProvider.getForRegion(regionInstance.region().id());
     Instance instance = regionInstance.instance();
     String instanceId = instance.instanceId();
-    boolean isSucceed = waitForTheState(ec2, instanceId, InstanceStateName.RUNNING);
+    Optional<Instance> latestInstanceState = waitForTheState(ec2, instanceId,
+                                                             InstanceStateName.RUNNING);
+    boolean isSucceed = latestInstanceState.isPresent();
     if (isSucceed) {
       messageConsumer.accept("Server %s has started successfully".formatted(serverName));
-      messageConsumer.accept(" - Instance ID: %s\n - Public IP:%s".formatted(
+      messageConsumer.accept(" - Instance ID: %s%s - Public IP:%s".formatted(
           instanceId,
-          instance.publicIpAddress()));
+          System.lineSeparator(),
+          latestInstanceState.get().publicIpAddress()));
     } else {
-      messageConsumer.accept(("Failed to check instance state. Timeout %ds has exceeded. "
-          + "Try to run /servers command later to ensure the server has started.")
-                                 .formatted(getWaitTimeoutSeconds()));
+      messageConsumer.accept(TIMEOUT_EXCEEDED_MSG);
     }
   }
 
@@ -209,7 +218,8 @@ public class Ec2Manager {
     Optional<RegionInstance> regionInstanceOrEmpty = locateInstance(serverNameMatches(serverName));
 
     if (regionInstanceOrEmpty.isEmpty()) {
-      throw new CommandExecutionFailedException("No instance found with ServerName: %s".formatted(serverName));
+      throw new CommandExecutionFailedException(
+          "No instance found with ServerName: %s".formatted(serverName));
     }
 
     RegionInstance regionInstance = regionInstanceOrEmpty.get();
@@ -219,14 +229,13 @@ public class Ec2Manager {
     Ec2Client ec2 = clientProvider.getForRegion(regionInstance.region().id());
     Instance instance = regionInstance.instance();
     String instanceId = instance.instanceId();
-    boolean isSucceed = waitForTheState(ec2, instanceId,
-                                        InstanceStateName.STOPPED);
+    Optional<Instance> latestInstanceState = waitForTheState(ec2, instanceId,
+                                                             InstanceStateName.STOPPED);
+    boolean isSucceed = latestInstanceState.isPresent();
     if (isSucceed) {
       messageConsumer.accept("Server %s has stopped successfully".formatted(serverName));
     } else {
-      messageConsumer.accept(("Failed to check instance state. Timeout %ds has exceeded. "
-          + "Try to run /servers command later to ensure the server has started.")
-                                 .formatted(getWaitTimeoutSeconds()));
+      messageConsumer.accept(TIMEOUT_EXCEEDED_MSG);
     }
   }
 
@@ -245,28 +254,25 @@ public class Ec2Manager {
     Ec2Client ec2 = clientProvider.getForRegion(regionInstance.region().id());
     Instance instance = regionInstance.instance();
     String instanceId = instance.instanceId();
-    boolean isSucceed = waitForTheState(ec2, instanceId, InstanceStateName.STOPPED);
+    Optional<Instance> latestInstanceState = waitForTheState(ec2, instanceId,
+                                                             InstanceStateName.STOPPED);
+    boolean isSucceed = latestInstanceState.isPresent();
     if (isSucceed) {
       messageConsumer.accept("Server %s has stopped successfully".formatted(serverName));
     } else {
-      messageConsumer.accept(("Failed to check instance state. Timeout %ds has exceeded. "
-          + "Try to run /servers command later to ensure the server has started.")
-                                 .formatted(getWaitTimeoutSeconds()));
+      messageConsumer.accept(TIMEOUT_EXCEEDED_MSG);
     }
 
     messageConsumer.accept("Starting the instance ...");
     callStartInstancesInTheRegion(regionInstance);
-
-    isSucceed = waitForTheState(ec2, instanceId, InstanceStateName.RUNNING);
+    latestInstanceState = waitForTheState(ec2, instanceId, InstanceStateName.RUNNING);
+    isSucceed = latestInstanceState.isPresent();
     if (isSucceed) {
       messageConsumer.accept("Server %s has started successfully".formatted(serverName));
-      messageConsumer.accept(" - Instance ID: %s%n - Public IP:%s".formatted(
-          instanceId,
-          instance.publicIpAddress()));
+      messageConsumer.accept(" - Instance ID: %s%n - Public IP:%s"
+                                 .formatted(instanceId, latestInstanceState.get().publicIpAddress()));
     } else {
-      messageConsumer.accept(("Failed to check instance state. Timeout %ds has exceeded. "
-          + "Try to run /servers command later to ensure the server has started.")
-                                 .formatted(getWaitTimeoutSeconds()));
+      messageConsumer.accept(TIMEOUT_EXCEEDED_MSG);
     }
   }
 
@@ -279,7 +285,8 @@ public class Ec2Manager {
     Optional<RegionInstance> regionInstanceOrEmpty = locateInstance(serverNameMatches(serverName));
 
     if (regionInstanceOrEmpty.isEmpty()) {
-      throw new CommandExecutionFailedException("No instance found with ServerName: %s".formatted(serverName));
+      throw new CommandExecutionFailedException(
+          "No instance found with ServerName: %s".formatted(serverName));
     }
 
     RegionInstance regionInstance = regionInstanceOrEmpty.get();
@@ -320,14 +327,16 @@ public class Ec2Manager {
     Optional<RegionInstance> regionInstanceOrEmpty = locateInstance(serverNameMatches(serverName));
 
     if (regionInstanceOrEmpty.isEmpty()) {
-      throw new CommandExecutionFailedException("No instance found with ServerName: %s".formatted(serverName));
+      throw new CommandExecutionFailedException(
+          "No instance found with ServerName: %s".formatted(serverName));
     }
 
     RegionInstance regionInstance = regionInstanceOrEmpty.get();
     callStopInstancesInTheRegion(regionInstance);
   }
 
-  private boolean waitForTheState(Ec2Client ec2, String instanceId, InstanceStateName state) {
+  private Optional<Instance> waitForTheState(Ec2Client ec2, String instanceId,
+                                             InstanceStateName state) {
     WaitParameters waitParams = WaitParameters.builder()
         .statusWaitStrategy(FixedDelayWaitStrategy.create(STATUS_CHECK_PAUSE_MS))
         .operationTimeout(WAIT_TIMEOUT_MS)
