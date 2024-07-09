@@ -34,7 +34,7 @@ public class Ec2Manager {
   private static final String LOCATION_TAG = "Location";
   private static final String SERVER_NAME_TAG = "Name";
   private static final long STATUS_CHECK_PAUSE_MS = 500;
-  private static final long WAIT_TIMEOUT_MS = 60_000;
+  private static final long WAIT_TIMEOUT_MS = 120_000;
   public static final String TIMEOUT_EXCEEDED_MSG = (
       "Failed to check instance state. Timeout %ds has exceeded. "
           + "Try to run /servers command later to ensure the server has started.")
