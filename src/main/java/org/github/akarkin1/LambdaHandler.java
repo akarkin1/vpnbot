@@ -10,13 +10,10 @@ import lombok.val;
 import org.apache.commons.lang3.StringUtils;
 import org.github.akarkin1.dispatcher.CommandDispatcher;
 import org.github.akarkin1.dispatcher.command.ListInstancesCommand;
-import org.github.akarkin1.dispatcher.command.RebootServerCommand;
 import org.github.akarkin1.dispatcher.command.RestartServerCommand;
 import org.github.akarkin1.dispatcher.command.StartInstanceCommand;
-import org.github.akarkin1.dispatcher.command.StartServerCommand;
 import org.github.akarkin1.dispatcher.command.StartServerCommandV2;
 import org.github.akarkin1.dispatcher.command.StopInstanceCommand;
-import org.github.akarkin1.dispatcher.command.StopServerCommand;
 import org.github.akarkin1.dispatcher.command.StopServerCommandV2;
 import org.github.akarkin1.dispatcher.command.TextCommandResponse;
 import org.github.akarkin1.dispatcher.command.VersionCommand;
@@ -56,9 +53,10 @@ public class LambdaHandler implements
     COMMAND_DISPATCHER.registerCommand("/stopServer",
                                        new StopServerCommandV2(ec2ClientProvider,
                                                                COMMUNICATOR::sendMessageToTheBot));
-    COMMAND_DISPATCHER.registerCommand("/restartServer",
-                                       new RestartServerCommand(ec2ClientProvider,
-                                                                COMMUNICATOR::sendMessageToTheBot));
+    // ToDo: Lugging
+//    COMMAND_DISPATCHER.registerCommand("/restartServer",
+//                                       new RestartServerCommand(ec2ClientProvider,
+//                                                                COMMUNICATOR::sendMessageToTheBot));
     // Legacy version of the commands
 //    COMMAND_DISPATCHER.registerCommand("/startServer",
 //                                       new StartServerCommand(ec2ClientProvider));
