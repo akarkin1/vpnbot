@@ -10,6 +10,7 @@ import lombok.val;
 import org.apache.commons.lang3.StringUtils;
 import org.github.akarkin1.dispatcher.CommandDispatcher;
 import org.github.akarkin1.dispatcher.command.ListInstancesCommand;
+import org.github.akarkin1.dispatcher.command.RebootServerCommand;
 import org.github.akarkin1.dispatcher.command.RestartServerCommand;
 import org.github.akarkin1.dispatcher.command.StartInstanceCommand;
 import org.github.akarkin1.dispatcher.command.StartServerCommandV2;
@@ -53,6 +54,8 @@ public class LambdaHandler implements
     COMMAND_DISPATCHER.registerCommand("/stopServer",
                                        new StopServerCommandV2(ec2ClientProvider,
                                                                COMMUNICATOR::sendMessageToTheBot));
+    COMMAND_DISPATCHER.registerCommand("/rebootServer",
+                                       new RebootServerCommand(ec2ClientProvider));
     // ToDo: Lugging
 //    COMMAND_DISPATCHER.registerCommand("/restartServer",
 //                                       new RestartServerCommand(ec2ClientProvider,
