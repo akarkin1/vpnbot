@@ -42,6 +42,7 @@ public class Ec2Manager {
       "Failed to check instance state. Timeout %ds has exceeded. "
           + "Try to run /servers command later to ensure the server has started.")
       .formatted(getWaitTimeoutSeconds());
+  public static final int RESTART_SLEEP_TIME_SEC = 10;
 
   private final Ec2ClientProvider clientProvider;
 
@@ -267,6 +268,8 @@ public class Ec2Manager {
       return;
     }
 
+    sleepQuietlyFor(RESTART_SLEEP_TIME_SEC);
+
     messageConsumer.accept("Starting the instance ...");
     callStartInstancesInTheRegion(regionInstance);
     latestInstanceState = waitForTheState(ec2, instanceId, InstanceStateName.RUNNING);
@@ -277,6 +280,14 @@ public class Ec2Manager {
                                  .formatted(instanceId, latestInstanceState.get().publicIpAddress()));
     } else {
       messageConsumer.accept(TIMEOUT_EXCEEDED_MSG);
+    }
+  }
+
+  private static void sleepQuietlyFor(int timeoutSeconds)  {
+    try {
+      TimeUnit.SECONDS.sleep(timeoutSeconds);
+    } catch (InterruptedException e) {
+      log.error("Sleep failed due to Interrupted exception", e);
     }
   }
 
