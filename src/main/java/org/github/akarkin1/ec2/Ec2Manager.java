@@ -24,6 +24,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
+import static org.github.akarkin1.ConfigManager.getOperationTimeoutMs;
+import static org.github.akarkin1.ConfigManager.getStatusCheckWaitIntervalMs;
+
 @Log4j2
 @RequiredArgsConstructor
 public class Ec2Manager {
@@ -33,8 +36,8 @@ public class Ec2Manager {
   private static final String SERVICE_NAME_VAL = "openvpn-server";
   private static final String LOCATION_TAG = "Location";
   private static final String SERVER_NAME_TAG = "Name";
-  private static final long STATUS_CHECK_PAUSE_MS = 500;
-  private static final long WAIT_TIMEOUT_MS = 120_000;
+  private static final long STATUS_CHECK_PAUSE_MS = getStatusCheckWaitIntervalMs();
+  private static final long WAIT_TIMEOUT_MS = getOperationTimeoutMs();
   public static final String TIMEOUT_EXCEEDED_MSG = (
       "Failed to check instance state. Timeout %ds has exceeded. "
           + "Try to run /servers command later to ensure the server has started.")
@@ -261,6 +264,7 @@ public class Ec2Manager {
       messageConsumer.accept("Server %s has stopped successfully".formatted(serverName));
     } else {
       messageConsumer.accept(TIMEOUT_EXCEEDED_MSG);
+      return;
     }
 
     messageConsumer.accept("Starting the instance ...");
