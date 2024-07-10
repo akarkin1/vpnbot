@@ -2,6 +2,7 @@ package org.github.akarkin1.ec2;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
+import org.github.akarkin1.ConfigManager;
 import org.github.akarkin1.exception.CommandExecutionFailedException;
 import org.github.akarkin1.waiter.InstanceStateWaiter;
 import software.amazon.awssdk.regions.Region;
@@ -42,7 +43,6 @@ public class Ec2Manager {
       "Failed to check instance state. Timeout %ds has exceeded. "
           + "Try to run /servers command later to ensure the server has started.")
       .formatted(getWaitTimeoutSeconds());
-  public static final int RESTART_SLEEP_TIME_SEC = 10;
 
   private final Ec2ClientProvider clientProvider;
 
@@ -268,7 +268,7 @@ public class Ec2Manager {
       return;
     }
 
-    sleepQuietlyFor(RESTART_SLEEP_TIME_SEC);
+    sleepQuietlyFor(ConfigManager.getRestartPauseMs());
 
     messageConsumer.accept("Starting the instance ...");
     callStartInstancesInTheRegion(regionInstance);
@@ -283,9 +283,9 @@ public class Ec2Manager {
     }
   }
 
-  private static void sleepQuietlyFor(int timeoutSeconds)  {
+  private static void sleepQuietlyFor(long timeoutMs)  {
     try {
-      TimeUnit.SECONDS.sleep(timeoutSeconds);
+      TimeUnit.MILLISECONDS.sleep(timeoutMs);
     } catch (InterruptedException e) {
       log.error("Sleep failed due to Interrupted exception", e);
     }
