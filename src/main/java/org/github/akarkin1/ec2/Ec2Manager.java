@@ -209,7 +209,7 @@ public class Ec2Manager {
     boolean isSucceed = latestInstanceState.isPresent();
     if (isSucceed) {
       messageConsumer.accept("Server %s has started successfully".formatted(serverName));
-      messageConsumer.accept(" - Instance ID: %s%s - Public IP:%s".formatted(
+      messageConsumer.accept(" - Instance ID: %s%s- Public IP: %s".formatted(
           instanceId,
           System.lineSeparator(),
           latestInstanceState.get().publicIpAddress()));
@@ -276,7 +276,7 @@ public class Ec2Manager {
     isSucceed = latestInstanceState.isPresent();
     if (isSucceed) {
       messageConsumer.accept("Server %s has started successfully".formatted(serverName));
-      messageConsumer.accept(" - Instance ID: %s%n - Public IP:%s"
+      messageConsumer.accept(" - Instance ID: %s%n- Public IP: %s"
                                  .formatted(instanceId, latestInstanceState.get().publicIpAddress()));
     } else {
       messageConsumer.accept(TIMEOUT_EXCEEDED_MSG);
