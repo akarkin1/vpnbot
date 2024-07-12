@@ -208,7 +208,7 @@ public class Ec2Manager {
                                                              InstanceStateName.RUNNING);
     boolean isSucceed = latestInstanceState.isPresent();
     if (isSucceed) {
-      messageConsumer.accept("Server %s has started successfully".formatted(serverName));
+      messageConsumer.accept("Server %s has been started successfully".formatted(serverName));
       messageConsumer.accept(" - Instance ID: %s%s- Public IP: %s".formatted(
           instanceId,
           System.lineSeparator(),
@@ -227,7 +227,7 @@ public class Ec2Manager {
     }
 
     RegionInstance regionInstance = regionInstanceOrEmpty.get();
-    messageConsumer.accept("Stopping the instance ...");
+    messageConsumer.accept("Stopping the server ...");
     callStopInstancesInTheRegion(regionInstance);
 
     Ec2Client ec2 = clientProvider.getForRegion(regionInstance.region().id());
@@ -237,7 +237,7 @@ public class Ec2Manager {
                                                              InstanceStateName.STOPPED);
     boolean isSucceed = latestInstanceState.isPresent();
     if (isSucceed) {
-      messageConsumer.accept("Server %s has stopped successfully".formatted(serverName));
+      messageConsumer.accept("Server %s has been stopped successfully".formatted(serverName));
     } else {
       messageConsumer.accept(TIMEOUT_EXCEEDED_MSG);
     }
@@ -252,7 +252,7 @@ public class Ec2Manager {
     }
 
     RegionInstance regionInstance = regionInstanceOrEmpty.get();
-    messageConsumer.accept("Stopping the instance ...");
+    messageConsumer.accept("Stopping the server ...");
     callStopInstancesInTheRegion(regionInstance);
 
     Ec2Client ec2 = clientProvider.getForRegion(regionInstance.region().id());
@@ -262,7 +262,7 @@ public class Ec2Manager {
                                                              InstanceStateName.STOPPED);
     boolean isSucceed = latestInstanceState.isPresent();
     if (isSucceed) {
-      messageConsumer.accept("Server %s has stopped successfully".formatted(serverName));
+      messageConsumer.accept("Server %s has been stopped successfully".formatted(serverName));
     } else {
       messageConsumer.accept(TIMEOUT_EXCEEDED_MSG);
       return;
