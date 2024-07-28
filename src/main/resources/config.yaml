@@ -1,0 +1,5 @@
+app:
+  supported-regions:
+    - eu-north-1
+    - us-east-1
+    - eu-west-2

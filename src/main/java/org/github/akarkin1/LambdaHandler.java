@@ -6,21 +6,11 @@ import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.log4j.Log4j2;
-import lombok.val;
-import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.github.akarkin1.deduplication.FSUpdateEventsRegistry;
 import org.github.akarkin1.deduplication.UpdateEventsRegistry;
 import org.github.akarkin1.dispatcher.CommandDispatcher;
-import org.github.akarkin1.dispatcher.command.ListInstancesCommand;
-import org.github.akarkin1.dispatcher.command.RebootServerCommand;
-import org.github.akarkin1.dispatcher.command.RestartServerCommand;
-import org.github.akarkin1.dispatcher.command.StartInstanceCommand;
-import org.github.akarkin1.dispatcher.command.StartServerCommandV2;
-import org.github.akarkin1.dispatcher.command.StopInstanceCommand;
-import org.github.akarkin1.dispatcher.command.StopServerCommandV2;
 import org.github.akarkin1.dispatcher.command.VersionCommand;
-import org.github.akarkin1.ec2.Ec2ClientPool;
 import org.github.akarkin1.tg.BotCommunicator;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
@@ -29,11 +19,11 @@ import org.telegram.telegrambots.meta.bots.AbsSender;
 
 import java.util.Optional;
 
-import static org.github.akarkin1.ConfigManager.getAppVersion;
-import static org.github.akarkin1.ConfigManager.getBotToken;
-import static org.github.akarkin1.ConfigManager.getBotUsernameEnv;
-import static org.github.akarkin1.ConfigManager.getEventRootDir;
-import static org.github.akarkin1.ConfigManager.getEventTtlSec;
+import static org.github.akarkin1.config.ConfigManager.getAppVersion;
+import static org.github.akarkin1.config.ConfigManager.getBotToken;
+import static org.github.akarkin1.config.ConfigManager.getBotUsernameEnv;
+import static org.github.akarkin1.config.ConfigManager.getEventRootDir;
+import static org.github.akarkin1.config.ConfigManager.getEventTtlSec;
 import static org.github.akarkin1.tg.TelegramBotFactory.sender;
 
 @Log4j2
@@ -52,26 +42,10 @@ public class LambdaHandler implements
 
     final AbsSender sender = sender(getBotToken(), getBotUsernameEnv());
 
-    val ec2ClientProvider = new Ec2ClientPool();
     COMMUNICATOR = new BotCommunicator(sender);
     COMMAND_DISPATCHER = new CommandDispatcher(COMMUNICATOR);
 
     COMMAND_DISPATCHER.registerCommand("/version", new VersionCommand());
-    COMMAND_DISPATCHER.registerCommand("/servers", new ListInstancesCommand(ec2ClientProvider));
-    COMMAND_DISPATCHER.registerCommand("/startServer",
-                                       new StartServerCommandV2(ec2ClientProvider,
-                                                                COMMUNICATOR::sendMessageToTheBot));
-    COMMAND_DISPATCHER.registerCommand("/stopServer",
-                                       new StopServerCommandV2(ec2ClientProvider,
-                                                               COMMUNICATOR::sendMessageToTheBot));
-    COMMAND_DISPATCHER.registerCommand("/rebootServer",
-                                       new RebootServerCommand(ec2ClientProvider));
-    COMMAND_DISPATCHER.registerCommand("/restartServer",
-                                       new RestartServerCommand(ec2ClientProvider,
-                                                                COMMUNICATOR::sendMessageToTheBot));
-    COMMAND_DISPATCHER.registerCommand("/startInstance",
-                                       new StartInstanceCommand(ec2ClientProvider));
-    COMMAND_DISPATCHER.registerCommand("/stopInstance", new StopInstanceCommand(ec2ClientProvider));
   }
 
   @Override
