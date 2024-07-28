@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - 'docker/**'
+      - '.github/workflows/openvpn-docker-build.yml'
     branches:
       - main
       - feature/ecs-hosted-server
