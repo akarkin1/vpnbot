@@ -1,0 +1,20 @@
+version: '2'
+services:
+  openvpn:
+    cap_add:
+      - NET_ADMIN
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    container_name: openvpn
+    ports:
+      - "1194:1194/udp"
+    environment:
+      OVPN_CN: alex
+      OVPN_CLIENT_PASSWORD: P@ssw0rd
+      CLIENTNAME: alex
+      MAX_CONNECTION_WAIT_TIME_MIN: 5
+#    restart: always
+    volumes:
+      - ./openvpn-data/conf:/etc/openvpn
+      - ./openvpn-data/logs:/var/log

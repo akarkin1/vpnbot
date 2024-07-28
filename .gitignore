@@ -29,6 +29,8 @@ target/
 /nbdist/
 /.nb-gradle/
 build/
+docker/openvpn-data
+docker/alex.ovpn
 !**/src/main/**/build/
 !**/src/test/**/build/
 
