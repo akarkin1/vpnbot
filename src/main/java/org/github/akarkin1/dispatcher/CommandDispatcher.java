@@ -10,6 +10,7 @@ import org.github.akarkin1.exception.CommandExecutionFailedException;
 import org.github.akarkin1.exception.InvalidCommandException;
 import org.github.akarkin1.tg.BotCommunicator;
 import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -61,14 +62,14 @@ public class CommandDispatcher {
     try {
       CommandResponse resp = botCommand.run(args);
 
-      switch (resp) {
-        case TextCommandResponse(String commandOutput) -> {
-          log.debug("Sending the result to telegram bot...");
-          botCommunicator.sendMessageToTheBot(commandOutput);
-        }
-        case EmptyResponse ignored -> {}
-        default -> throw new IllegalStateException(
-            "Unsupported Command response type: %s".formatted(resp.getClass().getSimpleName()));
+      if (resp instanceof TextCommandResponse txtResp) {
+        String commandOutput = txtResp.text();
+        log.debug("Sending the result to telegram bot...");
+        botCommunicator.sendMessageToTheBot(commandOutput);
+      } else if (!(resp instanceof EmptyResponse)) {
+        throw new IllegalStateException(
+            "Unsupported Command response type: %s"
+                .formatted(resp == null ? "null" : resp.getClass().getSimpleName()));
       }
     } catch (InvalidCommandException e) {
       String errMessage = "Invalid command syntax: " + e.getMessage();
