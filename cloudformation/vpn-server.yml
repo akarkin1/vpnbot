@@ -80,7 +80,7 @@ Resources:
     DependsOn: AttachInternetGateway
     Properties:
       DestinationCidrBlock: 0.0.0.0/0
-      GatewayId: !Ref AttachInternetGateway
+      GatewayId: !Ref OpenVpnInternetGateway
       RouteTableId: !Ref OpenVpnRouteTablePublic
 
   MyPublicSubnetRouteTableAssociation:
