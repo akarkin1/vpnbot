@@ -1,4 +1,4 @@
-name: Deploy VPN Configurer Lambda (TG Bot)
+name: Deploy VPN Configurer Lambda Resources
 
 on:
   workflow_dispatch:
