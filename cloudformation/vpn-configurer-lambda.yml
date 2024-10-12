@@ -130,8 +130,6 @@ Resources:
       Role: !GetAtt LambdaRole.Arn
       MemorySize: 1024
       Timeout: 600
-      Environment:
-        EFS_PATH: /mnt/efs
       FileSystemConfigs:
         - Arn: !GetAtt LambdaEfsStorage.Arn
           LocalMountPath: /mnt/efs
