@@ -130,7 +130,7 @@ Resources:
       MemorySize: 1024
       Timeout: 600
       FileSystemConfigs:
-        - Arn: !GetAtt LambdaEfsStorage.Arn
+        - Arn: !GetAtt LambdaEfsAccessPoint.Arn
           LocalMountPath: /mnt/efs
       # Code will be updated later on CI / CD build.
       Code:
