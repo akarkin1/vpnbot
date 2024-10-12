@@ -1,0 +1,169 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: OpenVPN Server Stack
+
+Parameters:
+  ClientIPCIDR:
+    Type: String
+    Default: 0.0.0.0/0
+    Description: CIDR IP to be granted access by the SG, use 0.0.0.0/0 to accept all IPs
+  Ec2InstanceName:
+    Type: String
+    Description: Name of the vpn server. Better to make it short with a reference to the location, i.g. vpnmumbai
+
+Mappings:
+  RegionMap:
+    us-north-1:
+      openvpn-server-ami: 'ami-024eaa93653f81586'
+      location: 'North Virginia'
+    eu-north-1:
+      openvpn-server-ami: 'ami-067349b5a5143523d'
+      location: 'Stockholm'
+    eu-west-2:
+      openvpn-server-ami: 'ami-0a62715fb8722eddb'
+      location: 'London'
+    ap-south-1:
+      openvpn-server-ami: 'ami-01614d815cf856337'
+      location: 'Mumbai'
+    ap-northeast-2:
+      openvpn-server-ami: 'ami-0b05ffa034fdc27c8'
+      location: 'Seoul'
+
+Resources:
+  OpenVpnVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/32 # 1 Ip Address
+      Tags:
+        - Key: Name
+          Value: openvpn-vpnc
+        - Key: ServiceName
+          Value: openvpn-server
+
+  OpenVpnInternetGateway:
+    Type: "AWS::EC2::InternetGateway"
+    Properties:
+      Tags:
+        - Key: Name
+          Value: openvpn-internet-gw
+        - Key: ServiceName
+          Value: openvpn-server
+
+  AttachInternetGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref OpenVpnVPC
+      InternetGatewayId: !Ref OpenVpnInternetGateway
+
+  OpenVpnPublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref OpenVpnVPC
+      CidrBlock: 10.0.0.0/30 # 4 addresses
+      Tags:
+        - Key: Name
+          Value: openvpn-public-sn
+        - Key: ServiceName
+          Value: openvpn-server
+
+  OpenVpnRouteTablePublic:
+    Type: "AWS::EC2::RouteTable"
+    Properties:
+      VpcId: !Ref OpenVpnVPC
+      Tags:
+        - Key: Name
+          Value: openvpn-rt
+        - Key: ServiceName
+          Value: openvpn-server
+
+  RouteDefaultPublic:
+    Type: "AWS::EC2::Route"
+    DependsOn: AttachInternetGateway
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref AttachInternetGateway
+      RouteTableId: !Ref OpenVpnPublicSubnet
+
+  MyPublicSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref OpenVpnPublicSubnet
+      RouteTableId: !Ref OpenVpnRouteTablePublic
+
+  OpenVpnEip:
+    Type: "AWS::EC2::EIP"
+    Properties:
+      Domain: vpc
+
+  OpenVpnInstanceSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: SG for OpenVPN Server
+      VpcId: !Ref OpenVpnVPC
+      SecurityGroupIngress:
+        - IpProtocol: udp
+          FromPort: 1194
+          ToPort: 1194
+          CidrIp: !Ref ClientIPCIDR
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: !Ref ClientIPCIDR
+        - IpProtocol: tcp
+          FromPort: 943
+          ToPort: 943
+          CidrIp: !Ref ClientIPCIDR
+        - IpProtocol: tcp
+          FromPort: 945
+          ToPort: 945
+          CidrIp: !Ref ClientIPCIDR
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref ClientIPCIDR
+      SecurityGroupEgress:
+        - Description: Allow all outbound traffic
+          IpProtocol: "-1"
+          CidrIp: !Ref ClientIPCIDR
+
+  OpenVpnNetworkInterface:
+    Type: AWS::EC2::NetworkInterface
+    Properties:
+      SubnetId: !Ref OpenVpnPublicSubnet
+      Description: Public Interface
+      GroupSet:
+        - "OpenVpnInstanceSG"
+      SourceDestCheck: false
+      Tags:
+        - Key: Name
+          Value: Public ENI
+
+  AssociateManagementAccessPort:
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      AllocationId: !GetAtt OpenVpnEip.AllocationId
+      NetworkInterfaceId: "OpenVpnNetworkInterface"
+
+  EC2OpenVPNInstance:
+    Type: "AWS::EC2::Instance"
+    Properties:
+      ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", 'openvpn-server-ami']
+      InstanceType: t2.micro
+      SourceDestCheck: false
+      NetworkInterfaces:
+        - NetworkInterfaceId: !Ref OpenVpnNetworkInterface
+          DeviceIndex: 0
+      Tags:
+        - Key: Name
+          Value: !Ref Ec2InstanceName
+        - Key: ServiceName
+          Value: openvpn-server
+        - Key: Location
+          Value: !FindInMap [RegionMap, !Ref "AWS::Region", 'location']
+
+Outputs:
+  OpenVpnEIP:
+    Description: IP of EC2 instance
+    Value: !Ref OpenVpnEip
+  EC2OpenVpnInstance:
+    Description: OpenVPN EC2 instance
+    Value: !Ref EC2OpenVPNInstance

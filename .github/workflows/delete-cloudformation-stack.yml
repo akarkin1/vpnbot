@@ -1,0 +1,26 @@
+name: Delete CloudFormation Stack
+
+on:
+  workflow_dispatch:
+    inputs:
+      region:
+        description: 'AWS Region'
+        required: true
+      stack-name:
+        description: 'Name Of CloudFormation Stack'
+        required: true
+
+jobs:
+  delete-cloudformation-stack:
+    name: Delete CloudFormation stack
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ github.event.inputs.region }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      - name: Delete CloudFormation Stack
+        run: |
+          aws cloudformation delete-stack --stack-name ${{ github.event.inputs.stack-name }}

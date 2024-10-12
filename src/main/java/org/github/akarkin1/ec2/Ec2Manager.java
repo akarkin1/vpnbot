@@ -9,6 +9,7 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.ec2.Ec2Client;
 import software.amazon.awssdk.services.ec2.model.DescribeInstancesRequest;
 import software.amazon.awssdk.services.ec2.model.DescribeInstancesResponse;
+import software.amazon.awssdk.services.ec2.model.Filter;
 import software.amazon.awssdk.services.ec2.model.Instance;
 import software.amazon.awssdk.services.ec2.model.InstanceState;
 import software.amazon.awssdk.services.ec2.model.InstanceStateName;
@@ -48,7 +49,11 @@ public class Ec2Manager {
 
 
   public static List<Region> getSupportedRegions() {
-    return List.of(Region.US_EAST_1, Region.EU_WEST_2, Region.EU_NORTH_1, Region.AP_SOUTH_1);
+    return List.of(Region.US_EAST_1,
+                   Region.EU_WEST_2,
+                   Region.EU_NORTH_1,
+//                   Region.AP_SOUTH_1,
+                   Region.AP_NORTHEAST_2);
   }
 
 // ToDo: This way is too costly
@@ -66,12 +71,12 @@ public class Ec2Manager {
     for (Region region : getSupportedRegions()) {
       Ec2Client ec2 = clientProvider.getForRegion(region.id());
 
-      // It's even more interesting without the filter.
-//      Filter svcNameFilter = Filter.builder().name(SVC_NAME_TAG)
-//          .values(SERVICE_NAME_VAL)
-//          .build();
+      // Apply filters to show only instances for OpenVpn Server
+      Filter svcNameFilter = Filter.builder().name(SVC_NAME_TAG)
+          .values(SERVICE_NAME_VAL)
+          .build();
       DescribeInstancesRequest request = DescribeInstancesRequest.builder()
-//          .filters(svcNameFilter)
+          .filters(svcNameFilter)
           .build();
 
       log.debug("Sending Describe Instances request to AWS...");
