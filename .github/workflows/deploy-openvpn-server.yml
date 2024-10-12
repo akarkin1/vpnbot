@@ -30,6 +30,5 @@ jobs:
           name: openvpn-ec2-instance
           template: cloudformation/vpn-server.yml
           no-fail-on-empty-changeset: "1"
-          parameter-overrides: >-
-            Ec2InstanceName: ${{ github.event.inputs.server-name }}
+          parameter-overrides: 'Ec2InstanceName=${{ github.event.inputs.server-name }}'
             
