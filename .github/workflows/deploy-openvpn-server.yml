@@ -28,7 +28,7 @@ jobs:
         uses: aws-actions/aws-cloudformation-github-deploy@master
         with:
           name: openvpn-ec2-instance
-          template: cloudformation/vpn-server.yml
+          template: fileb://cloudformation/vpn-server.yml
           no-fail-on-empty-changeset: "1"
           parameter-overrides: >-
             Ec2InstanceName: ${{ github.event.inputs.server-name }}
