@@ -6,13 +6,11 @@ on:
       region:
         description: 'AWS Region'
         required: true
-      server-name:
-        description: 'Name Of VPN Server'
-        required: true
+        default: eu-north-1
 
 jobs:
-  deploy-openvpn-server:
-    name: Deploy CloudFormation stack with OpenVPN EC2 Instance
+  deploy-vpn-configurer-lambda:
+    name: Deploy CloudFormation OpenVPN Telegram Bot Lambda
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Source Code
@@ -27,8 +25,7 @@ jobs:
         id: deploy-cfn-stack
         uses: aws-actions/aws-cloudformation-github-deploy@v1.3.0
         with:
-          name: openvpn-ec2-instance-cfn
-          template: cloudformation/vpn-server.yml
+          name: openvpn-server-tgbot-cfn
+          template: cloudformation/vpn-configurer-lambda.yml
           no-fail-on-empty-changeset: "1"
-          parameter-overrides: 'Ec2InstanceName=${{ github.event.inputs.server-name }}'
-            
+

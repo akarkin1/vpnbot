@@ -1,0 +1,229 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: OpenVPN Configurer Lambda Stack
+
+Parameters:
+  ClientIPCIDR:
+    Type: String
+    Default: 0.0.0.0/0
+    Description: CIDR IP to be granted access by the SG, use 0.0.0.0/0 to accept all IPs
+
+Resources:
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: vpn-configurer-lambda-role
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: vpn-configurer-lambda-policy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              # Permissions to manage CW logs
+              - Action:
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                Effect: Allow
+                Resource: "*"
+              # Permissions to work with VPC
+              - Action:
+                  - "ec2:DescribeSubnets"
+                  - "ec2:DescribeVpcs"
+                  - "ec2:DescribeSecurityGroups"
+                  - "ec2:DescribeNetworkInterfaces"
+                  - "ec2:CreateNetworkInterface"
+                  - "ec2:DeleteNetworkInterface"
+                Effect: Allow
+                Resource: "*"
+              # Permissions to manage EC2 instances
+              - Action:
+                  - "ec2:DescribeInstances"
+                  - "ec2:StopInstances"
+                  - "ec2:RunInstances"
+                  - "ec2:TerminateInstances"
+                  - "ec2:RebootInstances"
+                Effect: Allow
+                Resource: "*"
+              # Permissions to manage EFS file system
+              - Action:
+                  - "elasticfilesystem:ClientMount"
+                  - "elasticfilesystem:ClientWrite"
+                  - "elasticfilesystem:ClientRootAccess"
+                  - "elasticfilesystem:DescribeFileSystems"
+                  - "elasticfilesystem:DescribeMountTargets"
+                  - "elasticfilesystem:DescribeAccessPoints"
+                Effect: Allow
+                Resource: "*"
+
+  LambdaEfsStorage:
+    Type: 'AWS::EFS::FileSystem'
+    Properties:
+      LifecyclePolicies:
+        - TransitionToIA: 'AFTER_1_DAY'
+      PerformanceMode: 'GeneralPurpose'
+
+  LambdaEfsAccessPoint:
+    DependsOn: LambdaEfsStorage
+    Type: 'AWS::EFS::AccessPoint'
+    Properties:
+      FileSystemId: !Ref LambdaEfsStorage
+      PosixUser:
+        Gid: '1000'
+        Uid: '1000'
+      RootDirectory:
+        CreationInfo:
+          OwnerGid: '1000'
+          OwnerUid: '1000'
+          Permissions: '750'
+        Path: '/vpn-configurer-lambda'
+
+  VpnConfigurerVpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/28 # 16 Ip Addresses
+      Tags:
+        - Key: Name
+          Value: vpn-configurer-vpc
+        - Key: ServiceName
+          Value: openvpn-server
+
+  VpnConfigurerSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: "VpnConfigurerVpc"
+      CidrBlock: 10.0.0.0/28 # 16 IP addresses
+      Tags:
+        - Key: Name
+          Value: vpn-configurer-sn
+        - Key: ServiceName
+          Value: openvpn-server
+
+  LambdaSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Allow Lambda to access EFS
+      VpcId: !Ref VpnConfigurerVpc
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 2049
+          ToPort: 2049
+          CidrIp: !Ref ClientIPCIDR
+
+  VpnConfigurerLambda:
+    DependsOn:
+      - LambdaRole
+      - LambdaEfsStorage
+      - LambdaSecurityGroup
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: openvpn-server-tgbot
+      Handler: org.github.akarkin1.LambdaHandler::handleRequest
+      Runtime: "java21"
+      Role: !GetAtt LambdaRole.Arn
+      MemorySize: 1024
+      Timeout: 600
+      Environment:
+        EFS_PATH: /mnt/efs
+      FileSystemConfigs:
+        - Arn: !GetAtt LambdaEfsStorage.Arn
+          LocalMountPath: /mnt/efs
+      # Code will be updated later on CI / CD build.
+      Code:
+        ZipFile: |
+          package org.github.akarkin1;
+          
+          import com.amazonaws.services.lambda.runtime.Context;
+          import com.amazonaws.services.lambda.runtime.RequestHandler;
+          import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
+          import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
+          
+          public class LambdaHandler implements
+            RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
+          
+            @Override
+            public APIGatewayProxyResponseEvent handleRequest(
+                APIGatewayProxyRequestEvent gwEvent,
+                Context context) {
+              context.getLogger().log("Input: " + gwEvent.getBody());
+
+              // Create a response
+              APIGatewayProxyResponseEvent response = new APIGatewayProxyResponseEvent();
+              response.setStatusCode(200);
+              response.setBody("Hello from Lambda!");
+      
+              return response;
+            }
+          }
+      VpcConfig:
+        SecurityGroupIds:
+          - !GetAtt LambdaSecurityGroup.GroupId
+        SubnetIds:
+          - !Ref VpnConfigurerSubnet
+
+  LambdaLogGroup:
+    DependsOn: VpnConfigurerLambda
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Join ['', ['/aws/lambda/', !Ref VpnConfigurerLambda]]
+      RetentionInDays: 7
+
+  # Create API Gateway
+  LambdaRestApi:
+    Type: 'AWS::ApiGateway::RestApi'
+    Properties:
+      Name: vpn-configurer-rest-api
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+
+  LambdaApiResource:
+    DependsOn: LambdaRestApi
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      ParentId: !Ref LambdaRestApi
+      RestApiId: !Ref LambdaRestApi
+      PathPart: vpn-configurer # Endpoint path
+
+  # Lambda Permission for API Gateway
+  ApiGatewayInvokePermission:
+    DependsOn: VpnConfigurerLambda
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref VpnConfigurerLambda
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub
+        - arn:aws:execute-api:${region}:${accountId}:${apiId}/*
+        - region: !Ref 'AWS::Region'
+          accountId: !Ref 'AWS::AccountId'
+          apiId: "vpn-configurer-rest-api"
+
+  LambdaApiMethod:
+    DependsOn:
+      - VpnConfigurerLambda
+      - LambdaRestApi
+      - ApiGatewayInvokePermission
+    Type: 'AWS::ApiGateway::Method'
+    Properties:
+      HttpMethod: POST
+      ResourceId: !GetAtt LambdaRestApi.RootResourceId
+      RestApiId: !Ref LambdaRestApi
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+
+  ApiGatewayDeployment:
+    DependsOn: LambdaApiMethod
+    Type: AWS::ApiGateway::Deployment
+    Properties:
+      RestApiId: !Ref LambdaApiMethod
+      StageName: 'Main'
