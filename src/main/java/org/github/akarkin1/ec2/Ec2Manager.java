@@ -48,7 +48,7 @@ public class Ec2Manager {
 
 
   public static List<Region> getSupportedRegions() {
-    return List.of(Region.US_EAST_1, Region.EU_WEST_2, Region.EU_NORTH_1);
+    return List.of(Region.US_EAST_1, Region.EU_WEST_2, Region.EU_NORTH_1, Region.AP_SOUTH_1);
   }
 
 // ToDo: This way is too costly
