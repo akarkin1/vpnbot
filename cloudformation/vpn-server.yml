@@ -27,6 +27,9 @@ Mappings:
     ap-northeast-2:
       ec2ami: 'ami-0b05ffa034fdc27c8'
       location: 'Seoul'
+    ap-southeast-1:
+      ec2ami: 'ami-032a0de19b9aed25b'
+      location: 'Singapore'
 
 Resources:
   OpenVpnVPC:
