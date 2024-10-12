@@ -1,4 +1,4 @@
-name: Deploy OpenVPN Server
+name: Deploy VPN Configurer Lambda (TG Bot)
 
 on:
   workflow_dispatch:
