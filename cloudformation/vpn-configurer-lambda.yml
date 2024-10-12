@@ -68,7 +68,6 @@ Resources:
     Properties:
       LifecyclePolicies:
         - TransitionToIA: 'AFTER_1_DAY'
-      PerformanceMode: 'GeneralPurpose'
 
   LambdaEfsAccessPoint:
     DependsOn: LambdaEfsStorage
