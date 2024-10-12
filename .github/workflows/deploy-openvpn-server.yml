@@ -25,10 +25,10 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       - name: Deploy Amazon OpenVPN EC2 Instance
         id: openvpn-ec2-instance
-        uses: aws-actions/aws-cloudformation-github-deploy@master
+        uses: aws-actions/aws-cloudformation-github-deploy@v1.3.0
         with:
           name: openvpn-ec2-instance
-          template: fileb://cloudformation/vpn-server.yml
+          template: cloudformation/vpn-server.yml
           no-fail-on-empty-changeset: "1"
           parameter-overrides: >-
             Ec2InstanceName: ${{ github.event.inputs.server-name }}
