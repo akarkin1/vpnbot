@@ -131,7 +131,7 @@ Resources:
       SubnetId: !Ref OpenVpnPublicSubnet
       Description: Public Interface
       GroupSet:
-        - "OpenVpnInstanceSG"
+        - !Ref OpenVpnInstanceSG
       SourceDestCheck: false
       Tags:
         - Key: Name
