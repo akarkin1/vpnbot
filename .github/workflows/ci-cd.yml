@@ -8,6 +8,7 @@ on:
     paths:
       - 'src/main/java/**'
       - 'src/main/resources/**'
+      - '.github/workflows/ci-cd.yml'
     branches:
       - main
 
