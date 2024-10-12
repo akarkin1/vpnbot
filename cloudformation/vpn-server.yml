@@ -32,7 +32,7 @@ Resources:
   OpenVpnVPC:
     Type: AWS::EC2::VPC
     Properties:
-      CidrBlock: 10.0.0.0/32 # 1 Ip Address
+      CidrBlock: 10.0.0.0/28 # 16 Ip Addresses
       Tags:
         - Key: Name
           Value: openvpn-vpnc
@@ -58,7 +58,7 @@ Resources:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref OpenVpnVPC
-      CidrBlock: 10.0.0.0/30 # 4 addresses
+      CidrBlock: 10.0.0.0/28 # 16 IP addresses
       Tags:
         - Key: Name
           Value: openvpn-public-sn
