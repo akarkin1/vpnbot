@@ -13,19 +13,19 @@ Parameters:
 Mappings:
   RegionMap:
     us-north-1:
-      openvpn-server-ami: 'ami-024eaa93653f81586'
+      ec2ami: 'ami-024eaa93653f81586'
       location: 'North Virginia'
     eu-north-1:
-      openvpn-server-ami: 'ami-067349b5a5143523d'
+      ec2ami: 'ami-067349b5a5143523d'
       location: 'Stockholm'
     eu-west-2:
-      openvpn-server-ami: 'ami-0a62715fb8722eddb'
+      ec2ami: 'ami-0a62715fb8722eddb'
       location: 'London'
     ap-south-1:
-      openvpn-server-ami: 'ami-01614d815cf856337'
+      ec2ami: 'ami-01614d815cf856337'
       location: 'Mumbai'
     ap-northeast-2:
-      openvpn-server-ami: 'ami-0b05ffa034fdc27c8'
+      ec2ami: 'ami-0b05ffa034fdc27c8'
       location: 'Seoul'
 
 Resources:
@@ -146,7 +146,7 @@ Resources:
   EC2OpenVPNInstance:
     Type: "AWS::EC2::Instance"
     Properties:
-      ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", 'openvpn-server-ami']
+      ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", 'ec2ami']
       InstanceType: t2.micro
       SourceDestCheck: false
       NetworkInterfaces:
