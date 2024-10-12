@@ -185,7 +185,7 @@ Resources:
     DependsOn: LambdaRestApi
     Type: 'AWS::ApiGateway::Resource'
     Properties:
-      ParentId: !Ref LambdaRestApi
+      ParentId: !GetAtt LambdaRestApi.RootResourceId
       RestApiId: !Ref LambdaRestApi
       PathPart: vpn-configurer # Endpoint path
 
