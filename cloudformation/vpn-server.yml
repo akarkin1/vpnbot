@@ -81,7 +81,7 @@ Resources:
     Properties:
       DestinationCidrBlock: 0.0.0.0/0
       GatewayId: !Ref AttachInternetGateway
-      RouteTableId: !Ref OpenVpnPublicSubnet
+      RouteTableId: !Ref OpenVpnRouteTablePublic
 
   MyPublicSubnetRouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
