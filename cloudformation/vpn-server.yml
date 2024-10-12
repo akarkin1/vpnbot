@@ -141,7 +141,7 @@ Resources:
     Type: AWS::EC2::EIPAssociation
     Properties:
       AllocationId: !GetAtt OpenVpnEip.AllocationId
-      NetworkInterfaceId: "OpenVpnNetworkInterface"
+      NetworkInterfaceId: !Ref OpenVpnNetworkInterface
 
   EC2OpenVPNInstance:
     Type: "AWS::EC2::Instance"
