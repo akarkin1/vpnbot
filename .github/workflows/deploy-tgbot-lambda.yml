@@ -28,4 +28,5 @@ jobs:
           name: openvpn-server-tgbot-cfn
           template: cloudformation/vpn-configurer-lambda.yml
           no-fail-on-empty-changeset: "1"
+          capabilities: CAPABILITY_IAM
 
