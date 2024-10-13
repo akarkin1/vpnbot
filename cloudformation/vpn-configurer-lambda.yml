@@ -42,6 +42,52 @@ Resources:
           FromPort: 2049
           ToPort: 2049
           CidrIp: !Ref ClientIPCIDR
+        # Allows outbound HTTP traffic
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: !Ref ClientIPCIDR
+        # Allow outbound HTTPS traffic
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: !Ref ClientIPCIDR
+      SecurityGroupIngress:
+        # Allow inbound NFS traffic
+        - IpProtocol: tcp
+          FromPort: 2049
+          ToPort: 2049
+          CidrIp: !Ref ClientIPCIDR
+
+  # Configure Internet access for the lambda
+  VpnConfigurerEIP:
+    Type: AWS::EC2::EIP
+
+  VpnConfigurerNatGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt VpnConfigurerEIP.AllocationId
+      SubnetId: !Ref VpnConfigurerSubnet  # Place NAT Gateway in a public subnet
+
+  # Route Table for NAT Gateway
+  VpnConfigurerRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VpnConfigurerVpc
+
+  VpnConfigurerRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref VpnConfigurerRouteTable
+      DestinationCidrBlock: !Ref ClientIPCIDR
+      NatGatewayId: !Ref VpnConfigurerNatGateway
+
+  # Associate Route Table with Subnet
+  VpnConfigurerSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref VpnConfigurerSubnet
+      RouteTableId: !Ref VpnConfigurerRouteTable
 
   LambdaRole:
     Type: AWS::IAM::Role
