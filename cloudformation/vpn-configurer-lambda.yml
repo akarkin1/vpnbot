@@ -224,5 +224,5 @@ Resources:
     DependsOn: LambdaApiMethod
     Type: AWS::ApiGateway::Deployment
     Properties:
-      RestApiId: !Ref LambdaApiMethod
+      RestApiId: !Ref LambdaRestApi
       StageName: 'Main'
