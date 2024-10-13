@@ -223,7 +223,7 @@ Resources:
       PayloadFormatVersion: "2.0"
       IntegrationUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${VpnConfigurerLambda.Arn}/invocations"
 
-  ApiGatewayResource:
+  ApiGatewayRoute:
     Type: AWS::ApiGatewayV2::Route
     DependsOn:
       - LambdaRestApi
@@ -239,6 +239,7 @@ Resources:
 
   ApiGatewayDeployment:
     DependsOn:
+      - ApiGatewayRoute
       - LambdaApiGatewayIntegration
       - LambdaRestApi
     Type: AWS::ApiGatewayV2::Deployment
