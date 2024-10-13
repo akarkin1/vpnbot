@@ -63,7 +63,25 @@ Resources:
   VpnConfigurerEIP:
     Type: AWS::EC2::EIP
 
+  # Internet Gateway
+  VpnConfigurerInternetGateway:
+    Type: AWS::EC2::InternetGateway
+
+  # Attach the Internet Gateway to the VPC
+  VpnConfigurerInternetGatewayAttachment:
+    DependsOn:
+      - VpnConfigurerVpc
+      - VpnConfigurerInternetGateway
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VpnConfigurerVpc
+      InternetGatewayId: !Ref VpnConfigurerInternetGateway
+
   VpnConfigurerNatGateway:
+    DependsOn:
+      - VpnConfigurerEIP
+      - VpnConfigurerSubnet
+      - VpnConfigurerInternetGatewayAttachment
     Type: AWS::EC2::NatGateway
     Properties:
       AllocationId: !GetAtt VpnConfigurerEIP.AllocationId
@@ -75,12 +93,26 @@ Resources:
     Properties:
       VpcId: !Ref VpnConfigurerVpc
 
-  VpnConfigurerRoute:
+  VpnConfigurerNatGatewayRoute:
+    DependsOn:
+      - VpnConfigurerRouteTable
+      - VpnConfigurerNatGateway
     Type: AWS::EC2::Route
     Properties:
       RouteTableId: !Ref VpnConfigurerRouteTable
       DestinationCidrBlock: !Ref ClientIPCIDR
       NatGatewayId: !Ref VpnConfigurerNatGateway
+
+  # Create a Route to the Internet Gateway
+  VpnConfigurerInternetGatewayRoute:
+    DependsOn:
+      - VpnConfigurerRouteTable
+      - VpnConfigurerInternetGateway
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref VpnConfigurerRouteTable
+      DestinationCidrBlock: !Ref ClientIPCIDR
+      GatewayId: !Ref VpnConfigurerInternetGateway
 
   # Associate Route Table with Subnet
   VpnConfigurerSubnetRouteTableAssociation:
