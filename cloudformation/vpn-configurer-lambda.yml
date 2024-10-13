@@ -15,6 +15,8 @@ Resources:
     Type: AWS::EC2::VPC
     Properties:
       CidrBlock: 10.0.0.0/28 # 16 Ip Addresses
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
       Tags:
         - Key: Name
           Value: vpn-configurer-vpc
@@ -28,7 +30,7 @@ Resources:
       CidrBlock: 10.0.0.0/28 # 16 IP addresses
       Tags:
         - Key: Name
-          Value: vpn-configurer-sn
+          Value: vpn-configurer-private-sn
         - Key: ServiceName
           Value: openvpn-server
 
@@ -63,6 +65,44 @@ Resources:
   VpnConfigurerEIP:
     Type: AWS::EC2::EIP
 
+  VpnConfigurerNatGateway:
+    DependsOn:
+      - VpnConfigurerEIP
+      - VpnConfigurerSubnet
+      - VpnConfigurerInternetGatewayAttachment
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt VpnConfigurerEIP.AllocationId
+      SubnetId: !Ref VpnConfigurerSubnet  # Place NAT Gateway in a public subnet
+
+  # Route Table for NAT Gateway
+  VpnConfigurerPrivateRouteTable:
+    DependsOn:
+      - VpnConfigurerVpc
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VpnConfigurerVpc
+
+  # Associate Route Table with Subnet
+  VpnConfigurerPrivateRouteTableSubnetAssociation:
+    DependsOn:
+      - VpnConfigurerPrivateRouteTable
+      - VpnConfigurerSubnet
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref VpnConfigurerSubnet
+      RouteTableId: !Ref VpnConfigurerPrivateRouteTable
+
+  VpnConfigurerNatGatewayRoute:
+    DependsOn:
+      - VpnConfigurerPrivateRouteTableSubnetAssociation
+      - VpnConfigurerNatGateway
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref VpnConfigurerPrivateRouteTable
+      DestinationCidrBlock: !Ref ClientIPCIDR
+      NatGatewayId: !Ref VpnConfigurerNatGateway
+
   # Internet Gateway
   VpnConfigurerInternetGateway:
     Type: AWS::EC2::InternetGateway
@@ -77,51 +117,49 @@ Resources:
       VpcId: !Ref VpnConfigurerVpc
       InternetGatewayId: !Ref VpnConfigurerInternetGateway
 
-  VpnConfigurerNatGateway:
+  # Create a Public Subnet
+  VpnConfigurerPublicSubnet:
     DependsOn:
-      - VpnConfigurerEIP
-      - VpnConfigurerSubnet
-      - VpnConfigurerInternetGatewayAttachment
-    Type: AWS::EC2::NatGateway
+      - VpnConfigurerVpc
+    Type: AWS::EC2::Subnet
     Properties:
-      AllocationId: !GetAtt VpnConfigurerEIP.AllocationId
-      SubnetId: !Ref VpnConfigurerSubnet  # Place NAT Gateway in a public subnet
+      VpcId: !Ref VpnConfigurerVpc
+      CidrBlock: 10.0.1.0/28
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: vpn-configurer-public-sn
+        - Key: ServiceName
+          Value: openvpn-server
 
   # Route Table for NAT Gateway
-  VpnConfigurerRouteTable:
+  VpnConfigurerPublicRouteTable:
+    DependsOn:
+      - VpnConfigurerVpc
     Type: AWS::EC2::RouteTable
     Properties:
       VpcId: !Ref VpnConfigurerVpc
 
   # Associate Route Table with Subnet
-  VpnConfigurerSubnetRouteTableAssociation:
+  VpnConfigurerPublicRouteTableSubnetAssociation:
     DependsOn:
-      - VpnConfigurerRouteTable
-      - VpnConfigurerSubnet
+      - VpnConfigurerPublicRouteTable
+      - VpnConfigurerPublicSubnet
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      SubnetId: !Ref VpnConfigurerSubnet
-      RouteTableId: !Ref VpnConfigurerRouteTable
-
-  VpnConfigurerNatGatewayRoute:
-    DependsOn:
-      - VpnConfigurerSubnetRouteTableAssociation
-      - VpnConfigurerNatGateway
-    Type: AWS::EC2::Route
-    Properties:
-      RouteTableId: !Ref VpnConfigurerRouteTable
-      DestinationCidrBlock: !Ref ClientIPCIDR
-      NatGatewayId: !Ref VpnConfigurerNatGateway
+      SubnetId: !Ref VpnConfigurerPublicSubnet
+      RouteTableId: !Ref VpnConfigurerPublicRouteTable
 
   # Create a Route to the Internet Gateway
   VpnConfigurerInternetGatewayRoute:
     DependsOn:
-      - VpnConfigurerRouteTable
-      - VpnConfigurerSubnetRouteTableAssociation
+      - VpnConfigurerPublicRouteTable
+      - VpnConfigurerPublicRouteTableSubnetAssociation
       - VpnConfigurerInternetGatewayAttachment
     Type: AWS::EC2::Route
     Properties:
-      RouteTableId: !Ref VpnConfigurerRouteTable
+      RouteTableId: !Ref VpnConfigurerPrivateRouteTable
       DestinationCidrBlock: !Ref ClientIPCIDR
       GatewayId: !Ref VpnConfigurerInternetGateway
 
