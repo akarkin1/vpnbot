@@ -175,54 +175,83 @@ Resources:
 
   # Create API Gateway
   LambdaRestApi:
-    Type: 'AWS::ApiGateway::RestApi'
+    Type: AWS::ApiGatewayV2::Api
     Properties:
-      Name: vpn-configurer-rest-api
-      EndpointConfiguration:
-        Types:
-          - REGIONAL
+      Name: vpn-configurer-api
+      ProtocolType: HTTP
+      Description: An API Gateway with Vpn Configurer Lambda Integration
 
-  LambdaApiResource:
-    DependsOn: LambdaRestApi
-    Type: 'AWS::ApiGateway::Resource'
-    Properties:
-      ParentId: !GetAtt LambdaRestApi.RootResourceId
-      RestApiId: !Ref LambdaRestApi
-      PathPart: vpn-configurer # Endpoint path
-
-  # Lambda Permission for API Gateway
-  ApiGatewayInvokePermission:
+  ApiGatewayIamRole:
     DependsOn: VpnConfigurerLambda
-    Type: 'AWS::Lambda::Permission'
+    Type: AWS::IAM::Role
     Properties:
-      Action: lambda:InvokeFunction
-      FunctionName: !Ref VpnConfigurerLambda
-      Principal: apigateway.amazonaws.com
-      SourceArn: !Sub
-        - arn:aws:execute-api:${region}:${accountId}:${apiId}/*
-        - region: !Ref 'AWS::Region'
-          accountId: !Ref 'AWS::AccountId'
-          apiId: "vpn-configurer-rest-api"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: ""
+            Effect: "Allow"
+            Principal:
+              Service:
+                - "apigateway.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Path: "/"
+      Policies:
+        - PolicyName: LambdaAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action: "lambda:*"
+                Resource: !GetAtt VpnConfigurerLambda.Arn
 
-  LambdaApiMethod:
+  LambdaApiGatewayIntegration:
     DependsOn:
-      - VpnConfigurerLambda
+      - ApiGatewayIamRole
       - LambdaRestApi
-      - ApiGatewayInvokePermission
-    Type: 'AWS::ApiGateway::Method'
+    Type: AWS::ApiGatewayV2::Integration
     Properties:
-      HttpMethod: POST
-      ResourceId: !GetAtt LambdaRestApi.RootResourceId
-      RestApiId: !Ref LambdaRestApi
-      AuthorizationType: NONE
-      Integration:
-        Type: AWS_PROXY
-        IntegrationHttpMethod: POST
-        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${VpnConfigurerLambda.Arn}/invocations
+      ApiId: !Ref LambdaRestApi
+      Description: TG Bot Vpn Configurer Integration
+      ConnectionType: INTERNET
+      CredentialsArn: !GetAtt ApiGatewayIamRole.Arn
+      PassthroughBehavior: WHEN_NO_MATCH
+      TimeoutInMillis: 600
+      IntegrationMethod: POST
+      IntegrationType: AWS_PROXY
+      PayloadFormatVersion: "2.0"
+      IntegrationUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunction.Arn}/invocations"
+
+  ApiGatewayResource:
+    Type: AWS::ApiGatewayV2::Route
+    DependsOn:
+      - LambdaRestApi
+      - VpnConfigurerLambda
+      - LambdaApiGatewayIntegration
+    Properties:
+      ApiId: !Ref LambdaRestApi
+      RouteKey: POST /vpn-configurer
+      Target: !Join
+        - /
+        - - integrations
+          - !Ref LambdaApiGatewayIntegration
 
   ApiGatewayDeployment:
-    DependsOn: LambdaApiMethod
-    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - LambdaApiGatewayIntegration
+      - LambdaRestApi
+    Type: AWS::ApiGatewayV2::Deployment
     Properties:
-      RestApiId: !Ref LambdaRestApi
-      StageName: 'Main'
+      ApiId: !Ref LambdaRestApi
+      Description: TG Bot Vpn Configurer Lambda API Deployment
+
+  ApiGatewayStage:
+    DependsOn:
+      - ApiGatewayDeployment
+      - LambdaRestApi
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      DeploymentId: !Ref ApiGatewayDeployment
+      Description: TG Bot Vpn Configurer Lambda API v0
+      ApiId: !Ref LambdaRestApi
+      StageName: "v0"
