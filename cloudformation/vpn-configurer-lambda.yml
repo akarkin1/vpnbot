@@ -11,6 +11,38 @@ Parameters:
     Description: S3 Bucket with source code of the lambda.
 
 Resources:
+  VpnConfigurerVpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/28 # 16 Ip Addresses
+      Tags:
+        - Key: Name
+          Value: vpn-configurer-vpc
+        - Key: ServiceName
+          Value: openvpn-server
+
+  VpnConfigurerSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VpnConfigurerVpc
+      CidrBlock: 10.0.0.0/28 # 16 IP addresses
+      Tags:
+        - Key: Name
+          Value: vpn-configurer-sn
+        - Key: ServiceName
+          Value: openvpn-server
+
+  LambdaSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Allow Lambda to access EFS
+      VpcId: !Ref VpnConfigurerVpc
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 2049
+          ToPort: 2049
+          CidrIp: !Ref ClientIPCIDR
+
   LambdaRole:
     Type: AWS::IAM::Role
     Properties:
@@ -79,9 +111,21 @@ Resources:
       LifecyclePolicies:
         - TransitionToIA: 'AFTER_1_DAY'
 
+  LambdaEfsMountTarget:
+    DependsOn:
+      - VpnConfigurerSubnet
+      - LambdaSecurityGroup
+      - LambdaEfsStorage
+    Type: 'AWS::EFS::MountTarget'
+    Properties:
+      FileSystemId: !Ref LambdaEfsStorage
+      SubnetId: !Ref VpnConfigurerSubnet
+      SecurityGroups:
+        - !Ref LambdaSecurityGroup
+
   LambdaEfsAccessPoint:
     DependsOn: LambdaEfsStorage
-    Type: 'AWS::EFS::AccessPoint'
+    Type: AWS::EFS::AccessPoint
     Properties:
       FileSystemId: !Ref LambdaEfsStorage
       PosixUser:
@@ -94,43 +138,14 @@ Resources:
           Permissions: '750'
         Path: '/vpn-configurer-lambda'
 
-  VpnConfigurerVpc:
-    Type: AWS::EC2::VPC
-    Properties:
-      CidrBlock: 10.0.0.0/28 # 16 Ip Addresses
-      Tags:
-        - Key: Name
-          Value: vpn-configurer-vpc
-        - Key: ServiceName
-          Value: openvpn-server
-
-  VpnConfigurerSubnet:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref VpnConfigurerVpc
-      CidrBlock: 10.0.0.0/28 # 16 IP addresses
-      Tags:
-        - Key: Name
-          Value: vpn-configurer-sn
-        - Key: ServiceName
-          Value: openvpn-server
-
-  LambdaSecurityGroup:
-    Type: 'AWS::EC2::SecurityGroup'
-    Properties:
-      GroupDescription: Allow Lambda to access EFS
-      VpcId: !Ref VpnConfigurerVpc
-      SecurityGroupEgress:
-        - IpProtocol: tcp
-          FromPort: 2049
-          ToPort: 2049
-          CidrIp: !Ref ClientIPCIDR
-
   VpnConfigurerLambda:
     DependsOn:
       - LambdaRole
       - LambdaEfsStorage
       - LambdaSecurityGroup
+      - VpnConfigurerSubnet
+      - LambdaEfsMountTarget
+      - LambdaEfsAccessPoint
     Type: AWS::Lambda::Function
     Properties:
       FunctionName: openvpn-server-tgbot
