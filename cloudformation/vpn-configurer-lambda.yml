@@ -33,8 +33,8 @@ Resources:
                 Action:
                   - s3:GetObject
                   - s3:ListBucket
-                Resource:
-                  - !Sub "arn:aws:s3:::${bucketName}/*"
+                Resource: !Sub
+                  - arn:aws:s3:::${bucketName}/*
                   - bucketName: !Ref LambdaSourcesBucketName
               # Permissions to manage CW logs
               - Action:
