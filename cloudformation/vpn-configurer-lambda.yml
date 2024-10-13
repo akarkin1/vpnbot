@@ -14,7 +14,7 @@ Resources:
   VpnConfigurerVpc:
     Type: AWS::EC2::VPC
     Properties:
-      CidrBlock: 10.0.0.0/28 # 16 Ip Addresses
+      CidrBlock: 10.0.0.0/27 # 32 Ip Addresses
       EnableDnsSupport: true
       EnableDnsHostnames: true
       Tags:
@@ -124,7 +124,7 @@ Resources:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VpnConfigurerVpc
-      CidrBlock:  10.0.0.128/24
+      CidrBlock:  10.0.0.16/28 # 16 Ip addresses
       AvailabilityZone: !Select [ 0, !GetAZs '' ]
       MapPublicIpOnLaunch: true
       Tags:
