@@ -204,7 +204,7 @@ Resources:
               - Effect: "Allow"
                 Action: "lambda:*"
                 Resource: !GetAtt VpnConfigurerLambda.Arn
-        - PolicyName: ApiGatewayLoggingPolicy
+        - PolicyName: ApiGatewayAwsLoggingPolicy
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
@@ -214,6 +214,15 @@ Resources:
                   - logs:CreateLogStream
                   - logs:PutLogEvents
                 Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/apigateway/*:*
+        - PolicyName: ApiGatewayCustomLoggingPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/custom/apigateway/*:*
 
 
   LambdaApiGatewayIntegration:
