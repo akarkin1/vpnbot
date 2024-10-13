@@ -93,9 +93,19 @@ Resources:
     Properties:
       VpcId: !Ref VpnConfigurerVpc
 
-  VpnConfigurerNatGatewayRoute:
+  # Associate Route Table with Subnet
+  VpnConfigurerSubnetRouteTableAssociation:
     DependsOn:
       - VpnConfigurerRouteTable
+      - VpnConfigurerSubnet
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref VpnConfigurerSubnet
+      RouteTableId: !Ref VpnConfigurerRouteTable
+
+  VpnConfigurerNatGatewayRoute:
+    DependsOn:
+      - VpnConfigurerSubnetRouteTableAssociation
       - VpnConfigurerNatGateway
     Type: AWS::EC2::Route
     Properties:
@@ -107,19 +117,13 @@ Resources:
   VpnConfigurerInternetGatewayRoute:
     DependsOn:
       - VpnConfigurerRouteTable
-      - VpnConfigurerInternetGateway
+      - VpnConfigurerSubnetRouteTableAssociation
+      - VpnConfigurerInternetGatewayAttachment
     Type: AWS::EC2::Route
     Properties:
       RouteTableId: !Ref VpnConfigurerRouteTable
       DestinationCidrBlock: !Ref ClientIPCIDR
       GatewayId: !Ref VpnConfigurerInternetGateway
-
-  # Associate Route Table with Subnet
-  VpnConfigurerSubnetRouteTableAssociation:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      SubnetId: !Ref VpnConfigurerSubnet
-      RouteTableId: !Ref VpnConfigurerRouteTable
 
   LambdaRole:
     Type: AWS::IAM::Role
