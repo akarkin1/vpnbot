@@ -124,7 +124,7 @@ Resources:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VpnConfigurerVpc
-      CidrBlock: 10.0.1.0/24
+      CidrBlock: 10.0.0.0/28
       AvailabilityZone: !Select [ 0, !GetAZs '' ]
       MapPublicIpOnLaunch: true
       Tags:
