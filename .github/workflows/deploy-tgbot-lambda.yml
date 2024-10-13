@@ -7,6 +7,10 @@ on:
         description: 'AWS Region'
         required: true
         default: eu-north-1
+      sources-bucket:
+        description: 'S3 Bucket with sources of the lambda'
+        required: true
+        default: openvpn-server-s3
 
 jobs:
   deploy-vpn-configurer-lambda:
@@ -29,4 +33,5 @@ jobs:
           template: cloudformation/vpn-configurer-lambda.yml
           no-fail-on-empty-changeset: "1"
           capabilities: CAPABILITY_IAM,CAPABILITY_NAMED_IAM
+          parameter-overrides: 'LambdaSourcesBucketName=${{ github.event.inputs.sources-bucket }}'
 

@@ -6,6 +6,9 @@ Parameters:
     Type: String
     Default: 0.0.0.0/0
     Description: CIDR IP to be granted access by the SG, use 0.0.0.0/0 to accept all IPs
+  LambdaSourcesBucketName:
+    Type: String
+    Description: S3 Bucket with source code of the lambda.
 
 Resources:
   LambdaRole:
@@ -26,6 +29,13 @@ Resources:
           PolicyDocument:
             Version: 2012-10-17
             Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:ListBucket
+                Resource:
+                  - !Sub "arn:aws:s3:::${bucketName}/*"
+                  - bucketName: !Ref LambdaSourcesBucketName
               # Permissions to manage CW logs
               - Action:
                   - "logs:CreateLogGroup"
@@ -132,33 +142,9 @@ Resources:
       FileSystemConfigs:
         - Arn: !GetAtt LambdaEfsAccessPoint.Arn
           LocalMountPath: /mnt/efs
-      # Code will be updated later on CI / CD build.
       Code:
-        ZipFile: |
-          package org.github.akarkin1;
-          
-          import com.amazonaws.services.lambda.runtime.Context;
-          import com.amazonaws.services.lambda.runtime.RequestHandler;
-          import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
-          import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
-          
-          public class LambdaHandler implements
-            RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
-          
-            @Override
-            public APIGatewayProxyResponseEvent handleRequest(
-                APIGatewayProxyRequestEvent gwEvent,
-                Context context) {
-              context.getLogger().log("Input: " + gwEvent.getBody());
-
-              // Create a response
-              APIGatewayProxyResponseEvent response = new APIGatewayProxyResponseEvent();
-              response.setStatusCode(200);
-              response.setBody("Hello from Lambda!");
-      
-              return response;
-            }
-          }
+        S3Bucket: !Ref LambdaSourcesBucketName
+        Value: 'openvpn-server-tgbot/vpnbot-1.0-SNAPSHOT.jar'
       VpcConfig:
         SecurityGroupIds:
           - !GetAtt LambdaSecurityGroup.GroupId

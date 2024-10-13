@@ -41,7 +41,10 @@ jobs:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
+    - name: Upload Artifact To S3
+      run: aws s3 cp target/vpnbot-1.0-SNAPSHOT.jar s3://openvpn-server-s3/openvpn-server-tgbot/vpnbot-1.0-SNAPSHOT.jar
+
     - name: Update AWS Lambda
       run: |
-        aws lambda update-function-code --function-name openvpn-server-tgbot --zip-file fileb://target/vpnbot-1.0-SNAPSHOT.jar
+        aws lambda update-function-code --function-name openvpn-server-tgbot --s3-bucket openvpn-server-s3 --s3-key openvpn-server-tgbot/vpnbot-1.0-SNAPSHOT.jar
       
