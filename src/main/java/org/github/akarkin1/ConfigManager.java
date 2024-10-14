@@ -15,7 +15,7 @@ import static java.lang.System.getenv;
 @UtilityClass
 public class ConfigManager {
 
-  private static final String EVENT_ROOT_DIR = "/mnt/tgbot/eventIds";
+  private static final String EVENT_ROOT_DIR = "/mnt/efs/eventIds";
   private static final String BOT_TOKEN_ENV = "BOT_TOKEN";
   private static final String BOT_USERNAME_ENV = "BOT_USERNAME";
   private static final String STATUS_CHECK_PAUSE_MS_ENV = "STATUS_CHECK_PAUSE_MS";
