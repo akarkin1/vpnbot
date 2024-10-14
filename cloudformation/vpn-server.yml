@@ -24,6 +24,9 @@ Mappings:
     ap-south-1:
       ec2ami: 'ami-01614d815cf856337'
       location: 'Mumbai'
+    ap-northeast-1:
+      ec2ami: 'ami-0a3a44a55fb275c75'
+      location: 'Tokyo'
     ap-northeast-2:
       ec2ami: 'ami-0b05ffa034fdc27c8'
       location: 'Seoul'
