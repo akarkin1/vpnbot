@@ -16,13 +16,13 @@ import static java.lang.System.getenv;
 public class ConfigManager {
 
   private static final String EVENT_ROOT_DIR = "/mnt/efs/eventIds";
+  private static final String VERSION_RES_PATH = "/version";
   private static final String BOT_TOKEN_ENV = "BOT_TOKEN";
   private static final String BOT_USERNAME_ENV = "BOT_USERNAME";
   private static final String STATUS_CHECK_PAUSE_MS_ENV = "STATUS_CHECK_PAUSE_MS";
   private static final String OP_WAIT_TIMEOUT_SEC_ENV = "OPERATION_WAIT_TIMEOUT_SEC";
   private static final String RESTART_SLEEP_TIME_SEC_ENV = "RESTART_SLEEP_TIME_SEC";
-  private static final String VERSION_RES_PATH = "/version";
-  public static final String REGISTERED_EVENT_EXPIRATION_TIME_SEC_ENV = "REGISTERED_EVENT_EXPIRATION_TIME_SEC";
+  private static final String REGISTERED_EVENT_EXPIRATION_TIME_SEC_ENV = "REGISTERED_EVENT_EXPIRATION_TIME_SEC";
 
   public static String getBotToken() {
     return getenv(BOT_TOKEN_ENV);

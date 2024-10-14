@@ -9,6 +9,25 @@ Parameters:
   LambdaSourcesBucketName:
     Type: String
     Description: S3 Bucket with source code of the lambda.
+  # Lambda environment variables
+  EnvTgBotToken:
+    Type: String
+    Description: Telegram Bot Token.
+  EnvTgBotUsername:
+    Type: String
+    Description: Telegram Bot Username.
+  EnvPauseBetweenStatusCheckMs:
+    Type: Number
+    Description: Pause between status check of EC2 instance in milliseconds.
+    Default: 500
+  EnvOperationWaitTimeoutSec:
+    Type: Number
+    Description: How much wait in seconds for EC2 operation to complete until timeout.
+    Default: 300
+  EnvRestartSleepTimeSec:
+    Type: Number
+    Description: Pause between stop and start operation of EC2 in seconds for /restartServer command.
+    Default: 30
 
 Resources:
   VpnConfigurerVpc:
@@ -275,6 +294,13 @@ Resources:
       Role: !GetAtt LambdaRole.Arn
       MemorySize: 1024
       Timeout: 600
+      Environment:
+        Variables:
+          BOT_TOKEN: !Ref EnvTgBotToken
+          BOT_USERNAME: !Ref EnvTgBotUsername
+          STATUS_CHECK_PAUSE_MS: !Ref EnvPauseBetweenStatusCheckMs
+          OPERATION_WAIT_TIMEOUT_SEC: !Ref EnvOperationWaitTimeoutSec
+          RESTART_SLEEP_TIME_SEC_ENV: !Ref EnvRestartSleepTimeSec
       FileSystemConfigs:
         - Arn: !GetAtt LambdaEfsAccessPoint.Arn
           LocalMountPath: /mnt/efs
