@@ -33,5 +33,5 @@ jobs:
           template: cloudformation/vpn-configurer-lambda.yml
           no-fail-on-empty-changeset: "1"
           capabilities: CAPABILITY_IAM,CAPABILITY_NAMED_IAM
-          parameter-overrides: 'LambdaSourcesBucketName=${{ github.event.inputs.sources-bucket }},EnvTgBotToken=${{ secrets.TG_BOT_TOKEN }},EnvTgBotUsername=${{ env.TG_BOT_USERNAME }}'
+          parameter-overrides: 'LambdaSourcesBucketName=${{ github.event.inputs.sources-bucket }},EnvTgBotToken=${{ secrets.TG_BOT_TOKEN }},EnvTgBotUsername=${{ github.env.TG_BOT_USERNAME }}'
 
