@@ -21,6 +21,8 @@ import org.github.akarkin1.dispatcher.command.StopInstanceCommand;
 import org.github.akarkin1.dispatcher.command.StopServerCommandV2;
 import org.github.akarkin1.dispatcher.command.VersionCommand;
 import org.github.akarkin1.ec2.Ec2ClientPool;
+import org.github.akarkin1.ec2.Ec2Manager;
+import org.github.akarkin1.ec2.EnvBasedRegionService;
 import org.github.akarkin1.tg.BotCommunicator;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
@@ -53,25 +55,26 @@ public class LambdaHandler implements
     final AbsSender sender = sender(getBotToken(), getBotUsernameEnv());
 
     val ec2ClientProvider = new Ec2ClientPool();
+    val ec2Manager = new Ec2Manager(ec2ClientProvider, EnvBasedRegionService.INSTANCE);
     COMMUNICATOR = new BotCommunicator(sender);
     COMMAND_DISPATCHER = new CommandDispatcher(COMMUNICATOR);
 
     COMMAND_DISPATCHER.registerCommand("/version", new VersionCommand());
-    COMMAND_DISPATCHER.registerCommand("/servers", new ListInstancesCommand(ec2ClientProvider));
+    COMMAND_DISPATCHER.registerCommand("/servers", new ListInstancesCommand(ec2Manager));
     COMMAND_DISPATCHER.registerCommand("/startServer",
-                                       new StartServerCommandV2(ec2ClientProvider,
+                                       new StartServerCommandV2(ec2Manager,
                                                                 COMMUNICATOR::sendMessageToTheBot));
     COMMAND_DISPATCHER.registerCommand("/stopServer",
-                                       new StopServerCommandV2(ec2ClientProvider,
+                                       new StopServerCommandV2(ec2Manager,
                                                                COMMUNICATOR::sendMessageToTheBot));
     COMMAND_DISPATCHER.registerCommand("/rebootServer",
-                                       new RebootServerCommand(ec2ClientProvider));
+                                       new RebootServerCommand(ec2Manager));
     COMMAND_DISPATCHER.registerCommand("/restartServer",
-                                       new RestartServerCommand(ec2ClientProvider,
+                                       new RestartServerCommand(ec2Manager,
                                                                 COMMUNICATOR::sendMessageToTheBot));
     COMMAND_DISPATCHER.registerCommand("/startInstance",
-                                       new StartInstanceCommand(ec2ClientProvider));
-    COMMAND_DISPATCHER.registerCommand("/stopInstance", new StopInstanceCommand(ec2ClientProvider));
+                                       new StartInstanceCommand(ec2Manager));
+    COMMAND_DISPATCHER.registerCommand("/stopInstance", new StopInstanceCommand(ec2Manager));
   }
 
   @Override

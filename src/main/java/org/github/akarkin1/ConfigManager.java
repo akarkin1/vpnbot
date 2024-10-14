@@ -6,6 +6,7 @@ import lombok.extern.log4j.Log4j2;
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
@@ -23,6 +24,7 @@ public class ConfigManager {
   private static final String OP_WAIT_TIMEOUT_SEC_ENV = "OPERATION_WAIT_TIMEOUT_SEC";
   private static final String RESTART_SLEEP_TIME_SEC_ENV = "RESTART_SLEEP_TIME_SEC";
   private static final String REGISTERED_EVENT_EXPIRATION_TIME_SEC_ENV = "REGISTERED_EVENT_EXPIRATION_TIME_SEC";
+  private static final String USED_REGIONS_ENV = "USED_REGIONS";
 
   public static String getBotToken() {
     return getenv(BOT_TOKEN_ENV);
@@ -69,6 +71,11 @@ public class ConfigManager {
     String envValSec = envOrDefault(RESTART_SLEEP_TIME_SEC_ENV, "30");
     long longValSec = Long.parseLong(envValSec);
     return TimeUnit.SECONDS.toMillis(longValSec);
+  }
+
+  public static List<String> getUsedRegions() {
+    String envValStr = envOrDefault(USED_REGIONS_ENV, "");
+    return List.of(envValStr.split(","));
   }
 
   private static String envOrDefault(String envVarName, String defaultValue) {

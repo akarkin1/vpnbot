@@ -14,7 +14,7 @@ public final class ListInstancesCommand implements BotCommand<TextCommandRespons
 
   private static final String IP_V4_REGEX = "^(([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])(\\.(?!$)|$)){4}$";
 
-  private final Ec2ClientProvider clientProvider;
+  private final Ec2Manager instanceManager;
 
   @Override
   public TextCommandResponse run(List<String> args) {
@@ -24,7 +24,6 @@ public final class ListInstancesCommand implements BotCommand<TextCommandRespons
         .append("The lists of the servers available:")
         .append(System.lineSeparator());
 
-    Ec2Manager instanceManager = new Ec2Manager(clientProvider);
     for (InstanceInfo instance : instanceManager.getAllInstances()) {
       responseContent
           .append("* %s".formatted(instance.getName()))
