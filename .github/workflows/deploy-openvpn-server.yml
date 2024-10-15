@@ -1,0 +1,34 @@
+name: Deploy OpenVPN Server
+
+on:
+  workflow_dispatch:
+    inputs:
+      region:
+        description: 'AWS Region'
+        required: true
+      server-name:
+        description: 'Name Of VPN Server'
+        required: true
+
+jobs:
+  deploy-openvpn-server:
+    name: Deploy CloudFormation stack with OpenVPN EC2 Instance
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ github.event.inputs.region }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      - name: Deploy Cloud Formation Stack
+        id: deploy-cfn-stack
+        uses: aws-actions/aws-cloudformation-github-deploy@v1.3.0
+        with:
+          name: openvpn-ec2-instance-cfn
+          template: cloudformation/vpn-server.yml
+          no-fail-on-empty-changeset: "1"
+          parameter-overrides: 'Ec2InstanceName=${{ github.event.inputs.server-name }}'
+            
