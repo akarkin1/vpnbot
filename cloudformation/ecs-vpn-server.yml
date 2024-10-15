@@ -207,8 +207,8 @@ Resources:
     Properties:
       ClusterName: !Ref EcsClusterName
       Tags:
-        Key: ServiceName
-        Value: vpn-server
+        - Key: ServiceName
+          Value: vpn-server
 
 
 Outputs:
