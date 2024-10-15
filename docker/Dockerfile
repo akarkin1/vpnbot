@@ -11,4 +11,7 @@ RUN wget https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 && \
 
 RUN touch /var/log/openvpn-status.log
 
+# Install Curl
+RUN apk add curl
+
 CMD /usr/local/bin/configure-and-run-openvpn.sh
