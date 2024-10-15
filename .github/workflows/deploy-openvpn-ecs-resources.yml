@@ -75,7 +75,7 @@ jobs:
         if: ${{ github.event.inputs.run-docker }}
         env:
           ECR_REGISTRY: ${{ steps.get-ecr-repo-url.outputs.ecr_repo_url }}
-          ECR_REPOSITORY: $${{ github.event.inputs.repository-name }}
+          ECR_REPOSITORY: ${{ github.event.inputs.repository-name }}
           IMAGE_TAG: ${{ github.run_number }}
         run: |
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./docker/
