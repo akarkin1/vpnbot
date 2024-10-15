@@ -63,7 +63,7 @@ jobs:
         id: get-ecr-repo-url
         if: ${{ github.event.inputs.run-docker }}
         run: |
-          echo "Stack Output Parameters: $(aws cloudformation describe-stacks --stack-name openvpn-ecs-resources-cfn --query 'Stacks[0].Outputs --output json)"
+          echo "Stack Output Parameters: $(aws cloudformation describe-stacks --stack-name openvpn-ecs-resources-cfn --query 'Stacks[0].Outputs' --output json)"
           ECR_REPO_URL=$(aws cloudformation describe-stacks --stack-name openvpn-ecs-resources-cfn --query 'Stacks[0].Outputs[?OutputKey==`EcrRepositoryUrl`].OutputValue' --output text)
           echo "::set-output name=ecr_repo_url::$(echo ${ECR_REPO_URL})"
       - name: Login to Amazon ECR
