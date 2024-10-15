@@ -10,7 +10,7 @@ on:
         description: 'Name Of ECS Cluster, where VPN Server tasks will be hosted'
         required: true
         default: openvpn-server-ecs-cluster
-      repostiory-name:
+      repository-name:
         description: 'Name Of ECR Repository, where a Docker image with VPN Server will be stored'
         required: true
         default: openvpn-server-ecr-repo
@@ -36,6 +36,10 @@ jobs:
     name: Deploy CloudFormation stack with ECS resources for OpenVPN Server
     runs-on: ubuntu-latest
     steps:
+      - name: Debug Inputs
+        run: |
+          echo "Run Docker: ${{ github.event.inputs.runDocker }}"
+          echo "Run CloudFormation Deploy: ${{ github.event.inputs.runCfnDeploy }}"
       - name: Checkout Source Code
         if: ${{ github.event.inputs.runDocker == 'yes' || github.event.inputs.runCfnDeploy == 'yes' }}
         uses: actions/checkout@v4
@@ -54,7 +58,7 @@ jobs:
           name: openvpn-ecs-resources-cfn
           template: cloudformation/ecs-vpn-server.yml
           no-fail-on-empty-changeset: "1"
-          parameter-overrides: 'EcsClusterName=${{ github.event.inputs.cluster-name }},EcrRepositoryName=${{ github.event.inputs.repostiory-name }}'
+          parameter-overrides: 'EcsClusterName=${{ github.event.inputs.cluster-name }},EcrRepositoryName=${{ github.event.inputs.repository-name }}'
       - name: Get ECR Repository Url from created stack
         id: get-ecr-repo-url
         if: ${{ github.event.inputs.runDocker == 'yes' }}
@@ -71,7 +75,7 @@ jobs:
         if: ${{ github.event.inputs.runDocker == 'yes' }}
         env:
           ECR_REGISTRY: ${{ steps.get-ecr-repo-url.outputs.ecr_repo_url }}
-          ECR_REPOSITORY: $${{ github.event.inputs.repostiory-name }}
+          ECR_REPOSITORY: $${{ github.event.inputs.repository-name }}
           IMAGE_TAG: ${{ github.run_number }}
         run: |
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./docker/
