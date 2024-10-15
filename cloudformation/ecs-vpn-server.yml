@@ -1,0 +1,232 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: OpenVPN Server Stack
+
+Parameters:
+  ClientIPCIDR:
+    Type: String
+    Default: 0.0.0.0/0
+    Description: CIDR IP to be granted access by the SG, use 0.0.0.0/0 to accept all IPs
+  EcsClusterName:
+    Type: String
+    Description: Name of the ECS Cluster to be hosting VPN Server tasks
+  EcrRepositoryName:
+    Type: String
+    Description: Name of the ECS Cluster to be hosting VPN Server tasks
+
+
+Resources:
+  OpenVpnVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/28 # 16 Ip Addresses
+      Tags:
+        - Key: Name
+          Value: openvpn-server-vpnc
+        - Key: ServiceName
+          Value: openvpn-server
+
+  OpenVpnInternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: openvpn-server-internet-gw
+        - Key: ServiceName
+          Value: openvpn-server
+
+  AttachInternetGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref OpenVpnVPC
+      InternetGatewayId: !Ref OpenVpnInternetGateway
+
+  OpenVpnPublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref OpenVpnVPC
+      CidrBlock: 10.0.0.0/28 # 16 IP addresses
+      Tags:
+        - Key: Name
+          Value: openvpn-server-public-sn
+        - Key: ServiceName
+          Value: openvpn-server
+
+  OpenVpnRouteTablePublic:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref OpenVpnVPC
+      Tags:
+        - Key: Name
+          Value: openvpn-server-rt
+        - Key: ServiceName
+          Value: openvpn-server
+
+  RouteDefaultPublic:
+    Type: AWS::EC2::Route
+    DependsOn: AttachInternetGateway
+    Properties:
+      DestinationCidrBlock: !Ref ClientIPCIDR
+      GatewayId: !Ref OpenVpnInternetGateway
+      RouteTableId: !Ref OpenVpnRouteTablePublic
+
+  PublicSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref OpenVpnPublicSubnet
+      RouteTableId: !Ref OpenVpnRouteTablePublic
+
+  OpenVpnEcsSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: SG for OpenVPN Server
+      VpcId: !Ref OpenVpnVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 2049
+          ToPort: 2049
+          CidrIp: !Ref ClientIPCIDR
+        - IpProtocol: udp
+          FromPort: 1194
+          ToPort: 1194
+          CidrIp: !Ref ClientIPCIDR
+        - IpProtocol: tcp
+          FromPort: 1194
+          ToPort: 1194
+          CidrIp: !Ref ClientIPCIDR
+        - IpProtocol: tcp
+          FromPort: 943
+          ToPort: 943
+          CidrIp: !Ref ClientIPCIDR
+        - IpProtocol: tcp
+          FromPort: 945
+          ToPort: 945
+          CidrIp: !Ref ClientIPCIDR
+      SecurityGroupEgress:
+        - Description: Allow all outbound traffic
+          IpProtocol: "-1"
+          CidrIp: !Ref ClientIPCIDR
+
+  OpenVpnEfsFileSystem:
+    Type: AWS::EFS::FileSystem
+    Properties:
+      LifecyclePolicies:
+        - TransitionToIA: 'AFTER_30_DAYS'
+
+  OpenVpnAccessPoint:
+    DependsOn: OpenVpnEfsFileSystem
+    Type: AWS::EFS::AccessPoint
+    Properties:
+      FileSystemId: !Ref OpenVpnEfsFileSystem
+      PosixUser:
+        Gid: '1000'
+        Uid: '1000'
+      RootDirectory:
+        CreationInfo:
+          OwnerGid: '1000'
+          OwnerUid: '1000'
+          Permissions: '755'
+        Path: '/vpn-server-userdata'
+
+  VpnServerEcsTaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: ECRPullPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "ecr:GetDownloadUrlForLayer"
+                  - "ecr:BatchGetImage"
+                  - "ecr:BatchCheckLayerAvailability"
+                Resource: "*"
+        - PolicyName: EFSPermission
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "elasticfilesystem:ClientMount"
+                  - "elasticfilesystem:ClientWrite"
+                  - "elasticfilesystem:ClientRootAccess"
+                  - "elasticfilesystem:DescribeFileSystems"
+                  - "elasticfilesystem:DescribeMountTargets"
+                  - "elasticfilesystem:DescribeAccessPoints"
+                Resource: "*"
+        - PolicyName: CWPermission
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Action:
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                Effect: Allow
+                Resource: "*"
+        - PolicyName: NetworkingPermission
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Action:
+                  - "ec2:DescribeSubnets"
+                  - "ec2:DescribeVpcs"
+                  - "ec2:DescribeSecurityGroups"
+                  - "ec2:DescribeNetworkInterfaces"
+                  - "ec2:CreateNetworkInterface"
+                  - "ec2:DeleteNetworkInterface"
+                  - "ec2:AssignPrivateIpAddresses"
+                  - "ec2:UnassignPrivateIpAddresses"
+                Effect: Allow
+                Resource: "*"
+
+  OpenVpnEcsTaskMountTarget:
+    Type: AWS::EFS::MountTarget
+    Properties:
+      FileSystemId: !Ref OpenVpnEfsFileSystem
+      SubnetId: !Ref OpenVpnPublicSubnet
+      SecurityGroups:
+        - !Ref OpenVpnEcsSG
+
+  OpenVpnEcrRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Ref EcrRepositoryName
+      ImageScanningConfiguration:
+        scanOnPush: true
+
+  OpenVpnEcsCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Ref EcsClusterName
+      Tags:
+        Key: ServiceName
+        Value: vpn-server
+
+
+Outputs:
+  EcsTaskRoleArn:
+    Description: Role ARN for an ECS Task to create
+    Value: !GetAtt VpnServerEcsTaskRole.Arn
+  EcrRepositoryUrl:
+    Description: Url of the created ECR repository, where Docker images with VPN Server will be stored
+    Value: !GetAtt OpenVpnEcrRepository.RepositoryUri
+  SubnetId:
+    Description: ID of the Subnet, where an ECS Task will be launched.
+    Value: !GetAtt OpenVpnPublicSubnet.SubnetId
+  SecurityGroupId:
+    Description: ID of the Subgroup, which an ECS Task will be launched with.
+    Value: !GetAtt OpenVpnEcsSG.GroupId
+  EfsFileSystemId:
+    Description: ID of the EFS system to be attached to an ECS Task.
+    Value: !GetAtt OpenVpnEfsFileSystem.FileSystemId
+  EfsAccessPointId:
+    Description: ID of the Access Point to be associated with mounting volume of an ECS Task.
+    Value: !GetAtt OpenVpnAccessPoint.AccessPointId
