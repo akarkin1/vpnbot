@@ -7,7 +7,7 @@ on:
         description: 'AWS Region'
         required: true
       ecr-repository-name:
-        description: 'Name Of ECR Repository, where a Docker image with VPN Server will be stored'
+        description: 'Name Of ECR Repository, where Docker images of VPN Server are stored'
         required: true
         default: openvpn-server-ecr-repo
 
