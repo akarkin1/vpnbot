@@ -204,8 +204,6 @@ Resources:
     Type: AWS::ECR::Repository
     Properties:
       RepositoryName: !Ref EcrRepositoryName
-      ImageScanningConfiguration:
-        scanOnPush: true
 
   OpenVpnEcsCluster:
     Type: AWS::ECS::Cluster
