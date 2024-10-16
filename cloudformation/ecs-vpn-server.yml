@@ -147,6 +147,7 @@ Resources:
                   - "ecr:GetDownloadUrlForLayer"
                   - "ecr:BatchGetImage"
                   - "ecr:BatchCheckLayerAvailability"
+                  - "ecr:GetAuthorizationToken"
                 Resource: "*"
         - PolicyName: EFSPermission
           PolicyDocument:
