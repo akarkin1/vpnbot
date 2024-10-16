@@ -47,6 +47,8 @@ Resources:
     Properties:
       VpcId: !Ref OpenVpnVPC
       CidrBlock: 10.0.0.0/28 # 16 IP addresses
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
           Value: openvpn-server-public-sn
