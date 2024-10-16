@@ -46,7 +46,7 @@ Resources:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref OpenVpnVPC
-      CidrBlock: 10.0.0.0/28 # 16 IP addresses
+      CidrBlock: 10.0.0.16/28 # 16 IP addresses
       AvailabilityZone: !Select [ 0, !GetAZs '' ]
       MapPublicIpOnLaunch: true
       Tags:
