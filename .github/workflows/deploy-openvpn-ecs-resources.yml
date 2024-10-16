@@ -1,4 +1,4 @@
-name: Deploy OpenVPN Server ECS Resources
+name: Deploy ECS OpenVPN Server Resources
 
 on:
   workflow_dispatch:
