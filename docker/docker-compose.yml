@@ -1,4 +1,3 @@
-version: '2'
 services:
   openvpn:
     cap_add:
@@ -7,6 +6,7 @@ services:
       context: ./
       dockerfile: Dockerfile
     container_name: openvpn
+    tty: true
     ports:
       - "1194:1194/udp"
     environment:
@@ -14,7 +14,9 @@ services:
       OVPN_CLIENT_PASSWORD: P@ssw0rd
       CLIENTNAME: alex
       MAX_CONNECTION_WAIT_TIME_MIN: 5
+      USER_DATA_DIR: /home
 #    restart: always
     volumes:
       - ./openvpn-data/conf:/etc/openvpn
       - ./openvpn-data/logs:/var/log
+      - ./user-data-backup:/home

@@ -12,6 +12,10 @@ Parameters:
   EcrRepositoryName:
     Type: String
     Description: Name of the ECS Cluster to be hosting VPN Server tasks
+  EcsTaskDefinitionName:
+    Type: String
+    Description: Task Definition name
+    Default: openvpn-server-task-def
 
 
 Resources:
@@ -131,67 +135,6 @@ Resources:
           Permissions: '755'
         Path: '/vpn-server-userdata'
 
-  VpnServerEcsTaskRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: ecs-tasks.amazonaws.com
-            Action: sts:AssumeRole
-      Policies:
-        - PolicyName: ECRPullPolicy
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - "ecr:GetDownloadUrlForLayer"
-                  - "ecr:BatchGetImage"
-                  - "ecr:BatchCheckLayerAvailability"
-                  - "ecr:GetAuthorizationToken"
-                Resource: "*"
-        - PolicyName: EFSPermission
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - "elasticfilesystem:ClientMount"
-                  - "elasticfilesystem:ClientWrite"
-                  - "elasticfilesystem:ClientRootAccess"
-                  - "elasticfilesystem:DescribeFileSystems"
-                  - "elasticfilesystem:DescribeMountTargets"
-                  - "elasticfilesystem:DescribeAccessPoints"
-                Resource: "*"
-        - PolicyName: CWPermission
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Action:
-                  - "logs:CreateLogGroup"
-                  - "logs:CreateLogStream"
-                  - "logs:PutLogEvents"
-                Effect: Allow
-                Resource: "*"
-        - PolicyName: NetworkingPermission
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Action:
-                  - "ec2:DescribeSubnets"
-                  - "ec2:DescribeVpcs"
-                  - "ec2:DescribeSecurityGroups"
-                  - "ec2:DescribeNetworkInterfaces"
-                  - "ec2:CreateNetworkInterface"
-                  - "ec2:DeleteNetworkInterface"
-                  - "ec2:AssignPrivateIpAddresses"
-                  - "ec2:UnassignPrivateIpAddresses"
-                Effect: Allow
-                Resource: "*"
-
   OpenVpnEcsTaskMountTarget:
     Type: AWS::EFS::MountTarget
     Properties:
@@ -213,11 +156,185 @@ Resources:
         - Key: ServiceName
           Value: vpn-server
 
+  VpnServerEcsTaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+
+  VpnServerEcsTaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+
+  ECRPullPolicy:
+    DependsOn:
+      - VpnServerEcsTaskExecutionRole
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: ECRPullPolicy
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - "ecr:GetDownloadUrlForLayer"
+              - "ecr:BatchGetImage"
+              - "ecr:BatchCheckLayerAvailability"
+              - "ecr:GetAuthorizationToken"
+            Resource: '*'
+      Roles:
+        - !Ref VpnServerEcsTaskExecutionRole
+
+  EFSPermissionsPolicy:
+    DependsOn:
+      - VpnServerEcsTaskExecutionRole
+      - VpnServerEcsTaskRole
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: EFSPermissionsPolicy
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - "elasticfilesystem:ClientMount"
+              - "elasticfilesystem:ClientWrite"
+              - "elasticfilesystem:ClientRootAccess"
+              - "elasticfilesystem:DescribeFileSystems"
+              - "elasticfilesystem:DescribeMountTargets"
+              - "elasticfilesystem:DescribeAccessPoints"
+            Resource: '*'
+      Roles:
+        - !Ref VpnServerEcsTaskExecutionRole
+        - !Ref VpnServerEcsTaskRole
+
+  CWPermissionsPolicy:
+    DependsOn:
+      - VpnServerEcsTaskExecutionRole
+      - VpnServerEcsTaskRole
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: CWPermissionsPolicy
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - "logs:CreateLogGroup"
+              - "logs:CreateLogStream"
+              - "logs:PutLogEvents"
+            Resource: "*"
+      Roles:
+        - !Ref VpnServerEcsTaskExecutionRole
+        - !Ref VpnServerEcsTaskRole
+
+  NetworkingPermissionsPolicy:
+    DependsOn:
+      - VpnServerEcsTaskExecutionRole
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: NetworkingPermissionsPolicy
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - "ec2:DescribeSubnets"
+              - "ec2:DescribeVpcs"
+              - "ec2:DescribeSecurityGroups"
+              - "ec2:DescribeNetworkInterfaces"
+              - "ec2:CreateNetworkInterface"
+              - "ec2:DeleteNetworkInterface"
+              - "ec2:AssignPrivateIpAddresses"
+              - "ec2:UnassignPrivateIpAddresses"
+            Resource: "*"
+      Roles:
+        - !Ref VpnServerEcsTaskExecutionRole
+
+  MyECSTaskDefinition:
+    DependsOn:
+      - OpenVpnEcrRepository
+      - VpnServerEcsTaskExecutionRole
+      - VpnServerEcsTaskRole
+      - OpenVpnEfsFileSystem
+      - OpenVpnAccessPoint
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Ref EcsTaskDefinitionName
+      RequiresCompatibilities:
+        - FARGATE
+      Cpu: '512'
+      Memory: '1024'
+      NetworkMode: awsvpc
+      ExecutionRoleArn: !GetAtt VpnServerEcsTaskExecutionRole.Arn
+      TaskRoleArn: !GetAtt VpnServerEcsTaskRole.Arn
+      EphemeralStorage:
+        SizeInGiB: 20
+      ContainerDefinitions:
+        - Name: vpn-container
+          Essential: true
+          Image: !Join
+            - !GetAtt OpenVpnEcrRepository.RepositoryUri
+            - :latest
+          Memory: 1024
+          Cpu: 512
+          LinuxParameters:
+            InitProcessEnabled: true
+            Capabilities:
+              Add:
+                # allows to container modify network configurations
+                - NET_ADMIN
+          MountPoint:
+            - SourceVolume: 'UserDataEfsVolume'
+              ContainerPath: '/mnt/efs'
+          PortMappings:
+            # OpenVPN Port
+            - ContainerPort: 1194
+            # Port for EFS
+            - ContainerPort: 2049
+            # Other ports for VPN server, like port for Admin UI
+            - ContainerPort: 943
+            - ContainerPort: 945
+          Environment:
+            # flag indicates that a container run in ECS, so the init script can call Metadata URI
+            # to receive container's public IP
+            - Name: RUN_IN_ECS
+              Value: 1
+            - Name: MAX_CONNECTION_WAIT_TIME_MIN
+              Value: 5
+          Volumes:
+            - Name: 'UserDataEfsVolume'
+              EFSVolumeConfiguration:
+                FileSystemId: !GetAtt OpenVpnEfsFileSystem.FileSystemId
+                TransitEncryption: 'ENABLED'
+                RootDirectory: '/vpn-server-userdata'
+                AuthorizationConfig:
+                  AccessPointId: !GetAtt OpenVpnAccessPoint.AccessPointId
+      Tags:
+        - Key: Name
+          Value: !Ref EcsTaskDefinitionName
+        - Key: ServiceName
+          Value: openvpn-server
 
 Outputs:
   EcsTaskRoleArn:
     Description: Role ARN for an ECS Task to create
     Value: !GetAtt VpnServerEcsTaskRole.Arn
+  EcsTaskExecutionRoleArn:
+    Description: Role ARN for an ECS Task to create
+    Value: !GetAtt VpnServerEcsTaskExecutionRole.Arn
   EcrRepositoryUrl:
     Description: Url of the created ECR repository, where Docker images with VPN Server will be stored
     Value: !GetAtt OpenVpnEcrRepository.RepositoryUri

@@ -15,7 +15,7 @@ on:
         required: true
         default: openvpn-server-ecr-repo
       run-cfn-deploy:
-        description: 'Are CloudFormation resources need to be deployed?'
+        description: 'Do CloudFormation resources need to be deployed?'
         required: true
         default: yes
         type: choice
@@ -31,15 +31,17 @@ on:
           - yes
           - no
 
+env:
+  S3_CONFIG_DIR: ${{ vars.S3_CONFIG_DIR }}
+  S3_CONFIG_BUCKET_REGION: ${{ vars.CONFIG_S3_BUCKET_REGION }}
+  S3_SUPPORTED_REGIONS_FILE_NAME: ${{ vars.S3_SUPPORTED_REGIONS_FILE_NAME }}
+  S3_STACK_OUTPUTS_FILE_NAME: ${{ vars.S3_VPN_SERVER_STACK_OUTPUTS_FILE_NAME }}
+
 jobs:
   deploy-openvpn-server:
     name: Deploy CloudFormation stack with ECS resources for OpenVPN Server
     runs-on: ubuntu-latest
     steps:
-      - name: Debug Inputs
-        run: |
-          echo "Run Docker: ${{ github.event.inputs.run-docker == 'true' }}"
-          echo "Run CloudFormation Deploy: ${{ github.event.inputs.run-cfn-deploy == 'true' }}"
       - name: Checkout Source Code
         if: ${{ github.event.inputs.run-docker == 'true' || github.event.inputs.run-cfn-deploy == 'true' }}
         uses: actions/checkout@v4
@@ -59,13 +61,23 @@ jobs:
           template: cloudformation/ecs-vpn-server.yml
           no-fail-on-empty-changeset: "1"
           parameter-overrides: 'EcsClusterName=${{ github.event.inputs.cluster-name }},EcrRepositoryName=${{ github.event.inputs.repository-name }}'
-      - name: Get ECR Repository Url from created stack
-        id: get-ecr-repo-url
-        if: ${{ github.event.inputs.run-docker == 'true' }}
+      - name: Update Task Configuration In S3
+        id: upload-config-to-s3
+        if: ${{ github.event.inputs.run-cfn-deploy == 'true' }}
         run: |
-          echo "Stack Output Parameters: $(aws cloudformation describe-stacks --stack-name openvpn-ecs-resources-cfn --query 'Stacks[0].Outputs' --output json)"
-          ECR_REPO_URL=$(aws cloudformation describe-stacks --stack-name openvpn-ecs-resources-cfn --query 'Stacks[0].Outputs[?OutputKey==`EcrRepositoryUrl`].OutputValue' --output text)
-          echo "::set-output name=ecr_repo_url::$(echo ${ECR_REPO_URL})"
+          # Save CF Template outputs to S3
+          STACK_OUTPUTS=$(aws cloudformation describe-stacks --stack-name openvpn-ecs-resources-cfn --query 'Stacks[0].Outputs' --output json)"
+          echo $STACK_OUTPUTS >> ./stack-outputs.json
+          aws s3 cp ./stack-outputs.json ${{ env.S3_CONFIG_DIR }}/${{ env.S3_STACK_OUTPUTS_FILE_NAME }} --region ${{ env.S3_CONFIG_BUCKET_REGION }}
+          
+          # Update regions.txt
+          aws s3 cp ${{ env.S3_CONFIG_DIR }}/${{ env.S3_STACK_OUTPUTS_FILE_NAME }} ./regions.txt --region ${{ env.S3_CONFIG_BUCKET_REGION }}
+          # cp failed => file does not exist
+          if [ $? -ne 0 ]; then
+            touch ./regions.txt
+          fi
+          echo ${{ github.event.inputs.region }} >> ./regions.txt
+          aws s3 cp ./regions.txt ${{ env.S3_CONFIG_DIR }}/${{ env.S3_STACK_OUTPUTS_FILE_NAME }} --region ${{ env.S3_CONFIG_BUCKET_REGION }}
       - name: Login to Amazon ECR
         id: login-to-ecr
         if: ${{ github.event.inputs.run-docker == 'true' }}
@@ -74,9 +86,10 @@ jobs:
         id: build-image
         if: ${{ github.event.inputs.run-docker == 'true' }}
         env:
-          ECR_REPO_URL: ${{ steps.get-ecr-repo-url.outputs.ecr_repo_url }}
           ECR_REPOSITORY: ${{ github.event.inputs.repository-name }}
-          IMAGE_TAG: ${{ github.run_number }}
+          BUILD_TAG: ${{ github.run_number }}
         run: |
-          docker build -t $ECR_REPO_URL:$IMAGE_TAG ./docker/
-          docker push $ECR_REPO_URL:$IMAGE_TAG
+          ECR_REPO_URL=$(aws cloudformation describe-stacks --stack-name openvpn-ecs-resources-cfn --query 'Stacks[0].Outputs[?OutputKey==`EcrRepositoryUrl`].OutputValue' --output text)
+          docker build -t $ECR_REPO_URL:$BUILD_TAG -t $ECR_REPO_URL:latest ./docker/
+          docker push $ECR_REPO_URL:$BUILD_TAG
+          docker push $ECR_REPO_URL:latest

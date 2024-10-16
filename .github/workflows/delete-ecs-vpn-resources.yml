@@ -1,0 +1,42 @@
+name: Delete CloudFormation Stack
+
+on:
+  workflow_dispatch:
+    inputs:
+      region:
+        description: 'AWS Region'
+        required: true
+
+env:
+  S3_CONFIG_DIR: ${{ vars.S3_CONFIG_DIR }}
+  S3_SUPPORTED_REGIONS_FILE_NAME: ${{ vars.S3_SUPPORTED_REGIONS_FILE_NAME }}
+  S3_CONFIG_BUCKET_REGION: ${{ vars.CONFIG_S3_BUCKET_REGION }}
+  STACK_NAME: openvpn-ecs-resources-cfn
+
+jobs:
+  delete-cloudformation-stack:
+    name: Delete CloudFormation stack
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ github.event.inputs.region }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      - name: Delete CloudFormation Stack
+        run: |
+          aws cloudformation delete-stack --stack-name ${{ env.STACK_NAME }}
+      - name: Update regions.txt In S3
+        run: |
+          aws s3 cp ${{ env.S3_CONFIG_DIR }}/${{ env.S3_SUPPORTED_REGIONS_FILE_NAME }} ./regions.txt --region ${{ env.S3_CONFIG_BUCKET_REGION }}
+          if [ $? -ne 0 ]; then
+            echo "'${{ env.S3_SUPPORTED_REGIONS_FILE_NAME }}' does not exist in '${{ env.S3_CONFIG_DIR }}'. Skipping the step..."
+          else
+            grep -v "^${{ github.event.inputs.region }}$" ./regions.txt > ./regions-new.txt
+            aws s3 cp ./regions-new.txt ${{ env.S3_CONFIG_DIR }}/${{ env.S3_SUPPORTED_REGIONS_FILE_NAME }} --region ${{ env.S3_CONFIG_BUCKET_REGION }}
+            echo "Region '${{ github.event.inputs.region }}' has been removed from ${{ env.S3_SUPPORTED_REGIONS_FILE_NAME }}"
+            echo "Current list of supported regions:"
+            cat ./regions-new.txt
+            rm ./regions.txt regions-new.txt
+          fi

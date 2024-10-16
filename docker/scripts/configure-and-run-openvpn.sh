@@ -1,6 +1,37 @@
 #!/bin/sh
 
-# Parameters: RUN_IN_ECS, OVPN_CN, CLIENTNAME, OVPN_CLIENT_PASSWORD, MAX_CONNECTION_WAIT_TIME_MIN
+# Parameters: RUN_IN_ECS, OVPN_CN, CLIENTNAME, OVPN_CLIENT_PASSWORD, MAX_CONNECTION_WAIT_TIME_MIN, USER_DATA_DIR
+PID=$BASHPID
+echo "User data dir: $USER_DATA_DIR"
+
+# Try to restore user data from provided directory
+if [[ -n "${USER_DATA_DIR}" && -d "$USER_DATA_DIR" && "$( ls -A "$USER_DATA_DIR/" )" ]]; then
+  echo "Found a backup on User Data storage, restoring the data..."
+  cp -r "$USER_DATA_DIR/"* /etc/openvpn/
+fi
+
+# Back up data before container termination
+backup_userdata() {
+  echo "Terminating the server..."
+  if [[ -n "${USER_DATA_DIR}" ]]; then
+    echo "USER_DATA_DIR environment variable has been set, saving files to User Data storage: $USER_DATA_DIR"
+    if [[ ! -d "$USER_DATA_DIR" ]]; then
+      echo "Directory does not exist, creating the directory."
+      mkdir -p "$USER_DATA_DIR/"
+    elif [ $( ls -A "$USER_DATA_DIR/" ) ]; then
+      echo "Directory is not empty, cleaning up the directory."
+    fi
+    cp -r /etc/openvpn/* "$USER_DATA_DIR/"
+  else
+    echo "No user data found to back up."
+  fi
+  exit
+}
+
+# If we catch SIGTERM SIGINT, we need to save user data
+trap backup_userdata SIGTERM;
+trap backup_userdata SIGINT;
+echo "PID: $PID"
 
 # Configure the server, if required
 if [ -z "$( ls -A '/etc/openvpn' )" ]; then
@@ -26,6 +57,10 @@ fi
 
 unset OVPN_CLIENT_PASSWORD;
 
+if [ ! -e "/var/log/openvpn-status.log" ]; then
+  touch /var/log/openvpn-status.log
+fi
+
 ovpn_run --daemon --status /var/log/openvpn-status.log 55;
 
 minutes_waited_for_connection=0;
@@ -45,12 +80,13 @@ while [ 1 ]; do
     echo "The server will keep working as long as at least one connection is alive. Number of active connections: $ACTIVE_USERS.";
     minutes_waited_for_connection=0;
   else
-    echo "There is no active connections. The server will be terminated in $((5-minutes_waited_for_connection)) minutes ...";
+    echo "There is no active connections. The server will be terminated in $((MAX_CONNECTION_WAIT_TIME_MIN-minutes_waited_for_connection)) minutes ...";
     minutes_waited_for_connection=$((minutes_waited_for_connection + 1));
   fi
 
   if [ $minutes_waited_for_connection -gt $MAX_CONNECTION_WAIT_TIME_MIN ]; then
-    echo "There has been no connections for the last 5 minutes. Terminating the server due to inactivity";
+    echo "There has been no connections for the last $MAX_CONNECTION_WAIT_TIME_MIN minutes. Terminating the server due to inactivity";
+    backup_userdata
     exit 0;
   fi
 
