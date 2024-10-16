@@ -11,7 +11,7 @@ env:
   S3_CONFIG_DIR: ${{ vars.S3_CONFIG_DIR }}
   S3_SUPPORTED_REGIONS_FILE_NAME: ${{ vars.S3_SUPPORTED_REGIONS_FILE_NAME }}
   S3_CONFIG_BUCKET_REGION: ${{ vars.CONFIG_S3_BUCKET_REGION }}
-  STACK_NAME: openvpn-ecs-resources-cfn
+  STACK_NAME: ${{ vars.ECS_STACK_NAME }}
 
 jobs:
   delete-cloudformation-stack:
