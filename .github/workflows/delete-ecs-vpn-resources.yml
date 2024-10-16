@@ -6,6 +6,10 @@ on:
       region:
         description: 'AWS Region'
         required: true
+      ecr-repository-name:
+        description: 'Name Of ECR Repository, where a Docker image with VPN Server will be stored'
+        required: true
+        default: openvpn-server-ecr-repo
 
 env:
   S3_CONFIG_DIR: ${{ vars.S3_CONFIG_DIR }}
@@ -24,7 +28,15 @@ jobs:
           aws-region: ${{ github.event.inputs.region }}
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      # ToDo: add proper ECR deletion – it won't delete it when repo is not empty.
+      - name: Clean UP ECR Repository
+        if: ${{ github.event.inputs.ecr-repository-name != '' }}
+        run: |
+          aws ecr batch-delete-image --region ${{ github.event.inputs.region }} \
+              --repository-name ${{ github.event.inputs.ecr-repository-name }} \
+              --image-ids "$(aws ecr list-images --region ${{ github.event.inputs.region }} \
+              --repository-name ${{ github.event.inputs.ecr-repository-name }} \
+              --query 'imageIds[*]' --output json \
+          )" || true
       - name: Delete CloudFormation Stack
         run: |
           aws cloudformation delete-stack --stack-name ${{ env.STACK_NAME }}
