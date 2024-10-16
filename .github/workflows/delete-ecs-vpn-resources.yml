@@ -1,4 +1,4 @@
-name: Delete CloudFormation Stack
+name: Delete ECS VPN Server
 
 on:
   workflow_dispatch:
@@ -24,6 +24,7 @@ jobs:
           aws-region: ${{ github.event.inputs.region }}
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      # ToDo: add proper ECR deletion – it won't delete it when repo is not empty.
       - name: Delete CloudFormation Stack
         run: |
           aws cloudformation delete-stack --stack-name ${{ env.STACK_NAME }}
