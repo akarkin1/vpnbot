@@ -317,7 +317,6 @@ Resources:
           EFSVolumeConfiguration:
             FileSystemId: !GetAtt OpenVpnEfsFileSystem.FileSystemId
             TransitEncryption: 'ENABLED'
-            RootDirectory: '/vpn-server-userdata'
             AuthorizationConfig:
               AccessPointId: !GetAtt OpenVpnAccessPoint.AccessPointId
       Tags:
