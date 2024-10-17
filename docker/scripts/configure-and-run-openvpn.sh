@@ -1,7 +1,6 @@
 #!/bin/sh
-
 # Parameters: RUN_IN_ECS, OVPN_CN, CLIENTNAME, OVPN_CLIENT_PASSWORD, MAX_CONNECTION_WAIT_TIME_MIN, USER_DATA_DIR
-PID=$BASHPID
+
 echo "User data dir: $USER_DATA_DIR"
 first_run="1"
 
@@ -32,14 +31,19 @@ backup_userdata() {
   else
     echo "No user data found to back up."
   fi
+}
+
+terminate_gracefully() {
+  echo "Terminating the process..."
+  backup_userdata
   exit
 }
 
 # If we catch SIGTERM SIGINT, we need to save user data
-trap backup_userdata SIGTERM;
-trap backup_userdata SIGINT;
-echo "PID: $PID"
+trap terminate_gracefully SIGTERM;
+trap terminate_gracefully SIGINT;
 
+#Ensure that working directories are created
 mkdir -p /etc/openvpn
 mkdir -p /var/log
 
@@ -98,7 +102,7 @@ while [ 1 ]; do
 
   if [ $minutes_waited_for_connection -gt $MAX_CONNECTION_WAIT_TIME_MIN ]; then
     echo "There has been no connections for the last $MAX_CONNECTION_WAIT_TIME_MIN minutes. Terminating the server due to inactivity";
-    backup_userdata
+    terminate_gracefully
     exit 0;
   fi
 
