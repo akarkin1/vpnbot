@@ -294,10 +294,6 @@ Resources:
           Cpu: 512
           LinuxParameters:
             InitProcessEnabled: true
-#            Capabilities:
-#              Add:
-#                # allows to container modify network configurations
-#                - NET_ADMIN
           MountPoints:
             - SourceVolume: 'UserDataEfsVolume'
               ContainerPath: '/mnt/efs'

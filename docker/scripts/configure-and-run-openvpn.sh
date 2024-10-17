@@ -33,6 +33,9 @@ trap backup_userdata SIGTERM;
 trap backup_userdata SIGINT;
 echo "PID: $PID"
 
+mkdir -p /etc/openvpn
+mkdir -p /var/log
+
 # Configure the server, if required
 if [ -z "$( ls -A '/etc/openvpn' )" ]; then
   # Get Public IP of the ECS task
