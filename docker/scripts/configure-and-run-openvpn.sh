@@ -3,6 +3,7 @@
 # Parameters: RUN_IN_ECS, OVPN_CN, CLIENTNAME, OVPN_CLIENT_PASSWORD, MAX_CONNECTION_WAIT_TIME_MIN, USER_DATA_DIR
 PID=$BASHPID
 echo "User data dir: $USER_DATA_DIR"
+first_run="1"
 
 # Try to restore user data from provided directory
 if [[ -n "${USER_DATA_DIR}" && -d "$USER_DATA_DIR" ]]; then
@@ -10,6 +11,7 @@ if [[ -n "${USER_DATA_DIR}" && -d "$USER_DATA_DIR" ]]; then
   if [[ -n "$( ls -A "$USER_DATA_DIR/" )" ]]; then
     echo "The back up directory is not empty, restoring user data."
     cp -r "$USER_DATA_DIR/"* /etc/openvpn/
+    first_run="0"
   else
     echo "User data directory is empty, nothing to recover."
   fi
@@ -41,8 +43,7 @@ mkdir -p /etc/openvpn
 mkdir -p /var/log
 
 # Configure the server, if required
-echo "ls -A '/etc/openvpn': $( ls -A '/etc/openvpn' )"
-if [ -z "$( ls -A '/etc/openvpn' )" ]; then
+if [ "$first_run" = "1" ]; then
   # Get Public IP of the ECS task
   if  [ $RUN_IN_ECS ]; then
     PUBLIC_IP=$(curl $ECS_CONTAINER_METADATA_URI | jq '.Networks[0].IPv4Addresses[0]');
