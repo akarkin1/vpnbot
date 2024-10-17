@@ -263,7 +263,7 @@ Resources:
       Roles:
         - !Ref VpnServerEcsTaskExecutionRole
 
-  MyECSTaskDefinition:
+  OpenVpnEcsTaskDefinition:
     DependsOn:
       - OpenVpnEcrRepository
       - VpnServerEcsTaskExecutionRole
@@ -294,7 +294,7 @@ Resources:
               Add:
                 # allows to container modify network configurations
                 - NET_ADMIN
-          MountPoint:
+          MountPoints:
             - SourceVolume: 'UserDataEfsVolume'
               ContainerPath: '/mnt/efs'
           PortMappings:
@@ -328,14 +328,17 @@ Resources:
 
 Outputs:
   EcsTaskRoleArn:
-    Description: Role ARN for an ECS Task to create
+    Description: Role ARN for an ECS Task to create.
     Value: !GetAtt VpnServerEcsTaskRole.Arn
   EcsTaskExecutionRoleArn:
-    Description: Role ARN for an ECS Task to create
+    Description: Role ARN for an ECS Task to create.
     Value: !GetAtt VpnServerEcsTaskExecutionRole.Arn
   EcrRepositoryUrl:
-    Description: Url of the created ECR repository, where Docker images with VPN Server will be stored
+    Description: Url of the created ECR repository, where Docker images with VPN Server will be stored.
     Value: !GetAtt OpenVpnEcrRepository.RepositoryUri
+  EcsTaskDefinitionArn:
+    Description: Arn of created ECS Task Definition.
+    Value: !GetAtt OpenVpnEcsTaskDefinition.TaskDefinitionArn
   SubnetId:
     Description: ID of the Subnet, where an ECS Task will be launched.
     Value: !GetAtt OpenVpnPublicSubnet.SubnetId
