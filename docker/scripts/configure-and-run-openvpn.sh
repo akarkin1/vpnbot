@@ -17,7 +17,6 @@ fi
 
 # Back up data before container termination
 backup_userdata() {
-  echo "Terminating the server..."
   if [[ -n "${USER_DATA_DIR}" ]]; then
     echo "USER_DATA_DIR environment variable has been set, saving files to User Data storage: $USER_DATA_DIR"
     if [[ ! -d "$USER_DATA_DIR" ]]; then
@@ -42,6 +41,7 @@ mkdir -p /etc/openvpn
 mkdir -p /var/log
 
 # Configure the server, if required
+echo "ls -A '/etc/openvpn': $( ls -A '/etc/openvpn' )"
 if [ -z "$( ls -A '/etc/openvpn' )" ]; then
   # Get Public IP of the ECS task
   if  [ $RUN_IN_ECS ]; then
@@ -61,6 +61,7 @@ if [ -z "$( ls -A '/etc/openvpn' )" ]; then
   rm -rf ./passfile;
   # Generate client config
   ovpn_getclient $CLIENTNAME > /etc/openvpn/$CLIENTNAME.ovpn;
+  backup_userdata;
 fi
 
 unset OVPN_CLIENT_PASSWORD;
