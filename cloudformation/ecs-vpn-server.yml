@@ -280,8 +280,6 @@ Resources:
       NetworkMode: awsvpc
       ExecutionRoleArn: !GetAtt VpnServerEcsTaskExecutionRole.Arn
       TaskRoleArn: !GetAtt VpnServerEcsTaskRole.Arn
-      EphemeralStorage:
-        SizeInGiB: 20
       ContainerDefinitions:
         - Name: vpn-container
           Essential: true
