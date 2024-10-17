@@ -5,9 +5,14 @@ PID=$BASHPID
 echo "User data dir: $USER_DATA_DIR"
 
 # Try to restore user data from provided directory
-if [[ -n "${USER_DATA_DIR}" && -d "$USER_DATA_DIR" && "$( ls -A "$USER_DATA_DIR/" )" ]]; then
-  echo "Found a backup on User Data storage, restoring the data..."
-  cp -r "$USER_DATA_DIR/"* /etc/openvpn/
+if [[ -n "${USER_DATA_DIR}" && -d "$USER_DATA_DIR" ]]; then
+  echo "Found a backup on User Data storage."
+  if [[ -n "$( ls -A "$USER_DATA_DIR/" )" ]]; then
+    echo "The back up directory is not empty, restoring user data."
+    cp -r "$USER_DATA_DIR/"* /etc/openvpn/
+  else
+    echo "User data directory is empty, nothing to recover."
+  fi
 fi
 
 # Back up data before container termination
