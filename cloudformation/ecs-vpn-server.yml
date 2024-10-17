@@ -285,9 +285,7 @@ Resources:
       ContainerDefinitions:
         - Name: vpn-container
           Essential: true
-          Image: !Join
-            - !GetAtt OpenVpnEcrRepository.RepositoryUri
-            - :latest
+          Image: !Join [':', [!GetAtt OpenVpnEcrRepository.RepositoryUri, 'latest']]
           Memory: 1024
           Cpu: 512
           LinuxParameters:
