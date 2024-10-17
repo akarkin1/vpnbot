@@ -3,6 +3,8 @@
 
 echo "User data dir: $USER_DATA_DIR"
 first_run="1"
+echo "Debug Metadata API response: $(curl -s ${ECS_CONTAINER_METADATA_URI_V4})"
+
 
 # Try to restore user data from provided directory
 if [[ -n "${USER_DATA_DIR}" && -d "$USER_DATA_DIR" ]]; then
