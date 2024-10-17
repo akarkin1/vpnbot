@@ -263,6 +263,25 @@ Resources:
       Roles:
         - !Ref VpnServerEcsTaskExecutionRole
 
+  AllowContainerMetadataAccess:
+    DependsOn:
+      - VpnServerEcsTaskRole
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: ContainerMetadataAccessPolicy
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - 'ecs:DescribeTasks'
+              - 'ecs:ListClusters'
+              - 'ecs:ListTasks'
+              - 'ecs:DescribeClusters'
+            Resource: "*"
+      Roles:
+        - !Ref VpnServerEcsTaskRole
+
   OpenVpnEcsTaskLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:

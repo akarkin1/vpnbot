@@ -13,7 +13,7 @@ if [[ -n "${USER_DATA_DIR}" && -d "$USER_DATA_DIR" ]]; then
     cp -r "$USER_DATA_DIR/"* /etc/openvpn/
     first_run="0"
   else
-    echo "User data directory is empty, nothing to recover."
+    echo "User data directory is empty, nothing to restore."
   fi
 fi
 
@@ -46,11 +46,11 @@ mkdir -p /var/log
 if [ "$first_run" = "1" ]; then
   # Get Public IP of the ECS task
   if  [ $RUN_IN_ECS ]; then
-    PUBLIC_IP=$(curl $ECS_CONTAINER_METADATA_URI | jq '.Networks[0].IPv4Addresses[0]');
+    PUBLIC_IP=$(curl -s ${ECS_CONTAINER_METADATA_URI_V4} | jq -r '.Networks[0].IPv4Addresses[0]');
   else
     PUBLIC_IP="127.0.0.1";
   fi
-
+  echo "Public IP: $PUBLIC_IP"
   # Generate Server config
   ovpn_genconfig -u udp://$PUBLIC_IP;
   # Generate server certificates
@@ -62,6 +62,7 @@ if [ "$first_run" = "1" ]; then
   rm -rf ./passfile;
   # Generate client config
   ovpn_getclient $CLIENTNAME > /etc/openvpn/$CLIENTNAME.ovpn;
+  # we need to make a backup, so the lambda would be able to get client config file
   backup_userdata;
 fi
 
