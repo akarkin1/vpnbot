@@ -263,6 +263,12 @@ Resources:
       Roles:
         - !Ref VpnServerEcsTaskExecutionRole
 
+  OpenVpnEcsTaskLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /ecs/openvpn-server-task-def-lg
+      RetentionInDays: 7
+
   OpenVpnEcsTaskDefinition:
     DependsOn:
       - OpenVpnEcrRepository
@@ -306,7 +312,7 @@ Resources:
           LogConfiguration:
             LogDriver: awslogs
             Options:
-              awslogs-group: /ecs/openvpn-server-task-def-lg
+              awslogs-group: !Ref OpenVpnEcsTaskLogGroup
               awslogs-region: !Ref AWS::Region
               awslogs-stream-prefix: openvpn-server-task
           Environment:
