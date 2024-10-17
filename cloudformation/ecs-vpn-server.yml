@@ -312,14 +312,14 @@ Resources:
               Value: 1
             - Name: MAX_CONNECTION_WAIT_TIME_MIN
               Value: 5
-          Volumes:
-            - Name: 'UserDataEfsVolume'
-              EFSVolumeConfiguration:
-                FileSystemId: !GetAtt OpenVpnEfsFileSystem.FileSystemId
-                TransitEncryption: 'ENABLED'
-                RootDirectory: '/vpn-server-userdata'
-                AuthorizationConfig:
-                  AccessPointId: !GetAtt OpenVpnAccessPoint.AccessPointId
+      Volumes:
+        - Name: 'UserDataEfsVolume'
+          EFSVolumeConfiguration:
+            FileSystemId: !GetAtt OpenVpnEfsFileSystem.FileSystemId
+            TransitEncryption: 'ENABLED'
+            RootDirectory: '/vpn-server-userdata'
+            AuthorizationConfig:
+              AccessPointId: !GetAtt OpenVpnAccessPoint.AccessPointId
       Tags:
         - Key: Name
           Value: !Ref EcsTaskDefinitionName
