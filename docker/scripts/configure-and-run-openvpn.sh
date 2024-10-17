@@ -28,6 +28,7 @@ backup_userdata() {
       echo "Directory is not empty, cleaning up the directory."
     fi
     cp -r /etc/openvpn/* "$USER_DATA_DIR/"
+    echo "Backup saved successfully."
   else
     echo "No user data found to back up."
   fi
@@ -52,7 +53,7 @@ if [ "$first_run" = "1" ]; then
   fi
   echo "Public IP: $PUBLIC_IP"
   # Generate Server config
-  ovpn_genconfig -u udp://$PUBLIC_IP;
+  ovpn_genconfig -u udp://$PUBLIC_IP -d;
   # Generate server certificates
   (echo $OVPN_CN) | ovpn_initpki nopass;
    echo $OVPN_CLIENT_PASSWORD > ./passfile;
