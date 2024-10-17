@@ -32,10 +32,13 @@ on:
           - no
 
 env:
+  S3_CONFIG_BUCKET_NAME: ${{ vars.S3_CONFIG_BUCKET_NAME }}
   S3_CONFIG_DIR: ${{ vars.S3_CONFIG_DIR }}
-  S3_CONFIG_BUCKET_REGION: ${{ vars.CONFIG_S3_BUCKET_REGION }}
   S3_SUPPORTED_REGIONS_FILE_NAME: ${{ vars.S3_SUPPORTED_REGIONS_FILE_NAME }}
+  S3_CONFIG_REGIONS_FILE_URL: s3://${{ vars.S3_CONFIG_BUCKET_NAME }}/${{ vars.S3_CONFIG_DIR }}/${{ vars.S3_SUPPORTED_REGIONS_FILE_NAME }}
+  S3_CONFIG_BUCKET_REGION: ${{ vars.CONFIG_S3_BUCKET_REGION }}
   S3_STACK_OUTPUTS_FILE_NAME: ${{ vars.S3_VPN_SERVER_STACK_OUTPUTS_FILE_NAME }}
+  S3_STACK_OUTPUTS_FILE_URL: s3://${{ vars.S3_CONFIG_BUCKET_NAME }}/${{ vars.S3_CONFIG_DIR }}/${{ vars.S3_VPN_SERVER_STACK_OUTPUTS_FILE_NAME }}
   STACK_NAME: ${{ vars.ECS_STACK_NAME }}
 
 jobs:
@@ -68,17 +71,17 @@ jobs:
         run: |
           # Save CF Template outputs to S3
           STACK_OUTPUTS=$(aws cloudformation describe-stacks --stack-name ${{ env.STACK_NAME }} --query 'Stacks[0].Outputs' --output json)"
-          echo $STACK_OUTPUTS >> ./stack-outputs.json
-          aws s3 cp ./stack-outputs.json ${{ env.S3_CONFIG_DIR }}/${{ env.S3_STACK_OUTPUTS_FILE_NAME }} --region ${{ env.S3_CONFIG_BUCKET_REGION }}
+          echo $STACK_OUTPUTS > ./stack-outputs.json
+          aws s3 cp ./stack-outputs.json ${{ env.S3_STACK_OUTPUTS_FILE_URL }} --region ${{ env.S3_CONFIG_BUCKET_REGION }}
           
           # Update regions.txt
-          aws s3 cp ${{ env.S3_CONFIG_DIR }}/${{ env.S3_STACK_OUTPUTS_FILE_NAME }} ./regions.txt --region ${{ env.S3_CONFIG_BUCKET_REGION }}
-          # cp failed => file does not exist
-          if [ $? -ne 0 ]; then
+          if [ -z $(aws s3api head-object --bucket "${{ env.S3_CONFIG_BUCKET_NAME }}" --key "${{ env.S3_CONFIG_DIR }}/${{ env.S3_SUPPORTED_REGIONS_FILE_NAME }}" >/dev/null 2>&1;) ]; then
             touch ./regions.txt
+          else
+            aws s3 cp ${{ env.S3_CONFIG_REGIONS_FILE_URL }} ./regions.txt --region ${{ env.S3_CONFIG_BUCKET_REGION }}
           fi
           echo ${{ github.event.inputs.region }} >> ./regions.txt
-          aws s3 cp ./regions.txt ${{ env.S3_CONFIG_DIR }}/${{ env.S3_STACK_OUTPUTS_FILE_NAME }} --region ${{ env.S3_CONFIG_BUCKET_REGION }}
+          aws s3 cp ./regions.txt ${{ env.S3_CONFIG_REGIONS_FILE_URL }} --region ${{ env.S3_CONFIG_BUCKET_REGION }}
       - name: Login to Amazon ECR
         id: login-to-ecr
         if: ${{ github.event.inputs.run-docker == 'true' }}

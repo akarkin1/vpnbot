@@ -12,8 +12,10 @@ on:
         default: openvpn-server-ecr-repo
 
 env:
+  S3_CONFIG_BUCKET_NAME: ${{ vars.S3_CONFIG_BUCKET_NAME }}
   S3_CONFIG_DIR: ${{ vars.S3_CONFIG_DIR }}
   S3_SUPPORTED_REGIONS_FILE_NAME: ${{ vars.S3_SUPPORTED_REGIONS_FILE_NAME }}
+  S3_CONFIG_REGIONS_FILE_URL: s3://${{ vars.S3_CONFIG_BUCKET_NAME }}/${{ vars.S3_CONFIG_DIR }}/${{ vars.S3_SUPPORTED_REGIONS_FILE_NAME }}
   S3_CONFIG_BUCKET_REGION: ${{ vars.CONFIG_S3_BUCKET_REGION }}
   STACK_NAME: ${{ vars.ECS_STACK_NAME }}
 
@@ -40,14 +42,14 @@ jobs:
       - name: Delete CloudFormation Stack
         run: |
           aws cloudformation delete-stack --stack-name ${{ env.STACK_NAME }}
-      - name: Update regions.txt In S3
+      - name: Update ${{ env.S3_SUPPORTED_REGIONS_FILE_NAME }} In S3
         run: |
-          aws s3 cp ${{ env.S3_CONFIG_DIR }}/${{ env.S3_SUPPORTED_REGIONS_FILE_NAME }} ./regions.txt --region ${{ env.S3_CONFIG_BUCKET_REGION }}
-          if [ $? -ne 0 ]; then
-            echo "'${{ env.S3_SUPPORTED_REGIONS_FILE_NAME }}' does not exist in '${{ env.S3_CONFIG_DIR }}'. Skipping the step..."
+          if [ -z $(aws s3api head-object --bucket "${{ env.S3_CONFIG_BUCKET_NAME }}" --key "${{ env.S3_CONFIG_DIR }}/${{ env.S3_SUPPORTED_REGIONS_FILE_NAME }}" >/dev/null 2>&1;) ]; then
+            echo "File '${{ env.S3_CONFIG_REGIONS_FILE_URL }}' does not exist. Skipping the step..."
           else
+            aws s3 cp ${{ env.S3_CONFIG_REGIONS_FILE_URL }} ./regions.txt --region ${{ env.S3_CONFIG_BUCKET_REGION }}
             grep -v "^${{ github.event.inputs.region }}$" ./regions.txt > ./regions-new.txt
-            aws s3 cp ./regions-new.txt ${{ env.S3_CONFIG_DIR }}/${{ env.S3_SUPPORTED_REGIONS_FILE_NAME }} --region ${{ env.S3_CONFIG_BUCKET_REGION }}
+            aws s3 cp ./regions-new.txt ${{ env.S3_CONFIG_REGIONS_FILE_URL }} --region ${{ env.S3_CONFIG_BUCKET_REGION }}
             echo "Region '${{ github.event.inputs.region }}' has been removed from ${{ env.S3_SUPPORTED_REGIONS_FILE_NAME }}"
             echo "Current list of supported regions:"
             cat ./regions-new.txt
