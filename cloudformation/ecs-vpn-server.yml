@@ -303,6 +303,12 @@ Resources:
             # Other ports for VPN server, like port for Admin UI
             - ContainerPort: 943
             - ContainerPort: 945
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: /ecs/openvpn-server-task-def-lg
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: openvpn-server-task
           Environment:
             # flag indicates that a container run in ECS, so the init script can call Metadata URI
             # to receive container's public IP
