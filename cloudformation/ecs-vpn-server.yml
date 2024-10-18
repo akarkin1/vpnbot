@@ -24,6 +24,14 @@ Parameters:
     Type: String
     Description: Task Definition name
     Default: openvpn-server-task-def
+  EcsTaskDanteUsername:
+    Type: String
+    Description: Username to be used to connect to Dante Proxy via which VPN connection goes
+    Default: openvpn-user
+  EcsTaskDantePasswordSecret:
+    Type: String
+    Description: SSM Secret where password to Dante Proxy will be stored required for establish client connection to VPN
+    NoEcho: true
 
 
 Resources:
@@ -116,6 +124,10 @@ Resources:
         - IpProtocol: tcp
           FromPort: 945
           ToPort: 945
+          CidrIp: !Ref ClientIPCIDR
+        - IpProtocol: tcp
+          FromPort: 1080
+          ToPort: 1080
           CidrIp: !Ref ClientIPCIDR
       SecurityGroupEgress:
         - Description: Allow all outbound traffic
@@ -327,6 +339,11 @@ Resources:
           PortMappings:
             # OpenVPN Port
             - ContainerPort: 1194
+              Protocol: tcp
+            - ContainerPort: 1194
+              Protocol: udp
+            - ContainerPort: 1080
+              Protocol: tcp
             # Port for EFS
             - ContainerPort: 2049
             # Other ports for VPN server, like port for Admin UI
@@ -349,6 +366,10 @@ Resources:
               Value: !Ref VpcCidrBlock
             - Name: AWS_DNS_SERVER_IP
               Value: !Ref AwsDnsAddressInSubnet
+            - Name: DANTE_PROXY_USERNAME
+              Value: !Ref EcsTaskDanteUsername
+            - Name: DANTE_PROXY_PASSWORD
+              Value: !Sub "{{resolve:secretsmanager:${EcsTaskDantePasswordSecret}}}"
       Volumes:
         - Name: 'UserDataEfsVolume'
           EFSVolumeConfiguration:

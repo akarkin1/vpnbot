@@ -1,12 +1,9 @@
 #!/bin/sh
-# Parameters: RUN_IN_ECS, OVPN_CN, CLIENTNAME, OVPN_CLIENT_PASSWORD, MAX_CONNECTION_WAIT_TIME_MIN, USER_DATA_DIR, SUBNET_CIDR, AWS_DNS_SERVER_IP
+# Parameters: RUN_IN_ECS, OVPN_CN, CLIENTNAME, OVPN_CLIENT_PASSWORD, MAX_CONNECTION_WAIT_TIME_MIN,
+# USER_DATA_DIR, SUBNET_CIDR, AWS_DNS_SERVER_IP, DANTE_PROXY_USERNAME, DANTE_PROXY_PASSWORD
 
 echo "User data dir: $USER_DATA_DIR"
 first_run="1"
-
-# Networking configuration to make VPN Server work
-echo 1 > /proc/sys/net/ipv4/ip_forward;
-iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE;
 
 # Try to restore user data from provided directory
 if [[ -n "${USER_DATA_DIR}" && -d "$USER_DATA_DIR" ]]; then
@@ -61,7 +58,12 @@ if [ "$first_run" = "1" ]; then
   fi
   echo "Public IP: $PUBLIC_IP"
   # Generate Server config
-  ovpn_genconfig -u udp://$PUBLIC_IP -d -D -s $SUBNET_CIDR -p "redirect-gateway def1 bypass-dhcp" -p "dhcp-option DNS $AWS_DNS_SERVER_IP";
+  ovpn_genconfig -u udp://$PUBLIC_IP -d -D -s $SUBNET_CIDR \
+    -p "redirect-gateway def1 bypass-dhcp" \
+    -p "dhcp-option DNS $AWS_DNS_SERVER_IP" \
+    -E "socks-proxy-retry" \
+    -E "socks-proxy $PUBLIC_IP 1080 $DANTE_PROXY_PASSWORD $DANTE_PROXY_USERNAME" \
+
   # Generate server certificates
   (echo $OVPN_CN) | ovpn_initpki nopass;
    echo $OVPN_CLIENT_PASSWORD > ./passfile;
@@ -81,6 +83,8 @@ if [ ! -e "/var/log/openvpn-status.log" ]; then
   touch /var/log/openvpn-status.log
 fi
 
+# Run Socks5 Proxy Server (Dante)
+danted -f /etc/danted.conf;
 ovpn_run --daemon --status /var/log/openvpn-status.log 55;
 
 minutes_waited_for_connection=0;
