@@ -19,7 +19,7 @@ RUN python3 -m ensurepip
 RUN pip3 install --no-cache --upgrade pip setuptools
 RUN pip3 install boto3 botocore
 # install Dante SOCKS5 proxy
-RUN apk add --no-cache add dante-server
+RUN apk add --no-cache dante-server
 
 RUN touch /var/log/openvpn-status.log
 RUN useradd -m -s /bin/bash $DANTE_PROXY_USERNAME && echo "$DANTE_PROXY_USERNAME:$DANTE_PROXY_PASSWORD" | chpasswd
