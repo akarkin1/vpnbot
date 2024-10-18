@@ -114,7 +114,7 @@ jobs:
            docker build \
             -t $ECR_REPO_URL:$BUILD_TAG \
             -t $ECR_REPO_URL:latest \
-            --build-arg DANTE_USERNAME=${{ env.DANTE_SERVER_USERNAME }} \
+            --build-arg DANTE_PROXY_USERNAME=${{ env.DANTE_SERVER_USERNAME }} \
             --build-arg DANTE_PROXY_PASSWORD=${{ steps.ssm-upload.outputs.dante_proxy_password }} \
             ./docker/;
           docker push $ECR_REPO_URL:$BUILD_TAG
