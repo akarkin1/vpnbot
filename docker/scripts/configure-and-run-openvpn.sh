@@ -3,8 +3,10 @@
 
 echo "User data dir: $USER_DATA_DIR"
 first_run="1"
-echo "Debug Metadata API response: $(curl -s ${ECS_CONTAINER_METADATA_URI_V4})"
 
+# Networking configuration to make VPN Server work
+echo 1 > /proc/sys/net/ipv4/ip_forward;
+iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE;
 
 # Try to restore user data from provided directory
 if [[ -n "${USER_DATA_DIR}" && -d "$USER_DATA_DIR" ]]; then

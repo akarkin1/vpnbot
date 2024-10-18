@@ -150,7 +150,7 @@ Resources:
       NetworkInterfaceId: !Ref OpenVpnNetworkInterface
 
   EC2OpenVPNInstance:
-    Type: "AWS::EC2::Instance"
+    Type: AWS::EC2::Instance
     Properties:
       ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", 'ec2ami']
       InstanceType: t2.micro
