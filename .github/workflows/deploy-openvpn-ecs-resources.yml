@@ -58,8 +58,8 @@ jobs:
           aws-region: ${{ github.event.inputs.region }}
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      - name: Upload secrets to Secret Manager
-        if: ${{ github.event.inputs.run-cfn-deploy == 'true' }}
+      - name: Load user password for Dante Proxy
+        if: ${{ github.event.inputs.run-docker == 'true' || github.event.inputs.run-cfn-deploy == 'true' }}
         id: ssm-upload
         run: |
           # Generate and save Dante Proxy user's password to SSM
