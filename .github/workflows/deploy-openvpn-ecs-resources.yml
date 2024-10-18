@@ -63,9 +63,14 @@ jobs:
         id: ssm-upload
         run: |
           # Generate and save Dante Proxy user's password to SSM
-           DANTE_PROXY_PASSWORD=$(openssl rand -base64 24);
-           echo "::add-mask::$DANTE_PROXY_PASSWORD";
-           aws secretsmanager create-secret --name ${{ env.DANTE_SSM_PASSWORD_PARAM_NAME }} --secret-string "$DANTE_PROXY_PASSWORD";
+           if [ $(aws secretsmanager describe-secret --secret-id "${{ env.DANTE_SSM_PASSWORD_PARAM_NAME }}" >/dev/null 2>&1; echo $?) = 0 ]; then
+             DANTE_PROXY_PASSWORD=$(aws secretsmanager get-secret-value --secret-id "${{ env.DANTE_SSM_PASSWORD_PARAM_NAME }}" --query SecretString --output text)
+             echo "::add-mask::$DANTE_PROXY_PASSWORD";
+           else
+             DANTE_PROXY_PASSWORD=$(openssl rand -base64 24);
+             echo "::add-mask::$DANTE_PROXY_PASSWORD";
+             aws secretsmanager create-secret --name ${{ env.DANTE_SSM_PASSWORD_PARAM_NAME }} --secret-string "$DANTE_PROXY_PASSWORD";
+           fi
            echo "::set-output name=dante_proxy_password::$(echo ${DANTE_PROXY_PASSWORD})"
       - name: Deploy Cloud Formation Stack
         id: deploy-cfn-stack
