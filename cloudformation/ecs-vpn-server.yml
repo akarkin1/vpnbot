@@ -6,6 +6,14 @@ Parameters:
     Type: String
     Default: 0.0.0.0/0
     Description: CIDR IP to be granted access by the SG, use 0.0.0.0/0 to accept all IPs
+  VpcCidrBlock:
+    Type: String
+    Default: 10.1.0.0/28
+    Description: CIDR IP to be granted access by the SG, use 0.0.0.0/0 to accept all IPs
+  AwsDnsAddressInSubnet:
+    Type: String
+    Default: 10.1.0.2
+    Description: CIDR IP to be granted access by the SG, use 0.0.0.0/0 to accept all IPs
   EcsClusterName:
     Type: String
     Description: Name of the ECS Cluster to be hosting VPN Server tasks
@@ -22,7 +30,7 @@ Resources:
   OpenVpnVPC:
     Type: AWS::EC2::VPC
     Properties:
-      CidrBlock: 10.1.0.0/28 # 16 Ip Addresses
+      CidrBlock: !Ref VpcCidrBlock
       EnableDnsSupport: true
       EnableDnsHostnames: true
       Tags:
@@ -50,7 +58,7 @@ Resources:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref OpenVpnVPC
-      CidrBlock: 10.1.0.0/28 # 16 IP addresses
+      CidrBlock: !Ref VpcCidrBlock
       AvailabilityZone: !Select [ 0, !GetAZs '' ]
       MapPublicIpOnLaunch: true
       Tags:
@@ -334,9 +342,13 @@ Resources:
             # flag indicates that a container run in ECS, so the init script can call Metadata URI
             # to receive container's public IP
             - Name: RUN_IN_ECS
-              Value: 1
+              Value: '1'
             - Name: MAX_CONNECTION_WAIT_TIME_MIN
-              Value: 5
+              Value: '5'
+            - Name: SUBNET_CIDR
+              Value: !Ref VpcCidrBlock
+            - Name: AWS_DNS_SERVER_IP
+              Value: !Ref AwsDnsAddressInSubnet
       Volumes:
         - Name: 'UserDataEfsVolume'
           EFSVolumeConfiguration:

@@ -1,5 +1,5 @@
 #!/bin/sh
-# Parameters: RUN_IN_ECS, OVPN_CN, CLIENTNAME, OVPN_CLIENT_PASSWORD, MAX_CONNECTION_WAIT_TIME_MIN, USER_DATA_DIR
+# Parameters: RUN_IN_ECS, OVPN_CN, CLIENTNAME, OVPN_CLIENT_PASSWORD, MAX_CONNECTION_WAIT_TIME_MIN, USER_DATA_DIR, SUBNET_CIDR, AWS_DNS_SERVER_IP
 
 echo "User data dir: $USER_DATA_DIR"
 first_run="1"
@@ -59,7 +59,7 @@ if [ "$first_run" = "1" ]; then
   fi
   echo "Public IP: $PUBLIC_IP"
   # Generate Server config
-  ovpn_genconfig -u udp://$PUBLIC_IP -d;
+  ovpn_genconfig -u udp://$PUBLIC_IP -d -D -s $SUBNET_CIDR -p "redirect-gateway def1 bypass-dhcp" -p "dhcp-option DNS $AWS_DNS_SERVER_IP";
   # Generate server certificates
   (echo $OVPN_CN) | ovpn_initpki nopass;
    echo $OVPN_CLIENT_PASSWORD > ./passfile;
