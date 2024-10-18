@@ -40,7 +40,7 @@ env:
   S3_STACK_OUTPUTS_FILE_NAME: ${{ vars.S3_VPN_SERVER_STACK_OUTPUTS_FILE_NAME }}
   S3_STACK_OUTPUTS_FILE_URL: s3://${{ vars.S3_CONFIG_BUCKET_NAME }}/${{ vars.S3_CONFIG_DIR }}/${{ vars.S3_VPN_SERVER_STACK_OUTPUTS_FILE_NAME }}
   STACK_NAME: ${{ vars.ECS_STACK_NAME }}
-  DANTE_SERVER_USERNAME: ${{ vars.DANTE_SERVER_USERNAME }}
+  DANTE_SERVER_USERNAME: ${{ secrets.DANTE_SERVER_USERNAME }}
   DANTE_SSM_PASSWORD_PARAM_NAME: ${{ vars.DANTE_SERVER_PASSWORD_SSM }}
 
 jobs:
@@ -60,9 +60,13 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       - name: Upload secrets to Secret Manager
         if: ${{ github.event.inputs.run-cfn-deploy == 'true' }}
+        id: ssm-upload
         run: |
-          # Generate and save Dante Proxy user password to SSM
-           aws secretsmanager create-secret --name ${{ env.DANTE_SSM_PASSWORD_PARAM_NAME }} --secret-string "$(openssl rand -base64 24)"
+          # Generate and save Dante Proxy user's password to SSM
+           DANTE_PROXY_PASSWORD=$(openssl rand -base64 24);
+           echo "::add-mask::$DANTE_PROXY_PASSWORD";
+           aws secretsmanager create-secret --name ${{ env.DANTE_SSM_PASSWORD_PARAM_NAME }} --secret-string "$DANTE_PROXY_PASSWORD";
+           echo "::set-output name=dante_proxy_password::$(echo ${DANTE_PROXY_PASSWORD})"
       - name: Deploy Cloud Formation Stack
         id: deploy-cfn-stack
         if: ${{ github.event.inputs.run-cfn-deploy == 'true' }}
@@ -102,11 +106,11 @@ jobs:
           BUILD_TAG: ${{ github.run_number }}
         run: |
           ECR_REPO_URL=$(aws cloudformation describe-stacks --stack-name ${{ env.STACK_NAME }} --query 'Stacks[0].Outputs[?OutputKey==`EcrRepositoryUrl`].OutputValue' --output text)
-          docker build \
+           docker build \
             -t $ECR_REPO_URL:$BUILD_TAG \
             -t $ECR_REPO_URL:latest \
             --build-arg DANTE_USERNAME=${{ env.DANTE_SERVER_USERNAME }} \
-            --build-arg DANTE_PROXY_PASSWORD=${{ secrets.DANTE_SERVER_PASSWORD }} \
+            --build-arg DANTE_PROXY_PASSWORD=${{ steps.ssm-upload.outputs.dante_proxy_password }} \
             ./docker/;
           docker push $ECR_REPO_URL:$BUILD_TAG
           docker push $ECR_REPO_URL:latest
