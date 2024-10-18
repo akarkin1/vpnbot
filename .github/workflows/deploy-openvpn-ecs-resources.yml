@@ -75,7 +75,7 @@ jobs:
           name: ${{ env.STACK_NAME }}
           template: cloudformation/ecs-vpn-server.yml
           no-fail-on-empty-changeset: "1"
-          parameter-overrides: 'EcsClusterName=${{ github.event.inputs.cluster-name }},EcrRepositoryName=${{ github.event.inputs.repository-name }},EcsTaskDantePasswordSecret=${{ vars.DANTE_SSM_PASSWORD_PARAM_NAME }}'
+          parameter-overrides: 'EcsClusterName=${{ github.event.inputs.cluster-name }},EcrRepositoryName=${{ github.event.inputs.repository-name }},EcsTaskDantePasswordSecret=${{ env.DANTE_SSM_PASSWORD_PARAM_NAME }}'
       - name: Update Task Configuration In S3
         id: upload-config-to-s3
         if: ${{ github.event.inputs.run-cfn-deploy == 'true' }}
