@@ -22,6 +22,6 @@ RUN pip3 install boto3 botocore
 RUN apk add --no-cache dante-server
 
 RUN touch /var/log/openvpn-status.log
-RUN useradd -m -s /bin/bash $DANTE_PROXY_USERNAME && echo "$DANTE_PROXY_USERNAME:$DANTE_PROXY_PASSWORD" | chpasswd
+RUN adduser -m -s /bin/bash $DANTE_PROXY_USERNAME && echo "$DANTE_PROXY_USERNAME:$DANTE_PROXY_PASSWORD" | chpasswd
 
 CMD /usr/local/bin/configure-and-run-openvpn.sh
