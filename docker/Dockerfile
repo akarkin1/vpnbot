@@ -9,7 +9,7 @@ ADD ./conf/danted.conf /etc/
 RUN chmod a+x /usr/local/bin/*
 # install Dante SOCKS5 proxy
 RUN apk add --no-cache dante-server
-RUN adduser -H -s /bin/bash $DANTE_PROXY_USERNAME && echo "$DANTE_PROXY_USERNAME:$DANTE_PROXY_PASSWORD" | chpasswd
+RUN adduser -H -D -s /bin/bash $DANTE_PROXY_USERNAME && echo "$DANTE_PROXY_USERNAME:$DANTE_PROXY_PASSWORD" | chpasswd
 
 # Additional components
 RUN wget https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 && \
