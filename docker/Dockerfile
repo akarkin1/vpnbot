@@ -1,6 +1,6 @@
 FROM kylemanna/openvpn
 
-ARG DANTE_USER_NAME
+ARG DANTE_PROXY_USERNAME
 ARG DANTE_PROXY_PASSWORD
 
 ADD ./scripts/ /usr/local/bin/
