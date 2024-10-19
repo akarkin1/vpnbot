@@ -84,7 +84,7 @@ if [ ! -e "/var/log/openvpn-status.log" ]; then
 fi
 
 # Run Socks5 Proxy Server (Dante)
-/usr/local/bin/danted -f /etc/danted.conf;
+sockd -f /etc/danted.conf;
 ovpn_run --daemon --status /var/log/openvpn-status.log 55;
 
 minutes_waited_for_connection=0;

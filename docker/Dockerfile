@@ -1,5 +1,8 @@
 FROM kylemanna/openvpn
 
+ENV DANTE_VER 1.4.2
+ENV DANTE_URL https://www.inet.no/dante/files/dante-$DANTE_VER.tar.gz
+
 ARG DANTE_PROXY_USERNAME
 ARG DANTE_PROXY_PASSWORD
 
@@ -8,7 +11,21 @@ ADD ./conf/danted.conf /etc/
 
 RUN chmod a+x /usr/local/bin/*
 # install Dante SOCKS5 proxy
-RUN apk add --no-cache dante-server
+RUN apk add --no-cache --virtual .build-deps \
+            build-base \
+            curl \
+            linux-pam-dev && \
+        install -v -d /src && \
+        curl -sSL $DANTE_URL -o /src/dante.tar.gz && \
+        tar -C /src -vxzf /src/dante.tar.gz && \
+        cd /src/dante-$DANTE_VER && \
+        # https://lists.alpinelinux.org/alpine-devel/3932.html
+        ac_cv_func_sched_setscheduler=no ./configure && \
+        make -j install && \
+        cd / && rm -r /src && \
+        apk del .build-deps && \
+        apk add --no-cache \
+            linux-pam
 RUN adduser -H -D -s /bin/bash $DANTE_PROXY_USERNAME && echo "$DANTE_PROXY_USERNAME:$DANTE_PROXY_PASSWORD" | chpasswd
 
 # Additional components
