@@ -40,6 +40,7 @@ env:
   S3_STACK_OUTPUTS_FILE_NAME: ${{ vars.S3_VPN_SERVER_STACK_OUTPUTS_FILE_NAME }}
   S3_STACK_OUTPUTS_FILE_URL: s3://${{ vars.S3_CONFIG_BUCKET_NAME }}/${{ vars.S3_CONFIG_DIR }}/${{ vars.S3_VPN_SERVER_STACK_OUTPUTS_FILE_NAME }}
   STACK_NAME: ${{ vars.ECS_STACK_NAME }}
+  DANTE_SERVER_USERNAME: ${{ vars.DANTE_SERVER_USERNAME }}
   DANTE_SSM_PASSWORD_PARAM_NAME: ${{ vars.DANTE_SERVER_PASSWORD_SSM }}
 
 jobs:
@@ -57,7 +58,7 @@ jobs:
           aws-region: ${{ github.event.inputs.region }}
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      - name: Load user password for Dante Proxy
+      - name: Load Dante Proxy Credentials
         if: ${{ github.event.inputs.run-docker == 'true' || github.event.inputs.run-cfn-deploy == 'true' }}
         id: ssm-upload
         run: |
@@ -113,7 +114,7 @@ jobs:
            docker build \
             -t $ECR_REPO_URL:$BUILD_TAG \
             -t $ECR_REPO_URL:latest \
-            --build-arg DANTE_PROXY_USERNAME=${{ secrets.DANTE_SERVER_USERNAME }} \
+            --build-arg DANTE_PROXY_USERNAME=${{ env.DANTE_SERVER_USERNAME }} \
             --build-arg DANTE_PROXY_PASSWORD=${{ steps.ssm-upload.outputs.dante_proxy_password }} \
             ./docker/;
           docker push $ECR_REPO_URL:$BUILD_TAG
