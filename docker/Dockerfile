@@ -11,21 +11,7 @@ ADD ./conf/danted.conf /etc/
 
 RUN chmod a+x /usr/local/bin/*
 # install Dante SOCKS5 proxy
-RUN apk add --no-cache --virtual .build-deps \
-            build-base \
-            curl \
-            linux-pam-dev && \
-        install -v -d /src && \
-        curl -sSL $DANTE_URL -o /src/dante.tar.gz && \
-        tar -C /src -vxzf /src/dante.tar.gz && \
-        cd /src/dante-$DANTE_VER && \
-        # https://lists.alpinelinux.org/alpine-devel/3932.html
-        ac_cv_func_sched_setscheduler=no ./configure && \
-        make -j install && \
-        cd / && rm -r /src && \
-        apk del .build-deps && \
-        apk add --no-cache \
-            linux-pam
+RUN apk add dante-server
 RUN adduser -H -D -s /bin/bash $DANTE_PROXY_USERNAME && echo "$DANTE_PROXY_USERNAME:$DANTE_PROXY_PASSWORD" | chpasswd
 
 # Additional components
@@ -33,10 +19,10 @@ RUN wget https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 && \
     mv jq-linux64 /usr/local/bin/jq && \
     chmod +x /usr/local/bin/jq
 RUN apk add curl
-RUN apk add --update --no-cache python3 && ln -sf python3 /usr/bin/python
-RUN python3 -m ensurepip
-RUN pip3 install --no-cache --upgrade pip setuptools
-RUN pip3 install boto3 botocore
+#RUN apk add --update --no-cache python3 && ln -sf python3 /usr/bin/python
+#RUN python3 -m ensurepip
+#RUN pip3 install --no-cache --upgrade pip setuptools
+#RUN pip3 install boto3 botocore
 
 RUN touch /var/log/openvpn-status.log
 
