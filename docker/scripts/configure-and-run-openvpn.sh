@@ -62,7 +62,7 @@ if [ "$first_run" = "1" ]; then
     -p "redirect-gateway def1 bypass-dhcp" \
     -p "dhcp-option DNS $AWS_DNS_SERVER_IP" \
     -E "socks-proxy-retry" \
-    -E "socks-proxy $PUBLIC_IP 1080 $DANTE_PROXY_PASSWORD $DANTE_PROXY_USERNAME" \
+    -E "socks-proxy $PUBLIC_IP 1080 $DANTE_PROXY_USERNAME $DANTE_PROXY_PASSWORD" \
 
   # Generate server certificates
   (echo $OVPN_CN) | ovpn_initpki nopass;
