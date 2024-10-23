@@ -9,7 +9,7 @@ on:
       ecr-repository-name:
         description: 'Name Of ECR Repository, where Docker images of VPN Server are stored'
         required: true
-        default: openvpn-server-ecr-repo
+        default: tailscale-node-ecr-repo
 
 env:
   S3_CONFIG_BUCKET_NAME: ${{ vars.S3_CONFIG_BUCKET_NAME }}

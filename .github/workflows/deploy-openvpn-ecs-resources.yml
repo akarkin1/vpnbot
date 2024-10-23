@@ -1,4 +1,4 @@
-name: Deploy ECS OpenVPN Server Resources
+name: Deploy Tailscale ECS Resources
 
 on:
   workflow_dispatch:
@@ -9,11 +9,11 @@ on:
       cluster-name:
         description: 'Name Of ECS Cluster, where VPN Server tasks will be hosted'
         required: true
-        default: openvpn-server-ecs-cluster
+        default: tailscale-node-ecs-cluster
       repository-name:
         description: 'Name Of ECR Repository, where a Docker image with VPN Server will be stored'
         required: true
-        default: openvpn-server-ecr-repo
+        default: tailscale-node-ecr-repo
       run-cfn-deploy:
         description: 'Do CloudFormation resources need to be deployed?'
         required: true
@@ -43,8 +43,8 @@ env:
   TAILSCALE_AUTH_TOKEN_SECRET_ID: ${{ vars.TAILSCALE_AUTH_TOKEN_SECRET_ID }}
 
 jobs:
-  deploy-openvpn-server:
-    name: Deploy CloudFormation stack with ECS resources for OpenVPN Server
+  deploy-tailscale-node:
+    name: Deploy CloudFormation stack with ECS resources for a Tailscale Node
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Source Code

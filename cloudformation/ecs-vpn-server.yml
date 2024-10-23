@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: OpenVPN Server Stack
+Description: Tailscale Node Stack
 
 Parameters:
   ClientIPCIDR:
@@ -110,7 +110,7 @@ Resources:
   TailscaleNodeEcsSG:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: SG for OpenVPN Server
+      GroupDescription: SG for Tailscale Node
       VpcId: !Ref TailscaleNodeVPC
       SecurityGroupIngress:
         - IpProtocol: udp
@@ -278,7 +278,7 @@ Resources:
           Cpu: !Ref TailscaleNodeCpu
           Memory: !Ref TailscaleNodeMemory
           PortMappings:
-            # OpenVPN Port
+            # Tailscale Port
             - ContainerPort: 41641
               HostPort: 41641
               Protocol: tcp
