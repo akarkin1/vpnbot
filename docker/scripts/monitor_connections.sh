@@ -18,6 +18,7 @@ while true; do
 
         if [ "$inactive_time" -ge "$INACTIVITY_TIMEOUT" ]; then
             echo "No active connections for $INACTIVITY_TIMEOUT seconds. Stopping the Tailscale task..."
+            tailscale logout
             exit 0  # Exit the script, which will stop the container
         fi
     else
