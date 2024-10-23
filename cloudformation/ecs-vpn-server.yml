@@ -24,6 +24,10 @@ Parameters:
     Type: String
     Description: Id of Tailscale Auth Key Secret in Secret Manager.
     NoEcho: true
+  TailscaleAuthTokenSecretRegion:
+    Type: String
+    Description: AWS Region, where the secret with Tailscale Auth Key is stored within the account.
+    NoEcho: true
   TailscaleInactivityTimeoutSeconds:
     Type: String
     Description: Number of seconds without active connections to wait before stop the Tailscale task.
@@ -34,11 +38,11 @@ Parameters:
     Default: 60
   TailscaleNodeMemory:
     Type: String
-    Description: How much memory units need to be allocated for a Tailscale task
+    Description: How much memory units need to be allocated for a Tailscale task.
     Default: 1024
   TailscaleNodeCpu:
     Type: String
-    Description: How much CPU units need to be allocated for a Tailscale task
+    Description: How much CPU units need to be allocated for a Tailscale task.
     Default: 512
 
 
@@ -246,7 +250,7 @@ Resources:
           - Effect: Allow
             Action:
               - 'secretsmanager:GetSecretValue'
-            Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${TailscaleAuthTokenSecretId}*"
+            Resource: !Sub "arn:aws:secretsmanager:${TailscaleAuthTokenSecretRegion}:${AWS::AccountId}:secret:${TailscaleAuthTokenSecretId}*"
       Roles:
         - !Ref TailscaleNodeEcsTaskRole
 
@@ -291,6 +295,8 @@ Resources:
           Environment:
             - Name: TAILSCALE_TOKEN_SECRET_ID
               Value: !Ref TailscaleAuthTokenSecretId
+            - Name: TAILSCALE_TOKEN_SECRET_REGION
+              Value: !Ref TailscaleAuthTokenSecretRegion
             - Name: INACTIVITY_TIMEOUT
               Value: !Ref TailscaleInactivityTimeoutSeconds
             - Name: STATUS_CHECK_INTERVAL

@@ -36,11 +36,12 @@ env:
   S3_CONFIG_DIR: ${{ vars.S3_CONFIG_DIR }}
   S3_SUPPORTED_REGIONS_FILE_NAME: ${{ vars.S3_SUPPORTED_REGIONS_FILE_NAME }}
   S3_CONFIG_REGIONS_FILE_URL: s3://${{ vars.S3_CONFIG_BUCKET_NAME }}/${{ vars.S3_CONFIG_DIR }}/${{ vars.S3_SUPPORTED_REGIONS_FILE_NAME }}
-  S3_CONFIG_BUCKET_REGION: ${{ vars.CONFIG_S3_BUCKET_REGION }}
+  S3_CONFIG_BUCKET_REGION: ${{ vars.CONFIG_BASE_REGION }}
   S3_STACK_OUTPUTS_FILE_NAME: ${{ vars.S3_VPN_SERVER_STACK_OUTPUTS_FILE_NAME }}
   S3_STACK_OUTPUTS_FILE_URL: s3://${{ vars.S3_CONFIG_BUCKET_NAME }}/${{ vars.S3_CONFIG_DIR }}/${{ github.event.inputs.region }}/${{ vars.S3_VPN_SERVER_STACK_OUTPUTS_FILE_NAME }}
   STACK_NAME: ${{ vars.ECS_STACK_NAME }}
   TAILSCALE_AUTH_TOKEN_SECRET_ID: ${{ vars.TAILSCALE_AUTH_TOKEN_SECRET_ID }}
+  TAILSCALE_AUTH_TOKEN_REGION: ${{ vars.CONFIG_BASE_REGION }}
 
 jobs:
   deploy-tailscale-node:
@@ -62,8 +63,8 @@ jobs:
         id: ssm-upload
         run: |
            # Create Tailscale Auth Token Secret, if needed
-           if [ $(aws secretsmanager describe-secret --secret-id "${{ env.TAILSCALE_AUTH_TOKEN_SECRET_ID }}" >/dev/null 2>&1; echo $?) -ne 0 ]; then
-             aws secretsmanager create-secret --name ${{ env.TAILSCALE_AUTH_TOKEN_SECRET_ID }} --secret-string "${{ secrets.TAILSCALE_AUTH_TOKEN }}";
+           if [ $(aws secretsmanager describe-secret --secret-id "${{ env.TAILSCALE_AUTH_TOKEN_SECRET_ID }}" --region ${{ env.TAILSCALE_AUTH_TOKEN_REGION }} >/dev/null 2>&1; echo $?) -ne 0 ]; then
+             aws secretsmanager create-secret --name ${{ env.TAILSCALE_AUTH_TOKEN_SECRET_ID }} --secret-string "${{ secrets.TAILSCALE_AUTH_TOKEN }}" --region ${{ env.TAILSCALE_AUTH_TOKEN_REGION }};
            fi
       - name: Deploy Cloud Formation Stack
         id: deploy-cfn-stack

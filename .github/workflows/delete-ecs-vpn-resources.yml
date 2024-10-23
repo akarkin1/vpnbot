@@ -16,7 +16,9 @@ env:
   S3_CONFIG_DIR: ${{ vars.S3_CONFIG_DIR }}
   S3_SUPPORTED_REGIONS_FILE_NAME: ${{ vars.S3_SUPPORTED_REGIONS_FILE_NAME }}
   S3_CONFIG_REGIONS_FILE_URL: s3://${{ vars.S3_CONFIG_BUCKET_NAME }}/${{ vars.S3_CONFIG_DIR }}/${{ vars.S3_SUPPORTED_REGIONS_FILE_NAME }}
-  S3_CONFIG_BUCKET_REGION: ${{ vars.CONFIG_S3_BUCKET_REGION }}
+  S3_CONFIG_BUCKET_REGION: ${{ vars.CONFIG_BASE_REGION }}
+  S3_STACK_OUTPUT_KEY: ${{ env.S3_CONFIG_DIR }}/${{ vars.S3_VPN_SERVER_STACK_OUTPUTS_FILE_NAME }}
+  S3_STACK_OUTPUT_FILE_URI: s3://${{ vars.S3_CONFIG_BUCKET_NAME }}/${{ env.S3_CONFIG_DIR }}/${{ vars.S3_VPN_SERVER_STACK_OUTPUTS_FILE_NAME }}
   STACK_NAME: ${{ vars.ECS_STACK_NAME }}
 
 jobs:
@@ -54,4 +56,8 @@ jobs:
             rm ./regions.txt regions-new.txt
           else
             echo "File '${{ env.S3_CONFIG_REGIONS_FILE_URL }}' does not exist. Skipping the step..."
+          fi
+          # Remove stack-output-parameters.json
+          if [ $(aws s3api head-object --bucket "${{ env.S3_CONFIG_BUCKET_NAME }}" --key "${{ env.S3_STACK_OUTPUT_KEY }}" --region ${{ env.S3_CONFIG_BUCKET_REGION }} >/dev/null 2>&1; echo $?) = 0 ]; then
+            aws s3 rm "${{ env.S3_STACK_OUTPUT_FILE_URI }}"
           fi
