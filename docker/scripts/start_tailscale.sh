@@ -18,7 +18,7 @@ function up() {
 up &
 
 # Start Tailscale with the specified hostname
-exec tailscaled --tun=userspace-networking
+exec tailscaled --tun=userspace-networking --loglevel=error
 
 # Start monitoring connections
 /usr/local/bin/monitor_connections.sh
