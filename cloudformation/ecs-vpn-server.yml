@@ -320,6 +320,9 @@ Outputs:
   EcsTaskDefinitionArn:
     Description: Arn of created ECS Task Definition.
     Value: !GetAtt TailscaleNodeEcsTaskDefinition.TaskDefinitionArn
+  EcsClusterName:
+    Description: The name of ECS cluster, where a VPN task will be spin out.
+    Value: !Ref TailscaleNodeEcsCluster
   SubnetId:
     Description: ID of the Subnet, where an ECS Task will be launched.
     Value: !GetAtt TailscaleNodePublicSubnet.SubnetId
