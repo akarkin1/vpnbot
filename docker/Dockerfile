@@ -6,7 +6,8 @@ RUN yum update -y && \
     yum install -y yum-utils && \
     yum-config-manager --add-repo https://pkgs.tailscale.com/stable/amazon-linux/2/tailscale.repo && \
     yum install -y tailscale aws-cli && \
-    yum clean all
+    yum clean all && \
+    rm -rf /var/cache/yum
 
 # Create a script to monitor connections
 COPY ./scripts/monitor_connections.sh /usr/local/bin/monitor_connections.sh
