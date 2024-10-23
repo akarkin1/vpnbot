@@ -74,7 +74,7 @@ jobs:
           name: ${{ env.STACK_NAME }}
           template: cloudformation/ecs-vpn-server.yml
           no-fail-on-empty-changeset: "1"
-          parameter-overrides: 'EcsClusterName=${{ github.event.inputs.cluster-name }},EcrRepositoryName=${{ github.event.inputs.repository-name }},TailscaleAuthTokenSecretId=${{ env.TAILSCALE_AUTH_TOKEN_SECRET_ID }}'
+          parameter-overrides: 'EcsClusterName=${{ github.event.inputs.cluster-name }},EcrRepositoryName=${{ github.event.inputs.repository-name }},TailscaleAuthTokenSecretId=${{ env.TAILSCALE_AUTH_TOKEN_SECRET_ID }},TailscaleAuthTokenSecretRegion=${{ env.TAILSCALE_AUTH_TOKEN_REGION }}'
       - name: Update Task Configuration In S3
         id: upload-config-to-s3
         if: ${{ github.event.inputs.run-cfn-deploy == 'true' }}
