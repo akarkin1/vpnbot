@@ -14,4 +14,4 @@ COPY ./scripts/start_tailscale.sh /usr/local/bin/start_tailscale.sh
 RUN chmod +x /usr/local/bin/monitor_connections.sh /usr/local/bin/start_tailscale.sh
 
 # Start the Tailscale process and monitor connections
-CMD ["/usr/local/bin/start-tailscale.sh"]
+CMD ["/usr/local/bin/start_tailscale.sh"]
