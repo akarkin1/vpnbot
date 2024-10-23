@@ -246,7 +246,7 @@ Resources:
           - Effect: Allow
             Action:
               - 'secretsmanager:GetSecretValue'
-            Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${TailscaleTokenSecretId}*"
+            Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${TailscaleAuthTokenSecretId}*"
       Roles:
         - !Ref TailscaleNodeEcsTaskRole
 
