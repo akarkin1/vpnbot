@@ -1,7 +1,8 @@
-package org.github.akarkin1;
+package org.github.akarkin1.config;
 
 import lombok.experimental.UtilityClass;
 import lombok.extern.log4j.Log4j2;
+import org.github.akarkin1.config.YamlApplicationConfiguration.S3Configuration;
 
 import java.io.BufferedReader;
 import java.io.InputStream;
@@ -16,6 +17,8 @@ import static java.lang.System.getenv;
 @UtilityClass
 public class ConfigManager {
 
+  private static final String APP_CONFIG_YAML = "application.yaml";
+
   private static final String EVENT_ROOT_DIR = "/mnt/efs/eventIds";
   private static final String VERSION_RES_PATH = "/version";
   private static final String BOT_TOKEN_ENV = "BOT_TOKEN";
@@ -25,6 +28,9 @@ public class ConfigManager {
   private static final String RESTART_SLEEP_TIME_SEC_ENV = "RESTART_SLEEP_TIME_SEC";
   private static final String REGISTERED_EVENT_EXPIRATION_TIME_SEC_ENV = "REGISTERED_EVENT_EXPIRATION_TIME_SEC";
   private static final String USED_REGIONS_ENV = "USED_REGIONS";
+
+  private static final YamlApplicationConfiguration APP_CONFIG = YamlApplicationConfiguration
+      .load(APP_CONFIG_YAML);
 
   public static String getBotToken() {
     return getenv(BOT_TOKEN_ENV);
@@ -76,6 +82,10 @@ public class ConfigManager {
   public static List<String> getUsedRegions() {
     String envValStr = envOrDefault(USED_REGIONS_ENV, "");
     return List.of(envValStr.split(","));
+  }
+
+  public static S3Configuration getS3Configuration() {
+    return APP_CONFIG.getS3();
   }
 
   private static String envOrDefault(String envVarName, String defaultValue) {

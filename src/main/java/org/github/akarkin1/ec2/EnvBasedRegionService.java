@@ -2,7 +2,7 @@ package org.github.akarkin1.ec2;
 
 
 
-import org.github.akarkin1.ConfigManager;
+import org.github.akarkin1.config.ConfigManager;
 import software.amazon.awssdk.regions.Region;
 
 import java.util.List;

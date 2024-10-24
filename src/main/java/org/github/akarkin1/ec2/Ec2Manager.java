@@ -2,7 +2,7 @@ package org.github.akarkin1.ec2;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
-import org.github.akarkin1.ConfigManager;
+import org.github.akarkin1.config.ConfigManager;
 import org.github.akarkin1.exception.CommandExecutionFailedException;
 import org.github.akarkin1.waiter.InstanceStateWaiter;
 import software.amazon.awssdk.regions.Region;
@@ -26,8 +26,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
-import static org.github.akarkin1.ConfigManager.getOperationTimeoutMs;
-import static org.github.akarkin1.ConfigManager.getStatusCheckWaitIntervalMs;
+import static org.github.akarkin1.config.ConfigManager.getOperationTimeoutMs;
+import static org.github.akarkin1.config.ConfigManager.getStatusCheckWaitIntervalMs;
 
 @Log4j2
 @RequiredArgsConstructor

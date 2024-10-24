@@ -7,7 +7,6 @@ import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.log4j.Log4j2;
 import lombok.val;
-import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.github.akarkin1.deduplication.FSUpdateEventsRegistry;
 import org.github.akarkin1.deduplication.UpdateEventsRegistry;
@@ -31,11 +30,11 @@ import org.telegram.telegrambots.meta.bots.AbsSender;
 
 import java.util.Optional;
 
-import static org.github.akarkin1.ConfigManager.getAppVersion;
-import static org.github.akarkin1.ConfigManager.getBotToken;
-import static org.github.akarkin1.ConfigManager.getBotUsernameEnv;
-import static org.github.akarkin1.ConfigManager.getEventRootDir;
-import static org.github.akarkin1.ConfigManager.getEventTtlSec;
+import static org.github.akarkin1.config.ConfigManager.getAppVersion;
+import static org.github.akarkin1.config.ConfigManager.getBotToken;
+import static org.github.akarkin1.config.ConfigManager.getBotUsernameEnv;
+import static org.github.akarkin1.config.ConfigManager.getEventRootDir;
+import static org.github.akarkin1.config.ConfigManager.getEventTtlSec;
 import static org.github.akarkin1.tg.TelegramBotFactory.sender;
 
 @Log4j2
