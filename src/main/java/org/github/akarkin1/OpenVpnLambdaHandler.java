@@ -23,6 +23,7 @@ import org.github.akarkin1.ec2.Ec2ClientPool;
 import org.github.akarkin1.ec2.Ec2Manager;
 import org.github.akarkin1.ec2.EnvBasedRegionService;
 import org.github.akarkin1.tg.BotCommunicator;
+import org.github.akarkin1.tg.TgUserContext;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.User;
@@ -38,7 +39,7 @@ import static org.github.akarkin1.config.ConfigManager.getEventTtlSec;
 import static org.github.akarkin1.tg.TelegramBotFactory.sender;
 
 @Log4j2
-public class LambdaHandler implements
+public class OpenVpnLambdaHandler implements
     RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
@@ -124,19 +125,12 @@ public class LambdaHandler implements
     log.info("Saving event to the registry (deduplication logic). Update: {}", update);
     EVENTS_REGISTRY.registerEvent(update);
 
+    TgUserContext.initContext(update);
     Message message = update.getMessage();
     if (message == null) {
       log.warn("Empty message received from a user. Update Event: {}", update);
       return;
     }
-
-    if (message.getChatId() == null) {
-      log.warn("Chat ID is missing. The bot cannot sent response back to user. Update Event: {}",
-               update);
-      return;
-    }
-
-    COMMUNICATOR.setChatId(message.getChatId());
 
     String userName = Optional.ofNullable(message.getFrom())
         .map(User::getUserName)

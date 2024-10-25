@@ -1,7 +1,6 @@
 package org.github.akarkin1.tg;
 
 import lombok.RequiredArgsConstructor;
-import lombok.Setter;
 import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
@@ -14,13 +13,11 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 public class BotCommunicator {
 
   private final AbsSender sender;
-  @Setter
-  private Long chatId;
 
   @SneakyThrows(TelegramApiException.class)
   public void sendMessageToTheBot(String message) {
     SendMessage sendMessage = new SendMessage();
-    sendMessage.setChatId(chatId);
+    sendMessage.setChatId(TgUserContext.getChatId());
     sendMessage.setText(message);
     Message responseMessage = sender.execute(sendMessage);
     log.debug("Received response: {}", responseMessage);

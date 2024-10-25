@@ -225,14 +225,29 @@ Resources:
                   - "ec2:UnassignPrivateIpAddresses"
                 Effect: Allow
                 Resource: "*"
-              # Permissions to manage EC2 instances
+#              # Permissions to manage EC2 instances
+#              - Action:
+#                  - "ec2:DescribeInstances"
+#                  - "ec2:StopInstances"
+#                  - "ec2:RunInstances"
+#                  - "ec2:StartInstances"
+#                  - "ec2:TerminateInstances"
+#                  - "ec2:RebootInstances"
+#                Effect: Allow
+#                Resource: "*"
+              # Permissions to manage ECS instances
               - Action:
-                  - "ec2:DescribeInstances"
-                  - "ec2:StopInstances"
-                  - "ec2:RunInstances"
-                  - "ec2:StartInstances"
-                  - "ec2:TerminateInstances"
-                  - "ec2:RebootInstances"
+                  - "ecs:RunTask"
+                  - "ecs:StopTask"
+                  - "ecs:DescribeTasks"
+                  - "ecs:ListTasks"
+                Effect: Allow
+                Resource: "*"
+              # Permissions to work with S3
+              - Action:
+                  - "s3:ListBuckets"
+                  - "s3:GetObject"
+                  - "s3:ListBucket"
                 Effect: Allow
                 Resource: "*"
               # Permissions to manage EFS file system
@@ -290,7 +305,10 @@ Resources:
     Type: AWS::Lambda::Function
     Properties:
       FunctionName: openvpn-server-tgbot
-      Handler: org.github.akarkin1.LambdaHandler::handleRequest
+      # Old version of the lambda to manage EC2 instances with OpenVpn
+#      Handler: org.github.akarkin1.OpenVpnLambdaHandler::handleRequest
+      # New version of the lambda to manage ECS tasks with Tailscale
+      Handler: org.github.akarkin1.TailscaleVpnLambdaHandler::handleRequest
       Runtime: "java21"
       Role: !GetAtt LambdaRole.Arn
       MemorySize: 1024
@@ -299,9 +317,9 @@ Resources:
         Variables:
           BOT_TOKEN: !Ref EnvTgBotToken
           BOT_USERNAME: !Ref EnvTgBotUsername
-          STATUS_CHECK_PAUSE_MS: !Ref EnvPauseBetweenStatusCheckMs
-          OPERATION_WAIT_TIMEOUT_SEC: !Ref EnvOperationWaitTimeoutSec
-          RESTART_SLEEP_TIME_SEC_ENV: !Ref EnvRestartSleepTimeSec
+#          STATUS_CHECK_PAUSE_MS: !Ref EnvPauseBetweenStatusCheckMs
+#          OPERATION_WAIT_TIMEOUT_SEC: !Ref EnvOperationWaitTimeoutSec
+#          RESTART_SLEEP_TIME_SEC_ENV: !Ref EnvRestartSleepTimeSec
       FileSystemConfigs:
         - Arn: !GetAtt LambdaEfsAccessPoint.Arn
           LocalMountPath: /mnt/efs

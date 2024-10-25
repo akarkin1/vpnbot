@@ -14,7 +14,10 @@ public sealed interface BotCommand<R extends CommandResponse> permits
     RestartServerCommand,
     StartServerCommand,
     StopServerCommand,
-    RebootServerCommand {
+    RebootServerCommand,
+    RunNodeCommand,
+    ListNodeCommand,
+    SupportedRegionCommand {
 
   R run(List<String> args);
 

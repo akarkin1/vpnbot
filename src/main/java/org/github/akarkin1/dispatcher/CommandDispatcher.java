@@ -27,7 +27,6 @@ public class CommandDispatcher {
 
   public CommandDispatcher(BotCommunicator botCommunicator) {
     this.botCommunicator = botCommunicator;
-    this.registerCommand("/start", new HelpCommand(this));
     this.registerCommand("/help", new HelpCommand(this));
   }
 

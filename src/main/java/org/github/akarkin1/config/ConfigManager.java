@@ -2,7 +2,6 @@ package org.github.akarkin1.config;
 
 import lombok.experimental.UtilityClass;
 import lombok.extern.log4j.Log4j2;
-import org.github.akarkin1.config.YamlApplicationConfiguration.S3Configuration;
 
 import java.io.BufferedReader;
 import java.io.InputStream;
@@ -84,8 +83,8 @@ public class ConfigManager {
     return List.of(envValStr.split(","));
   }
 
-  public static S3Configuration getS3Configuration() {
-    return APP_CONFIG.getS3();
+  public static YamlApplicationConfiguration getApplicationYaml() {
+    return APP_CONFIG;
   }
 
   private static String envOrDefault(String envVarName, String defaultValue) {
