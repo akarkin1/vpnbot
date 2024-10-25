@@ -48,7 +48,8 @@ public class TailscaleEcsNodeService implements TailscaleNodeService {
 
   @Override
   public boolean isRegionSupported(String userRegion) {
-    return ecsManager.getSupportedRegions().contains(userRegion);
+    Region region = regionByCity.getOrDefault(userRegion, Region.of(userRegion));
+    return ecsManager.getSupportedRegions().contains(region.id());
   }
 
   @Override

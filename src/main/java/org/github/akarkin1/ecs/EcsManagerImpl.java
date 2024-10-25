@@ -163,6 +163,9 @@ public class EcsManagerImpl implements EcsManager {
           .build();
       ListTasksResponse listTasksResponse = client.listTasks(listTasksRequest);
       List<String> taskArns = listTasksResponse.taskArns();
+      if (taskArns.isEmpty()) {
+        continue;
+      }
 
       DescribeTasksRequest describeTasksRequest = DescribeTasksRequest.builder()
           .cluster(clusterName)
