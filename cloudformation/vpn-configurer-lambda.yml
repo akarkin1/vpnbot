@@ -206,8 +206,8 @@ Resources:
                   - !Sub "arn:aws:iam::${AWS::AccountId}:role/*"
               - Effect: Allow
                 Action:
-                  - s3:GetObject
-                  - s3:ListBucket
+                  - "s3:GetObject"
+                  - "s3:ListBucket"
                 Resource: !Sub
                   - arn:aws:s3:::${bucketName}/*
                   - bucketName: !Ref LambdaSourcesBucketName
@@ -247,6 +247,7 @@ Resources:
                   - "ecs:DescribeTasks"
                   - "ecs:ListTasks"
                   - "ecs:TagResource"
+                  - "tag:GetResources"
                 Effect: Allow
                 Resource: "*"
               # Permissions to work with S3

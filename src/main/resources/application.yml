@@ -13,8 +13,8 @@ ecs:
   host-name-tag: Hostname
   run-by-tag: RunBy
   health:
-    interval-ms: 500
-    timeout-sec: 60
+    interval-ms: 1000
+    timeout-sec: 300
 
 aws:
   region-cities:
