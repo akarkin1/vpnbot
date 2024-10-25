@@ -4,6 +4,7 @@
 name: VPN Bot Lambda CI-CD
 
 on:
+  workflow_dispatch:
   push:
     paths:
       - 'src/main/java/**'
