@@ -201,6 +201,11 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
+                  - 'iam:PassRole'
+                Resource:
+                  - !Sub "arn:aws:iam::${AWS::AccountId}:role/*"
+              - Effect: Allow
+                Action:
                   - s3:GetObject
                   - s3:ListBucket
                 Resource: !Sub
