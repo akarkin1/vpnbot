@@ -2,6 +2,9 @@
 
 TS_AUTH_KEY=$(aws secretsmanager get-secret-value --secret-id "${TAILSCALE_TOKEN_SECRET_ID}" --region "${TAILSCALE_TOKEN_SECRET_REGION}" --query SecretString --output text 2>/dev/null)
 
+# ToDo: delete it, added for debug.
+aws secretsmanager get-secret-value --secret-id "${TAILSCALE_TOKEN_SECRET_ID}" --region "${TAILSCALE_TOKEN_SECRET_REGION}" --query SecretString --output text
+
 if [ $? -ne 0 ] || [ -z "$TS_AUTH_KEY" ]; then
   echo "Error: Tailscale auth key could not be retrieved."
   exit 1

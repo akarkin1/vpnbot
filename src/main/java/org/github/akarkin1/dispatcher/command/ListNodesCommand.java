@@ -15,6 +15,11 @@ public final class ListNodesCommand implements BotCommand<TextCommandResponse> {
   @Override
   public TextCommandResponse run(List<String> args) {
     List<TaskInfo> taskInfos = tailscaleNodeService.listTasks(TgUserContext.getUsername());
+
+    if (taskInfos.isEmpty()) {
+      return new TextCommandResponse("No nodes run.");
+    }
+
     StringBuilder responseBuilder = new StringBuilder();
     responseBuilder.append("Running nodes: ").append("\n");
 

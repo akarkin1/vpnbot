@@ -1,6 +1,7 @@
 package org.github.akarkin1.dispatcher.command;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.log4j.Log4j2;
 import org.github.akarkin1.ecs.RunTaskStatus;
 import org.github.akarkin1.ecs.TaskInfo;
 import org.github.akarkin1.tailscale.TailscaleNodeService;
@@ -9,6 +10,7 @@ import org.github.akarkin1.tg.TgUserContext;
 import java.util.List;
 import java.util.function.Consumer;
 
+@Log4j2
 @RequiredArgsConstructor
 public final class RunNodeCommand implements BotCommand<EmptyResponse> {
 
@@ -56,6 +58,7 @@ public final class RunNodeCommand implements BotCommand<EmptyResponse> {
     TaskInfo taskInfo = tailscaleNodeService.runNode(userRegion,
                                                      TgUserContext.getUsername(),
                                                      userHost);
+    log.debug("Task is run, task info: {}", taskInfo);
     messageConsumer.accept("Task is started. Checking its status...");
     RunTaskStatus runTaskStatus = tailscaleNodeService.checkNodeStatus(taskInfo);
     if (RunTaskStatus.UNKNOWN.equals(runTaskStatus)) {

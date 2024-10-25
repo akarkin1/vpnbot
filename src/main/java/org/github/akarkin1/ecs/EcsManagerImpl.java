@@ -114,23 +114,31 @@ public class EcsManagerImpl implements EcsManager {
       }
 
       DescribeTasksResponse resp = client.describeTasks(describeTasksRequest);
-      if (!resp.hasTasks() || resp.tasks().isEmpty()) {
+      List<Task> runningTasks = resp.tasks();
+      if (!resp.hasTasks() || runningTasks.isEmpty()) {
         log.warn("No tasks found. Retrying...");
+        TimeUnit.MILLISECONDS.sleep(health.getIntervalMs());
         continue;
       }
       if (resp.hasFailures()) {
         log.error("Failed to get list of tasks. Failures: ");
         resp.failures().forEach(log::error);
-        return lastStatus;
+        return RunTaskStatus.UNHEALTHY;
       }
 
-      Task task = resp.tasks().getFirst();
+      Task task = runningTasks.getFirst();
       if (!HealthStatus.HEALTHY.equals(task.healthStatus())) {
         TimeUnit.MILLISECONDS.sleep(health.getIntervalMs());
         continue;
       }
 
-      Container container = task.containers().getFirst();
+      List<Container> containers = task.containers();
+      if (containers.isEmpty()) {
+        log.warn("No containers found for task {}. ", taskId);
+        return RunTaskStatus.UNHEALTHY;
+      }
+
+      Container container = containers.getFirst();
       lastStatus = RunTaskStatus.valueOf(container.healthStatus().name());
       if (HealthStatus.HEALTHY.equals(container.healthStatus())) {
         return RunTaskStatus.HEALTHY;
@@ -191,6 +199,9 @@ public class EcsManagerImpl implements EcsManager {
           continue;
         }
 
+
+        log.debug("Task attachments: {}", task.attachments());
+
         String publicIp = task.attachments()
             .stream()
             .filter(attachment -> ELASTIC_NETWORK_INTERFACE_FIELD.equals(attachment.type()))
@@ -201,6 +212,8 @@ public class EcsManagerImpl implements EcsManager {
             .findFirst()
             .orElse(null);
 
+        log.debug("Task tags: {}, Hostname tag name: {}", task.tags(),
+                  config.getHostNameTag());
         String hostName = task.tags()
             .stream()
             .filter(tag -> config.getHostNameTag().equals(tag.key()))
