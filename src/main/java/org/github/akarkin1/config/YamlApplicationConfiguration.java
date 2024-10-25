@@ -63,7 +63,7 @@ public class YamlApplicationConfiguration {
   }
 
   public static YamlApplicationConfiguration load(String applicationYaml) {
-    Yaml yaml = new Yaml();
+    Yaml yaml = SnakeYamlCustomFactory.createYaml();
     try (InputStream inputStream = YamlApplicationConfiguration.class.getClassLoader()
         .getResourceAsStream(applicationYaml)) {
 
