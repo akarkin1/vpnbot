@@ -26,6 +26,7 @@ import software.amazon.awssdk.services.ecs.model.RunTaskRequest;
 import software.amazon.awssdk.services.ecs.model.RunTaskResponse;
 import software.amazon.awssdk.services.ecs.model.Tag;
 import software.amazon.awssdk.services.ecs.model.Task;
+import software.amazon.awssdk.utils.CollectionUtils;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -120,7 +121,7 @@ public class EcsManagerImpl implements EcsManager {
         TimeUnit.MILLISECONDS.sleep(health.getIntervalMs());
         continue;
       }
-      if (resp.hasFailures()) {
+      if (resp.hasFailures() && !resp.failures().isEmpty()) {
         log.error("Failed to get list of tasks. Failures: ");
         resp.failures().forEach(log::error);
         return RunTaskStatus.UNHEALTHY;
