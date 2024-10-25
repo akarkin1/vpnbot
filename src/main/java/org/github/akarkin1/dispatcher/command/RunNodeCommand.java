@@ -19,6 +19,7 @@ public final class RunNodeCommand implements BotCommand<EmptyResponse> {
   public EmptyResponse run(List<String> args) {
     if (args.isEmpty()) {
       messageConsumer.accept("Missing Region arguments. Command description: " + getDescription());
+      return EmptyResponse.NONE;
     }
 
     String userRegion = args.getFirst();

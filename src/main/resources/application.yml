@@ -9,6 +9,7 @@ s3:
 ecs:
   service-name: tailscale-node
   host-name-env: TAILSCALE_HOSTNAME
+  service-name-tag: ServiceName
   host-name-tag: Hostname
   run-by-tag: RunBy
   health:
