@@ -160,7 +160,7 @@ Resources:
       - TailscaleNodeEcsTaskExecutionRole
     Type: AWS::IAM::Policy
     Properties:
-      PolicyName: ECRPullPolicy
+      PolicyName: TailscaleNodeECRPullPolicy
       PolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -180,7 +180,7 @@ Resources:
       - TailscaleNodeEcsTaskRole
     Type: AWS::IAM::Policy
     Properties:
-      PolicyName: CWPermissionsPolicy
+      PolicyName: TailscaleNodeCWPermissionsPolicy
       PolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -199,7 +199,7 @@ Resources:
       - TailscaleNodeEcsTaskExecutionRole
     Type: AWS::IAM::Policy
     Properties:
-      PolicyName: NetworkingPermissionsPolicy
+      PolicyName: TailscaleNodeNetworkingPermissionsPolicy
       PolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -216,32 +216,13 @@ Resources:
             Resource: "*"
       Roles:
         - !Ref TailscaleNodeEcsTaskExecutionRole
-
-  AllowContainerMetadataAccess:
-    DependsOn:
-      - TailscaleNodeEcsTaskRole
-    Type: AWS::IAM::Policy
-    Properties:
-      PolicyName: ContainerMetadataAccessPolicy
-      PolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Action:
-              - 'ecs:DescribeTasks'
-              - 'ecs:ListClusters'
-              - 'ecs:ListTasks'
-              - 'ecs:DescribeClusters'
-            Resource: "*"
-      Roles:
-        - !Ref TailscaleNodeEcsTaskRole
           
   AllowAuthTokenSecretAccess:
     DependsOn:
       - TailscaleNodeEcsTaskRole
     Type: AWS::IAM::Policy
     Properties:
-      PolicyName: ContainerMetadataAccessPolicy
+      PolicyName: TailscaleNodeSecretManagerAccessPolicy
       PolicyDocument:
         Version: '2012-10-17'
         Statement:
