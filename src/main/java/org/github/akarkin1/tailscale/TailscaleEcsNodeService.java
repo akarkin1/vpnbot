@@ -106,7 +106,7 @@ public class TailscaleEcsNodeService implements TailscaleNodeService {
   }
 
   private static String suggestHostName(String userTgId, int nodeNumber) {
-    return "%s-node-%d".formatted(userTgId, nodeNumber);
+    return "%s-node-%d".formatted(userTgId.replaceAll("_", "-"), nodeNumber);
   }
 
   @Override

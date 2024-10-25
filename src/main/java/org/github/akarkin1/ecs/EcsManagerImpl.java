@@ -2,6 +2,7 @@ package org.github.akarkin1.ecs;
 
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
+import lombok.extern.log4j.Log4j2;
 import org.github.akarkin1.config.TaskConfigService;
 import org.github.akarkin1.config.TaskRuntimeParameters;
 import org.github.akarkin1.config.YamlApplicationConfiguration.EcsConfiguration;
@@ -34,6 +35,7 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+@Log4j2
 @RequiredArgsConstructor
 public class EcsManagerImpl implements EcsManager {
 
@@ -113,7 +115,8 @@ public class EcsManagerImpl implements EcsManager {
 
       DescribeTasksResponse resp = client.describeTasks(describeTasksRequest);
       if (!resp.hasTasks() || resp.tasks().isEmpty() || resp.hasFailures()) {
-        throw new RuntimeException("Failed to check task status: " + taskId);
+        log.warn("No tasks found. Retrying...");
+        continue;
       }
 
       Task task = resp.tasks().getFirst();
