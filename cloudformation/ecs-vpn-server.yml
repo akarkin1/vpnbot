@@ -23,11 +23,9 @@ Parameters:
   TailscaleAuthTokenSecretId:
     Type: String
     Description: Id of Tailscale Auth Key Secret in Secret Manager.
-    NoEcho: true
   TailscaleAuthTokenSecretRegion:
     Type: String
     Description: AWS Region, where the secret with Tailscale Auth Key is stored within the account.
-    NoEcho: true
   TailscaleInactivityTimeoutSeconds:
     Type: String
     Description: Number of seconds without active connections to wait before stop the Tailscale task.
