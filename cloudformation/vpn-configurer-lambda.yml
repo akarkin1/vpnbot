@@ -241,6 +241,7 @@ Resources:
                   - "ecs:StopTask"
                   - "ecs:DescribeTasks"
                   - "ecs:ListTasks"
+                  - "ecs:TagResource"
                 Effect: Allow
                 Resource: "*"
               # Permissions to work with S3
