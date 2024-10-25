@@ -3,9 +3,6 @@ package org.github.akarkin1.config;
 import lombok.experimental.UtilityClass;
 import lombok.extern.log4j.Log4j2;
 
-import java.io.BufferedReader;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
@@ -16,10 +13,9 @@ import static java.lang.System.getenv;
 @UtilityClass
 public class ConfigManager {
 
-  private static final String APP_CONFIG_YAML = "application.yaml";
+  private static final String APP_CONFIG_YAML = "application.yml";
 
   private static final String EVENT_ROOT_DIR = "/mnt/efs/eventIds";
-  private static final String VERSION_RES_PATH = "/version";
   private static final String BOT_TOKEN_ENV = "BOT_TOKEN";
   private static final String BOT_USERNAME_ENV = "BOT_USERNAME";
   private static final String STATUS_CHECK_PAUSE_MS_ENV = "STATUS_CHECK_PAUSE_MS";
@@ -50,15 +46,7 @@ public class ConfigManager {
   }
 
   public static String getAppVersion() {
-    try (InputStream in = ConfigManager.class.getResourceAsStream(VERSION_RES_PATH)) {
-      assert in != null : "resource 'version' is missing";
-      try (BufferedReader reader = new BufferedReader(new InputStreamReader(in))) {
-        return reader.readLine();
-      }
-    } catch (Exception e) {
-      log.error("Failed to read version: ", e);
-      return "<unknown>";
-    }
+    return APP_CONFIG.getVersion();
   }
 
   public static long getStatusCheckWaitIntervalMs() {

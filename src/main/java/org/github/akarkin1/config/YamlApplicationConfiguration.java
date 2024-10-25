@@ -13,6 +13,8 @@ import java.util.Map;
 @Setter
 public class YamlApplicationConfiguration {
 
+  private String version;
+
   private S3Configuration s3;
 
   private EcsConfiguration ecs;

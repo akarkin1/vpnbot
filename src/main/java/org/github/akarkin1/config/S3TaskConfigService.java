@@ -6,8 +6,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
+import lombok.val;
 import org.apache.commons.io.IOUtils;
-import org.github.akarkin1.config.TaskRuntimeParameters.TaskRuntimeParametersBuilder;
 import org.github.akarkin1.config.YamlApplicationConfiguration.S3Configuration;
 import org.github.akarkin1.config.exception.S3DownloadFailureException;
 import org.github.akarkin1.config.model.CfnStackOutputParameter;
@@ -92,7 +92,7 @@ public class S3TaskConfigService implements TaskConfigService {
                                                                         new TypeReference<>() {
                                                                         });
 
-      TaskRuntimeParametersBuilder runtimeParamBuilder = TaskRuntimeParameters.builder();
+      val runtimeParamBuilder = TaskRuntimeParameters.builder();
       for (CfnStackOutputParameter stackOutParam : outputParameters) {
         String outParamKey = stackOutParam.outputKey();
         String outParamValue = stackOutParam.outputValue();

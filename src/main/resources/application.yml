@@ -1,3 +1,5 @@
+version: ${project.version}
+
 s3:
   config-bucket: openvpn-server-s3
   config-root-dir: ecs-tailscale-node/config
