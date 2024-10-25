@@ -8,7 +8,7 @@ import org.github.akarkin1.tg.TgUserContext;
 import java.util.List;
 
 @RequiredArgsConstructor
-public final class ListNodeCommand implements BotCommand<TextCommandResponse> {
+public final class ListNodesCommand implements BotCommand<TextCommandResponse> {
 
   private final TailscaleNodeService tailscaleNodeService;
 

@@ -10,7 +10,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.github.akarkin1.deduplication.FSUpdateEventsRegistry;
 import org.github.akarkin1.deduplication.UpdateEventsRegistry;
 import org.github.akarkin1.dispatcher.CommandDispatcher;
-import org.github.akarkin1.dispatcher.command.ListNodeCommand;
+import org.github.akarkin1.dispatcher.command.ListNodesCommand;
 import org.github.akarkin1.dispatcher.command.RunNodeCommand;
 import org.github.akarkin1.dispatcher.command.SupportedRegionCommand;
 import org.github.akarkin1.dispatcher.command.VersionCommand;
@@ -53,7 +53,7 @@ public class TailscaleVpnLambdaHandler implements
     COMMAND_DISPATCHER = new CommandDispatcher(COMMUNICATOR);
 
     COMMAND_DISPATCHER.registerCommand("/version", new VersionCommand());
-    COMMAND_DISPATCHER.registerCommand("/listRunningNodes", new ListNodeCommand(nodeService));
+    COMMAND_DISPATCHER.registerCommand("/listRunningNodes", new ListNodesCommand(nodeService));
     COMMAND_DISPATCHER.registerCommand("/runNode",
                                        new RunNodeCommand(nodeService,
                                                           COMMUNICATOR::sendMessageToTheBot));

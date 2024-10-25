@@ -114,9 +114,14 @@ public class EcsManagerImpl implements EcsManager {
       }
 
       DescribeTasksResponse resp = client.describeTasks(describeTasksRequest);
-      if (!resp.hasTasks() || resp.tasks().isEmpty() || resp.hasFailures()) {
+      if (!resp.hasTasks() || resp.tasks().isEmpty()) {
         log.warn("No tasks found. Retrying...");
         continue;
+      }
+      if (resp.hasFailures()) {
+        log.error("Failed to get list of tasks. Failures: ");
+        resp.failures().forEach(log::error);
+        return lastStatus;
       }
 
       Task task = resp.tasks().getFirst();
