@@ -8,7 +8,6 @@ import org.github.akarkin1.ecs.RunTaskStatus;
 import org.github.akarkin1.ecs.TaskInfo;
 import software.amazon.awssdk.regions.Region;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -71,7 +70,7 @@ public class TailscaleEcsNodeService implements TailscaleNodeService {
 
     String hostName = userHostName;
     if (userHostName == null) {
-      hostName = chooseHostName(userTgId);
+      hostName = chooseHostName(userTgId, region.id());
     }
 
     Map<String, String> assignedTags = Map.of(
@@ -89,8 +88,10 @@ public class TailscaleEcsNodeService implements TailscaleNodeService {
                                       taskInfo.getId());
   }
 
-  private String chooseHostName(String userTgId) {
-    Set<String> hostNames = ecsManager.listTasks(Collections.emptyMap())
+  private String chooseHostName(String userTgId, String regionId) {
+    Set<String> hostNames = ecsManager.listTasks(Map.of(
+            config.getServiceNameTag(), config.getServiceName()
+        ))
         .stream()
         .map(TaskInfo::getHostName)
         .collect(Collectors.toSet());
@@ -98,15 +99,16 @@ public class TailscaleEcsNodeService implements TailscaleNodeService {
     String suggestedHostName;
     int nodeNumber = 1;
     do {
-      suggestedHostName = suggestHostName(userTgId, nodeNumber);
+      suggestedHostName = suggestHostName(userTgId, regionId, nodeNumber);
       nodeNumber++;
     } while (hostNames.contains(suggestedHostName));
 
     return suggestedHostName;
   }
 
-  private static String suggestHostName(String userTgId, int nodeNumber) {
-    return "%s-node-%d".formatted(userTgId.replaceAll("_", "-"), nodeNumber);
+  private static String suggestHostName(String userTgId, String regionId, int nodeNumber) {
+    return "%s-%s-%d".formatted(userTgId.replaceAll("_", ""), regionId,
+                                nodeNumber);
   }
 
   @Override
