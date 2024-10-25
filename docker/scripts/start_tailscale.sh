@@ -20,10 +20,5 @@ up &
 # Start Tailscale
 tailscaled --tun=userspace-networking --no-logs-no-support &
 
-# ToDo: Left for debug only, need to be removed
-sleep 0.5
-echo "Tailscale status debug – status command: $(tailscale status)"
-echo "Tailscale status debug – logged in? $(tailscale status | grep "logged in")"
-
 # Start monitoring connections
 /usr/local/bin/monitor_connections.sh

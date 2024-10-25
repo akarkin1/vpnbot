@@ -26,6 +26,7 @@ import software.amazon.awssdk.services.ecs.model.RunTaskRequest;
 import software.amazon.awssdk.services.ecs.model.RunTaskResponse;
 import software.amazon.awssdk.services.ecs.model.Tag;
 import software.amazon.awssdk.services.ecs.model.Task;
+import software.amazon.awssdk.services.ecs.model.TaskField;
 import software.amazon.awssdk.utils.CollectionUtils;
 
 import java.util.ArrayList;
@@ -187,6 +188,7 @@ public class EcsManagerImpl implements EcsManager {
       DescribeTasksRequest describeTasksRequest = DescribeTasksRequest.builder()
           .cluster(clusterName)
           .tasks(taskArns)
+          .include(TaskField.TAGS)
           .build();
 
       DescribeTasksResponse describeTaskResp = client.describeTasks(describeTasksRequest);
