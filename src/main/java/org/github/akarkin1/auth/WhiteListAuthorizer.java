@@ -12,7 +12,7 @@ import java.util.Map;
 // apart from TG API Servers.
 @Log4j2
 @RequiredArgsConstructor
-public class WhiteListAuthenticator implements Authenticator {
+public class WhiteListAuthorizer implements Authorizer {
 
   // ToDo: File user registration is inconvenient, add a command
   private final AuthConfiguration config;
@@ -25,10 +25,10 @@ public class WhiteListAuthenticator implements Authenticator {
       return true;
     }
 
-    Map<String, List<UserAction>> usersMap = config.getTgusersWhiteList();
+    Map<String, List<String>> usersMap = config.getTgusersWhiteList();
     log.debug("usersMap: {}", usersMap);
 
     return usersMap.containsKey(tgUsername)
-           && usersMap.get(tgUsername).contains(action);
+           && usersMap.get(tgUsername).contains(action.name());
   }
 }

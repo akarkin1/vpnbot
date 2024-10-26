@@ -6,9 +6,9 @@ import org.github.akarkin1.config.YamlApplicationConfiguration.AuthConfiguration
 public class WhiteListAuthConfigurer implements AuthenticatorConfigurer {
 
   @Override
-  public Authenticator configure() {
+  public Authorizer configure() {
     AuthConfiguration authConfig = ConfigManager.getApplicationYaml().getAuth();
-    return new WhiteListAuthenticator(authConfig);
+    return new WhiteListAuthorizer(authConfig);
   }
 
 }

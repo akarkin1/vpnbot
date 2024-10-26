@@ -1,7 +1,7 @@
 package org.github.akarkin1.dispatcher.command;
 
 import lombok.RequiredArgsConstructor;
-import org.github.akarkin1.auth.Authenticator;
+import org.github.akarkin1.auth.Authorizer;
 import org.github.akarkin1.auth.UserAction;
 import org.github.akarkin1.ecs.TaskInfo;
 import org.github.akarkin1.tailscale.TailscaleNodeService;
@@ -13,7 +13,7 @@ import java.util.List;
 public final class ListNodesCommand implements BotCommand<TextCommandResponse> {
 
   private final TailscaleNodeService tailscaleNodeService;
-  private final Authenticator authenticator;
+  private final Authorizer authorizer;
 
   @Override
   public TextCommandResponse run(List<String> args) {
@@ -23,7 +23,7 @@ public final class ListNodesCommand implements BotCommand<TextCommandResponse> {
       return new TextCommandResponse("Action is not allowed.");
     }
 
-    if (authenticator.isAllowed(username, UserAction.ADMIN)) {
+    if (authorizer.isAllowed(username, UserAction.ADMIN)) {
       // no username restriction is required, just list all nodes running
       username = null;
     }

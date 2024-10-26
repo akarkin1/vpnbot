@@ -72,7 +72,7 @@ public class YamlApplicationConfiguration {
   public static class AuthConfiguration {
 
     private boolean whiteListEnabled;
-    private Map<String, List<UserAction>> tgusersWhiteList;
+    private Map<String, List<String>> tgusersWhiteList;
 
   }
 

@@ -7,7 +7,7 @@ import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang3.StringUtils;
-import org.github.akarkin1.auth.Authenticator;
+import org.github.akarkin1.auth.Authorizer;
 import org.github.akarkin1.auth.WhiteListAuthConfigurer;
 import org.github.akarkin1.deduplication.FSUpdateEventsRegistry;
 import org.github.akarkin1.deduplication.UpdateEventsRegistry;
@@ -51,17 +51,17 @@ public class TailscaleVpnLambdaHandler implements
 
     final AbsSender sender = sender(getBotToken(), getBotUsernameEnv());
     final TailscaleNodeService nodeService = new TailscaleEcsNodeServiceConfigurer().configure();
-    final Authenticator authenticator = new WhiteListAuthConfigurer().configure();
+    final Authorizer authorizer = new WhiteListAuthConfigurer().configure();
 
     COMMUNICATOR = new BotCommunicator(sender);
     COMMAND_DISPATCHER = new CommandDispatcher(COMMUNICATOR);
 
     COMMAND_DISPATCHER.registerCommand("/version", new VersionCommand());
     COMMAND_DISPATCHER.registerCommand("/listRunningNodes", new ListNodesCommand(nodeService,
-                                                                                 authenticator));
+                                                                                 authorizer));
     COMMAND_DISPATCHER.registerCommand("/runNodeIn",
                                        new RunNodeCommand(nodeService,
-                                                          authenticator,
+                                                          authorizer,
                                                           COMMUNICATOR::sendMessageToTheBot));
     COMMAND_DISPATCHER.registerCommand("/supportedRegions",
                                        new SupportedRegionCommand(nodeService));

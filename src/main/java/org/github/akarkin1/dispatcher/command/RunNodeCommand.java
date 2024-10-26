@@ -2,7 +2,7 @@ package org.github.akarkin1.dispatcher.command;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
-import org.github.akarkin1.auth.Authenticator;
+import org.github.akarkin1.auth.Authorizer;
 import org.github.akarkin1.auth.UserAction;
 import org.github.akarkin1.ecs.RunTaskStatus;
 import org.github.akarkin1.ecs.TaskInfo;
@@ -18,12 +18,12 @@ import java.util.function.Consumer;
 public final class RunNodeCommand implements BotCommand<EmptyResponse> {
 
   private final TailscaleNodeService tailscaleNodeService;
-  private final Authenticator authenticator;
+  private final Authorizer authorizer;
   private final Consumer<String> messageConsumer;
 
   @Override
   public EmptyResponse run(List<String> args) {
-    if (!authenticator.isAllowed(TgUserContext.getUsername(), UserAction.RUN_NODES)) {
+    if (!authorizer.isAllowed(TgUserContext.getUsername(), UserAction.RUN_NODES)) {
       messageConsumer.accept("You are not authorized to execute this command. "
                              + "Please, reach out @karkin_ai to request an access.");
       return EmptyResponse.NONE;
