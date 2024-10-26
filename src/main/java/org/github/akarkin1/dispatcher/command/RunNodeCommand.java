@@ -59,7 +59,7 @@ public final class RunNodeCommand implements BotCommand<EmptyResponse> {
                                                      TgUserContext.getUsername(),
                                                      userHost);
     log.debug("Task is run, task info: {}", taskInfo);
-    messageConsumer.accept("Task is started. Checking its status...");
+    messageConsumer.accept("Task is started. Checking Tailscale node status...");
     RunTaskStatus runTaskStatus = tailscaleNodeService.checkNodeStatus(taskInfo);
     if (RunTaskStatus.UNKNOWN.equals(runTaskStatus)) {
       messageConsumer.accept("Failed to check task status. Task has been starting for too long. "

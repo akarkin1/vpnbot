@@ -10,7 +10,9 @@ inactive_time=0
 while true; do
     # Check the number of active connections
     ACTIVE_CONNECTIONS=$(tailscale status | grep 'active' | wc -l)
-    echo "Tailscale serve status debug – status command: $(tailscale serve status)"
+    echo "Tailscale status debug – logs command: $(tailscale logs)"
+    echo "Tailscale status debug – 'Ready to accept connections': $(tailscale logs | grep 'Ready to accept connections')"
+    echo "Tailscale status debug – 'Ready to accept connections'?: $(tailscale logs | grep 'Ready to accept connections' -q)"
 
     if [ "$ACTIVE_CONNECTIONS" -eq 0 ]; then
         # Increment inactive time if there are no active connections
