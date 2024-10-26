@@ -257,6 +257,7 @@ Resources:
       ContainerDefinitions:
         - Name: vpn-container
           Essential: true
+          IsInit: true
           Image: !Join [':', [!GetAtt TailscaleNodeEcrRepository.RepositoryUri, 'latest']]
           Cpu: !Ref TailscaleNodeCpu
           Memory: !Ref TailscaleNodeMemory
