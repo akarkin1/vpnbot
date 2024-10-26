@@ -397,7 +397,7 @@ Resources:
       PassthroughBehavior: WHEN_NO_MATCH
       TimeoutInMillis: 600
       IntegrationMethod: POST
-      IntegrationType: AWS_PROXY
+      IntegrationType: HTTP_PROXY
       PayloadFormatVersion: "2.0"
       IntegrationUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${VpnConfigurerLambda.Arn}/invocations"
 
