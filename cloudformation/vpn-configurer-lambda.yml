@@ -6,6 +6,14 @@ Parameters:
     Type: String
     Default: 0.0.0.0/0
     Description: CIDR IP to be granted access by the SG, use 0.0.0.0/0 to accept all IPs
+  TelegramIPCIDR:
+    Type: String
+    Default: 149.154.167.0/24
+    Description: CIDR IP range of Telegram API Servers.
+  AdditionalTelegramIPCIDR:
+    Type: String
+    Default: 149.154.167.0/24
+    Description: Additional CIDR IP range of Telegram API Servers.
   LambdaSourcesBucketName:
     Type: String
     Description: S3 Bucket with source code of the lambda.
@@ -74,27 +82,28 @@ Resources:
     Properties:
       GroupDescription: Allow Lambda to access EFS
       VpcId: !Ref VpnConfigurerVpc
-      SecurityGroupEgress:
-        - IpProtocol: tcp
-          FromPort: 2049
-          ToPort: 2049
-          CidrIp: !Ref ClientIPCIDR
-        # Allows outbound HTTP traffic
-        - IpProtocol: tcp
-          FromPort: 80
-          ToPort: 80
-          CidrIp: !Ref ClientIPCIDR
-        # Allow outbound HTTPS traffic
+      SecurityGroupIngress:
+        # Telegram API only allowed as Ingress
         - IpProtocol: tcp
           FromPort: 443
           ToPort: 443
-          CidrIp: !Ref ClientIPCIDR
+          CidrIp: !Ref TelegramIPCIDR
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: !Ref AdditionalTelegramIPCIDR
+
+  EfsSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Allow Lambda to access EFS
+      VpcId: !Ref VpnConfigurerVpc
       SecurityGroupIngress:
         # Allow inbound NFS traffic
         - IpProtocol: tcp
           FromPort: 2049
           ToPort: 2049
-          CidrIp: !Ref ClientIPCIDR
+          SourceSecurityGroupId: !Ref LambdaSecurityGroup
 
   # Configure Internet access for the lambda
   VpnConfigurerInternetGateway:
@@ -142,44 +151,6 @@ Resources:
 
   VpnConfigurerEIP:
     Type: AWS::EC2::EIP
-
-  VpnConfigurerNatGateway:
-    DependsOn:
-      - VpnConfigurerEIP
-      - VpnConfigurerPublicSubnet
-      - VpnConfigurerInternetGatewayAttachment
-    Type: AWS::EC2::NatGateway
-    Properties:
-      AllocationId: !GetAtt VpnConfigurerEIP.AllocationId
-      SubnetId: !Ref VpnConfigurerPublicSubnet  # Place NAT Gateway in a public subnet
-
-  # Route Table for NAT Gateway
-  VpnConfigurerPrivateRouteTable:
-    DependsOn:
-      - VpnConfigurerVpc
-    Type: AWS::EC2::RouteTable
-    Properties:
-      VpcId: !Ref VpnConfigurerVpc
-
-  # Associate Route Table with Subnet
-  VpnConfigurerPrivateRouteTableSubnetAssociation:
-    DependsOn:
-      - VpnConfigurerPrivateRouteTable
-      - VpnConfigurerPrivateSubnet
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      SubnetId: !Ref VpnConfigurerPrivateSubnet
-      RouteTableId: !Ref VpnConfigurerPrivateRouteTable
-
-  VpnConfigurerNatGatewayRoute:
-    DependsOn:
-      - VpnConfigurerPrivateRouteTableSubnetAssociation
-      - VpnConfigurerNatGateway
-    Type: AWS::EC2::Route
-    Properties:
-      RouteTableId: !Ref VpnConfigurerPrivateRouteTable
-      DestinationCidrBlock: !Ref ClientIPCIDR
-      NatGatewayId: !Ref VpnConfigurerNatGateway
 
   LambdaRole:
     Type: AWS::IAM::Role
@@ -284,7 +255,7 @@ Resources:
       FileSystemId: !Ref LambdaEfsStorage
       SubnetId: !Ref VpnConfigurerPrivateSubnet
       SecurityGroups:
-        - !Ref LambdaSecurityGroup
+        - !Ref EfsSecurityGroup
 
   LambdaEfsAccessPoint:
     DependsOn: LambdaEfsStorage
@@ -353,6 +324,9 @@ Resources:
       Name: vpn-configurer-api
       ProtocolType: HTTP
       Description: An API Gateway with Vpn Configurer Lambda Integration
+      CorsConfiguration:
+        AllowOrigins:
+          - "https://api.telegram.org"
 
   ApiGatewayIamRole:
     DependsOn: VpnConfigurerLambda
@@ -398,16 +372,27 @@ Resources:
                 Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/custom/apigateway/*:*
 
 
+  ApiGatewayVpcLink:
+    Type: AWS::ApiGatewayV2::VpcLink
+    Properties:
+      Name: TelegramBotVpcLink
+      SecurityGroupIds:
+        - !Ref LambdaSecurityGroup
+      SubnetIds:
+        - !Ref VpnConfigurerPrivateSubnet
+
   LambdaApiGatewayIntegration:
     DependsOn:
       - ApiGatewayIamRole
       - LambdaRestApi
       - VpnConfigurerLambda
+      - ApiGatewayVpcLink
     Type: AWS::ApiGatewayV2::Integration
     Properties:
       ApiId: !Ref LambdaRestApi
       Description: TG Bot Vpn Configurer Integration
-      ConnectionType: INTERNET
+      ConnectionType: VPC_LINK
+      ConnectionId: !Ref ApiGatewayVpcLink
       CredentialsArn: !GetAtt ApiGatewayIamRole.Arn
       PassthroughBehavior: WHEN_NO_MATCH
       TimeoutInMillis: 600
