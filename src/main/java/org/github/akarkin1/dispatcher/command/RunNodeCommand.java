@@ -76,9 +76,9 @@ public final class RunNodeCommand implements BotCommand<EmptyResponse> {
       if (fullTaskInfo.isPresent()) {
         successMessage.append(" Node details:\n")
             .append("\t- Node Name: %s%n".formatted(taskInfo.getHostName()))
-            .append("\t  Node Status: %s%n".formatted(taskInfo.getState()))
-            .append("\t  Public IP: %s%n".formatted(taskInfo.getPublicIp()))
-            .append("\t  Location: %s (%s)".formatted(taskInfo.getLocation(),
+            .append("\t   Node Status: %s%n".formatted(taskInfo.getState()))
+            .append("\t   Public IP: %s%n".formatted(taskInfo.getPublicIp()))
+            .append("\t   Location: %s (%s)".formatted(taskInfo.getLocation(),
                                                            taskInfo.getRegion().id()));
       }
 
