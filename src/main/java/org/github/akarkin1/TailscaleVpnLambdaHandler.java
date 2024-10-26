@@ -54,7 +54,7 @@ public class TailscaleVpnLambdaHandler implements
 
     COMMAND_DISPATCHER.registerCommand("/version", new VersionCommand());
     COMMAND_DISPATCHER.registerCommand("/listRunningNodes", new ListNodesCommand(nodeService));
-    COMMAND_DISPATCHER.registerCommand("/runNode",
+    COMMAND_DISPATCHER.registerCommand("/runNodeIn",
                                        new RunNodeCommand(nodeService,
                                                           COMMUNICATOR::sendMessageToTheBot));
     COMMAND_DISPATCHER.registerCommand("/supportedRegions",
