@@ -38,6 +38,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -209,7 +210,6 @@ public class EcsManagerImpl implements EcsManager {
           continue;
         }
 
-
         log.debug("Task attachments: {}", task.attachments());
 
         String publicIp = getTaskPublicIp(region, task);
@@ -278,4 +278,41 @@ public class EcsManagerImpl implements EcsManager {
         .map(Region::id)
         .collect(Collectors.toSet());
   }
+
+  @Override
+  public Optional<TaskInfo> getFullTaskInfo(Region region, String clusterName, String taskId) {
+    EcsClient client = ecsClientPool.get(region);
+
+    DescribeTasksRequest describeTasksRequest = DescribeTasksRequest.builder()
+        .cluster(clusterName)
+        .tasks(taskId)
+        .include(TaskField.TAGS)
+        .build();
+
+    DescribeTasksResponse describeTaskResp = client.describeTasks(describeTasksRequest);
+
+    return describeTaskResp.tasks().stream()
+        .map(task -> {
+          String publicIp = getTaskPublicIp(region, task);
+
+          String hostName = task.tags()
+              .stream()
+              .filter(tag -> config.getHostNameTag().equals(tag.key()))
+              .map(Tag::value)
+              .findFirst()
+              .orElse(null);
+
+          return TaskInfo.builder()
+              .hostName(hostName)
+              .id(taskId)
+              .state(task.lastStatus())
+              .cluster(clusterName)
+              .region(region)
+              .location(regionToCitiesMap.get(region.id()))
+              .publicIp(publicIp)
+              .build();
+        })
+        .findFirst();
+  }
+
 }

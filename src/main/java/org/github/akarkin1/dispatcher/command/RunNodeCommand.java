@@ -8,6 +8,7 @@ import org.github.akarkin1.tailscale.TailscaleNodeService;
 import org.github.akarkin1.tg.TgUserContext;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Consumer;
 
 @Log4j2
@@ -68,15 +69,19 @@ public final class RunNodeCommand implements BotCommand<EmptyResponse> {
       messageConsumer.accept("The node failed to start. Please, reach out @karkin_ai to "
                              + "troubleshoot the issue.");
     } else {
-      messageConsumer.accept("""
-                                 The node has been started successfully. Node details:
-                                   - Node Name: %s;
-                                   - Node Public IP: %s,
-                                   - Node Location: %s %s
-                                 """.formatted(taskInfo.getHostName(),
-                                               taskInfo.getPublicIp(),
-                                               taskInfo.getRegion(),
-                                               taskInfo.getLocation()));
+      Optional<TaskInfo> fullTaskInfo = tailscaleNodeService.getFullTaskInfo(taskInfo.getRegion(),
+                                                                             TgUserContext.getUsername(),
+                                                                             taskInfo.getHostName());
+      StringBuilder successMessage = new StringBuilder("The node has been started successfully.");
+      if (fullTaskInfo.isPresent()) {
+        successMessage.append(" Node details:\n")
+            .append("\t- Node Name: %s%n".formatted(taskInfo.getHostName()))
+            .append("\t  Node Public IP: %s%n".formatted(taskInfo.getPublicIp()))
+            .append("\t  Node Location: %s (%s)".formatted(taskInfo.getLocation(),
+                                                           taskInfo.getRegion().id()));
+      }
+
+      messageConsumer.accept(successMessage.toString());
     }
 
     return EmptyResponse.NONE;

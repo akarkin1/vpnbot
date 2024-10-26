@@ -11,6 +11,7 @@ import software.amazon.awssdk.regions.Region;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -82,6 +83,11 @@ public class TailscaleEcsNodeService implements TailscaleNodeService {
   }
 
   @Override
+  public Optional<TaskInfo> getFullTaskInfo(Region region, String userTgId, String userHostName) {
+    return ecsManager.getFullTaskInfo(region, userTgId, userHostName);
+  }
+
+  @Override
   public RunTaskStatus checkNodeStatus(TaskInfo taskInfo) {
     return ecsManager.checkTaskHealth(taskInfo.getRegion(),
                                       taskInfo.getCluster(),
@@ -106,9 +112,9 @@ public class TailscaleEcsNodeService implements TailscaleNodeService {
     return suggestedHostName;
   }
 
-  private static String suggestHostName(String userTgId, String regionId, int nodeNumber) {
-    return "%s-%s-%d".formatted(userTgId.replaceAll("_", ""), regionId,
-                                nodeNumber);
+  private String suggestHostName(String userTgId, String regionId, int nodeNumber) {
+    String city = cityByRegion.get(regionId).toLowerCase();
+    return "%s-%s-%d".formatted(userTgId.replaceAll("_", ""), city, nodeNumber);
   }
 
   @Override

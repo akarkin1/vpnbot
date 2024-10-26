@@ -4,6 +4,7 @@ import software.amazon.awssdk.regions.Region;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 public interface EcsManager {
@@ -18,4 +19,5 @@ public interface EcsManager {
 
   Set<String> getSupportedRegions();
 
+  Optional<TaskInfo> getFullTaskInfo(Region region, String clusterName, String taskId);
 }
