@@ -201,7 +201,6 @@ Resources:
     Properties:
       InstanceType: !Ref NatInstanceSize
       ImageId: !Ref NatInstanceAMI
-      SubnetId: !Ref VpnConfigurerPublicSubnet
       SourceDestCheck: false
       NetworkInterfaces:
         - NetworkInterfaceId: !Ref VpnConfigurerNatInstanceNetworkInterface
