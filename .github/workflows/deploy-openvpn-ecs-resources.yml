@@ -44,8 +44,9 @@ env:
   TAILSCALE_AUTH_TOKEN_REGION: ${{ vars.CONFIG_BASE_REGION }}
 
 jobs:
+  # ToDo: docker build and cloudformation template deployment can be run in parallel, if there is no dependency between the formers
   deploy-tailscale-node:
-    name: Deploy CloudFormation stack with ECS resources for a Tailscale Node
+    name: Deploy Tailscale ECS Resources
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Source Code
