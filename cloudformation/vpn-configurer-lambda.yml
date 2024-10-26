@@ -371,44 +371,32 @@ Resources:
                   - logs:PutLogEvents
                 Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/custom/apigateway/*:*
 
-
-  ApiGatewayVpcLink:
-    Type: AWS::ApiGatewayV2::VpcLink
-    Properties:
-      Name: TelegramBotVpcLink
-      SecurityGroupIds:
-        - !Ref LambdaSecurityGroup
-      SubnetIds:
-        - !Ref VpnConfigurerPrivateSubnet
-
-  VpnConfigurerLambdaUrl:
-    DependsOn:
-      - VpnConfigurerLambda
-    Type: AWS::Lambda::Url
-    Properties:
-      TargetFunctionArn: !GetAtt VpnConfigurerLambda.Arn
-      AuthType: NONE  # You can set to AWS_IAM or CUSTOM_AUTH for security
+#  VpnConfigurerLambdaUrl:
+#    DependsOn:
+#      - VpnConfigurerLambda
+#    Type: AWS::Lambda::Url
+#    Properties:
+#      TargetFunctionArn: !GetAtt VpnConfigurerLambda.Arn
+#      AuthType: NONE  # You can set to AWS_IAM or CUSTOM_AUTH for security
 
   LambdaApiGatewayIntegration:
     DependsOn:
       - ApiGatewayIamRole
       - LambdaRestApi
       - VpnConfigurerLambda
-      - ApiGatewayVpcLink
-      - VpnConfigurerLambdaUrl
+#      - VpnConfigurerLambdaUrl
     Type: AWS::ApiGatewayV2::Integration
     Properties:
       ApiId: !Ref LambdaRestApi
       Description: TG Bot Vpn Configurer Integration
-      ConnectionType: VPC_LINK
-      ConnectionId: !Ref ApiGatewayVpcLink
+      ConnectionType: INTERNET
       CredentialsArn: !GetAtt ApiGatewayIamRole.Arn
       PassthroughBehavior: WHEN_NO_MATCH
       TimeoutInMillis: 600
       IntegrationMethod: POST
-      IntegrationType: HTTP_PROXY
+      IntegrationType: AWS_PROXY
       PayloadFormatVersion: "2.0"
-      IntegrationUri: !GetAtt VpnConfigurerLambdaUrl.FunctionUrl
+      IntegrationUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${VpnConfigurerLambda.Arn}/invocations"
 
   ApiGatewayRoute:
     Type: AWS::ApiGatewayV2::Route
