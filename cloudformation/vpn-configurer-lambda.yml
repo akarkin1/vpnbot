@@ -381,12 +381,21 @@ Resources:
       SubnetIds:
         - !Ref VpnConfigurerPrivateSubnet
 
+  VpnConfigurerLambdaUrl:
+    DependsOn:
+      - VpnConfigurerLambda
+    Type: AWS::Lambda::Url
+    Properties:
+      TargetFunctionArn: !GetAtt VpnConfigurerLambda.Arn
+      AuthType: NONE  # You can set to AWS_IAM or CUSTOM_AUTH for security
+
   LambdaApiGatewayIntegration:
     DependsOn:
       - ApiGatewayIamRole
       - LambdaRestApi
       - VpnConfigurerLambda
       - ApiGatewayVpcLink
+      - VpnConfigurerLambdaUrl
     Type: AWS::ApiGatewayV2::Integration
     Properties:
       ApiId: !Ref LambdaRestApi
@@ -399,7 +408,7 @@ Resources:
       IntegrationMethod: POST
       IntegrationType: HTTP_PROXY
       PayloadFormatVersion: "2.0"
-      IntegrationUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${VpnConfigurerLambda.Arn}/invocations"
+      IntegrationUri: !GetAtt VpnConfigurerLambdaUrl.FunctionUrl
 
   ApiGatewayRoute:
     Type: AWS::ApiGatewayV2::Route
