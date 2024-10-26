@@ -7,7 +7,13 @@ import org.github.akarkin1.config.TaskConfigService;
 import org.github.akarkin1.config.TaskRuntimeParameters;
 import org.github.akarkin1.config.YamlApplicationConfiguration.EcsConfiguration;
 import org.github.akarkin1.config.YamlApplicationConfiguration.EcsContainerHealth;
+import org.github.akarkin1.ec2.Ec2ClientPool;
 import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.ec2.Ec2Client;
+import software.amazon.awssdk.services.ec2.model.DescribeNetworkInterfacesRequest;
+import software.amazon.awssdk.services.ec2.model.DescribeNetworkInterfacesResponse;
+import software.amazon.awssdk.services.ec2.model.NetworkInterface;
+import software.amazon.awssdk.services.ec2.model.NetworkInterfaceAssociation;
 import software.amazon.awssdk.services.ecs.EcsClient;
 import software.amazon.awssdk.services.ecs.model.AssignPublicIp;
 import software.amazon.awssdk.services.ecs.model.Attachment;
@@ -27,7 +33,6 @@ import software.amazon.awssdk.services.ecs.model.RunTaskResponse;
 import software.amazon.awssdk.services.ecs.model.Tag;
 import software.amazon.awssdk.services.ecs.model.Task;
 import software.amazon.awssdk.services.ecs.model.TaskField;
-import software.amazon.awssdk.utils.CollectionUtils;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -43,10 +48,11 @@ public class EcsManagerImpl implements EcsManager {
 
   private static final String CONTAINER_NAME = "vpn-container";
   private static final String ELASTIC_NETWORK_INTERFACE_FIELD = "ElasticNetworkInterface";
-  private static final String PUBLIC_IP_FIELD = "publicIp";
+  private static final String NETWORK_INTERFACE_ID = "networkInterfaceId";
 
   private final TaskConfigService taskConfigService;
-  private final EcsClientPool clientPool;
+  private final EcsClientPool ecsClientPool;
+  private final Ec2ClientPool ec2ClientPool;
   private final EcsConfiguration config;
   private final Map<String, String> regionToCitiesMap;
 
@@ -77,7 +83,7 @@ public class EcsManagerImpl implements EcsManager {
         .networkConfiguration(networkConfig)
         .build();
 
-    EcsClient client = clientPool.get(region);
+    EcsClient client = ecsClientPool.get(region);
 
     RunTaskResponse resp = client.runTask(runTaskRequest);
     if (!resp.hasTasks() || resp.tasks().isEmpty()) {
@@ -104,7 +110,7 @@ public class EcsManagerImpl implements EcsManager {
         .cluster(clusterName)
         .tasks(taskId)
         .build();
-    EcsClient client = clientPool.get(region);
+    EcsClient client = ecsClientPool.get(region);
     long startedAt = System.currentTimeMillis();
     RunTaskStatus lastStatus = RunTaskStatus.UNKNOWN;
 
@@ -175,7 +181,7 @@ public class EcsManagerImpl implements EcsManager {
       TaskRuntimeParameters taskRuntimeParameters = taskConfigService.getTaskRuntimeParameters(
           region);
       String clusterName = taskRuntimeParameters.getEcsClusterName();
-      EcsClient client = clientPool.get(region);
+      EcsClient client = ecsClientPool.get(region);
       ListTasksRequest listTasksRequest = ListTasksRequest.builder()
           .cluster(clusterName)
           .build();
@@ -205,15 +211,7 @@ public class EcsManagerImpl implements EcsManager {
 
         log.debug("Task attachments: {}", task.attachments());
 
-        String publicIp = task.attachments()
-            .stream()
-            .filter(attachment -> ELASTIC_NETWORK_INTERFACE_FIELD.equals(attachment.type()))
-            .map(Attachment::details)
-            .flatMap(Collection::stream)
-            .filter(detail -> PUBLIC_IP_FIELD.equals(detail.name()))
-            .map(KeyValuePair::value)
-            .findFirst()
-            .orElse(null);
+        String publicIp = getTaskPublicIp(region, task);
 
         log.debug("Task tags: {}, Hostname tag name: {}", task.tags(),
                   config.getHostNameTag());
@@ -239,6 +237,32 @@ public class EcsManagerImpl implements EcsManager {
     }
 
     return foundTasks;
+  }
+
+  private String getTaskPublicIp(Region region, Task task) {
+    return task.attachments()
+        .stream()
+        .filter(attachment -> ELASTIC_NETWORK_INTERFACE_FIELD.equals(attachment.type()))
+        .map(Attachment::details)
+        .flatMap(Collection::stream)
+        .filter(detail -> NETWORK_INTERFACE_ID.equals(detail.name()))
+        .map(KeyValuePair::value)
+        .findFirst()
+        .map(networkInterfaceId -> this.fetchPublicIp(region, networkInterfaceId))
+        .orElse(null);
+  }
+
+  private String fetchPublicIp(Region region, String networkInterfaceId) {
+    Ec2Client ec2Client = ec2ClientPool.getForRegion(region.id());
+    DescribeNetworkInterfacesRequest request = DescribeNetworkInterfacesRequest.builder()
+        .networkInterfaceIds(networkInterfaceId)
+        .build();
+    DescribeNetworkInterfacesResponse response = ec2Client.describeNetworkInterfaces(request);
+    return response.networkInterfaces().stream()
+        .map(NetworkInterface::association)
+        .map(NetworkInterfaceAssociation::publicIp)
+        .findFirst()
+        .orElse(null);
   }
 
   private static String taskIdFromArn(String taskArn) {
