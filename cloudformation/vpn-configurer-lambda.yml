@@ -28,6 +28,14 @@ Parameters:
     Type: Number
     Description: Pause between stop and start operation of EC2 in seconds for /restartServer command.
     Default: 30
+  NatInstanceAMI:
+    Type: String
+    Description: Base AMI of the NAT Ec2 Instance via which traffic will be redirected.
+    Default: ami-02db68a01488594c5
+  NatInstanceSize:
+    Type: String
+    Description: Size of EC2 Nat Instance
+    Default: t3.micro
 
 Resources:
   VpnConfigurerVpc:
@@ -40,7 +48,7 @@ Resources:
         - Key: Name
           Value: vpn-configurer-vpc
         - Key: ServiceName
-          Value: openvpn-server
+          Value: vpn-configurer-lambda
 
   VpnConfigurerPrivateSubnet:
     Type: AWS::EC2::Subnet
@@ -51,7 +59,7 @@ Resources:
         - Key: Name
           Value: vpn-configurer-private-sn
         - Key: ServiceName
-          Value: openvpn-server
+          Value: vpn-configurer-lambda
 
   # Create a Public Subnet
   VpnConfigurerPublicSubnet:
@@ -67,7 +75,7 @@ Resources:
         - Key: Name
           Value: vpn-configurer-public-sn
         - Key: ServiceName
-          Value: openvpn-server
+          Value: vpn-configurer-lambda
 
   LambdaSecurityGroup:
     Type: 'AWS::EC2::SecurityGroup'
@@ -140,20 +148,86 @@ Resources:
       DestinationCidrBlock: !Ref ClientIPCIDR
       GatewayId: !Ref VpnConfigurerInternetGateway
 
-  VpnConfigurerEIP:
-    Type: AWS::EC2::EIP
 
-  VpnConfigurerNatGateway:
-    DependsOn:
-      - VpnConfigurerEIP
-      - VpnConfigurerPublicSubnet
-      - VpnConfigurerInternetGatewayAttachment
-    Type: AWS::EC2::NatGateway
+  # Security Group for NAT Instance
+  NatInstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
     Properties:
-      AllocationId: !GetAtt VpnConfigurerEIP.AllocationId
-      SubnetId: !Ref VpnConfigurerPublicSubnet  # Place NAT Gateway in a public subnet
+      GroupDescription: "Security group for NAT instance"
+      VpcId: !Ref VpnConfigurerVpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: !Ref ClientIPCIDR
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: !Ref ClientIPCIDR
 
-  # Route Table for NAT Gateway
+  VpnConfigurerNatInstanceEIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+
+  VpnConfigurerNatInstanceNetworkInterface:
+    Type: AWS::EC2::NetworkInterface
+    Properties:
+      SubnetId: !Ref VpnConfigurerPublicSubnet
+      Description: Public Interface
+      GroupSet:
+        - !Ref NatInstanceSecurityGroup
+      SourceDestCheck: false
+      Tags:
+        - Key: Name
+          Value: Nat Instance Public ENI
+
+  VpnConfigurerNatInstanceEIPAssociation:
+    DependsOn:
+      - VpnConfigurerNatInstanceEIP
+      - VpnConfigurerNatInstanceNetworkInterface
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      AllocationId: !GetAtt VpnConfigurerNatInstanceEIP.AllocationId
+      NetworkInterfaceId: !Ref VpnConfigurerNatInstanceNetworkInterface
+
+  # NAT Instance
+  VpnConfigurerNatInstance:
+    DependsOn:
+      - VpnConfigurerNatInstanceNetworkInterface
+      - NatInstanceSecurityGroup
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref NatInstanceSize
+      ImageId: !Ref NatInstanceAMI
+      SourceDestCheck: false
+      NetworkInterfaces:
+        - NetworkInterfaceId: !Ref VpnConfigurerNatInstanceNetworkInterface
+          DeviceIndex: 0
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          # Update the system
+          yum update -y
+          # Install iptables
+          yum install iptables-services -y
+          systemctl enable iptables
+          systemctl start iptables
+          # Enable IP forwarding
+          sysctl -w net.ipv4.ip_forward=1
+          # Configure iptables (example rules)
+          iptables -t nat -A POSTROUTING -o ens5 -s 0.0.0.0/0 -j MASQUERADE
+          # Save the iptables rules
+          service iptables save
+          service iptables restart
+      Tags:
+      - Key: Name
+        Value: vpn-configurer-nat-ec2
+      - Key: ServiceName
+        Value: vpn-configurer-lambda
+
+  # Route Table for NAT Instance
   VpnConfigurerPrivateRouteTable:
     DependsOn:
       - VpnConfigurerVpc
@@ -171,15 +245,15 @@ Resources:
       SubnetId: !Ref VpnConfigurerPrivateSubnet
       RouteTableId: !Ref VpnConfigurerPrivateRouteTable
 
-  VpnConfigurerNatGatewayRoute:
+  VpnConfigurerNatInstanceRoute:
     DependsOn:
       - VpnConfigurerPrivateRouteTableSubnetAssociation
-      - VpnConfigurerNatGateway
+      - VpnConfigurerNatInstance
     Type: AWS::EC2::Route
     Properties:
       RouteTableId: !Ref VpnConfigurerPrivateRouteTable
       DestinationCidrBlock: !Ref ClientIPCIDR
-      NatGatewayId: !Ref VpnConfigurerNatGateway
+      InstanceId: !Ref VpnConfigurerNatInstance
 
   LambdaRole:
     Type: AWS::IAM::Role
