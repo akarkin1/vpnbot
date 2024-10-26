@@ -114,7 +114,11 @@ public class TailscaleEcsNodeService implements TailscaleNodeService {
 
   private String suggestHostName(String userTgId, String regionId, int nodeNumber) {
     String city = cityByRegion.get(regionId).toLowerCase();
-    return "%s-%s-%d".formatted(userTgId.replaceAll("_", ""), city, nodeNumber);
+    return sanitizeHostName("%s-%s-%d".formatted(userTgId, city, nodeNumber));
+  }
+
+  private String sanitizeHostName(String hostName) {
+    return hostName.replaceAll("[_.\\s]", "");
   }
 
   @Override
