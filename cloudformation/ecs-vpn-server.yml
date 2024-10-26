@@ -257,7 +257,8 @@ Resources:
       ContainerDefinitions:
         - Name: vpn-container
           Essential: true
-          IsInit: true
+          LinuxParameters:
+            InitProcessEnabled: true
           Image: !Join [':', [!GetAtt TailscaleNodeEcrRepository.RepositoryUri, 'latest']]
           Cpu: !Ref TailscaleNodeCpu
           Memory: !Ref TailscaleNodeMemory
