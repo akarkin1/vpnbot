@@ -3,9 +3,19 @@ version: ${project.version}
 auth:
   white-list-enabled: true
   tgusers-white-list:
-    'alex':
+    'karkin_ai':
       - RUN_NODES
-
+      - ADMIN
+    'Ilya174':
+      - RUN_NODES
+    'Igorn_1964':
+      - RUN_NODES
+    'kalpltoska':
+      - RUN_NODES
+    'Veltmann':
+      - RUN_NODES
+    'nickrom0':
+      - RUN_NODES
 s3:
   config-bucket: openvpn-server-s3
   config-root-dir: ecs-tailscale-node/config
