@@ -18,7 +18,6 @@ import software.amazon.awssdk.services.ecs.EcsClient;
 import software.amazon.awssdk.services.ecs.model.AssignPublicIp;
 import software.amazon.awssdk.services.ecs.model.Attachment;
 import software.amazon.awssdk.services.ecs.model.AwsVpcConfiguration;
-import software.amazon.awssdk.services.ecs.model.Container;
 import software.amazon.awssdk.services.ecs.model.ContainerOverride;
 import software.amazon.awssdk.services.ecs.model.DescribeTasksRequest;
 import software.amazon.awssdk.services.ecs.model.DescribeTasksResponse;

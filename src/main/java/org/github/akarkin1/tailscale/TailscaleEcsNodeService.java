@@ -113,12 +113,12 @@ public class TailscaleEcsNodeService implements TailscaleNodeService {
   }
 
   private String suggestHostName(String userTgId, String regionId, int nodeNumber) {
-    String city = cityByRegion.get(regionId).toLowerCase();
+    String city = cityByRegion.get(regionId);
     return sanitizeHostName("%s-%s-%d".formatted(userTgId, city, nodeNumber));
   }
 
-  private String sanitizeHostName(String hostName) {
-    return hostName.replaceAll("[_.\\s]", "");
+  static String sanitizeHostName(String hostName) {
+    return hostName.toLowerCase().replaceAll("[_.\\s]", "");
   }
 
   @Override
