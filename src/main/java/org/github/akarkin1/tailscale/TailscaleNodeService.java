@@ -18,7 +18,7 @@ public interface TailscaleNodeService {
 
   TaskInfo runNode(String userRegion, String userTgId, String userHostName);
 
-  Optional<TaskInfo> getFullTaskInfo(Region region, String userTgId, String userHostName);
+  Optional<TaskInfo> getFullTaskInfo(Region region, String clusterName, String taskId);
 
   RunTaskStatus checkNodeStatus(TaskInfo taskInfo);
 

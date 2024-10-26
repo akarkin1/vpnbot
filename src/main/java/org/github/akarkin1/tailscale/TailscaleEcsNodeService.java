@@ -83,8 +83,8 @@ public class TailscaleEcsNodeService implements TailscaleNodeService {
   }
 
   @Override
-  public Optional<TaskInfo> getFullTaskInfo(Region region, String userTgId, String userHostName) {
-    return ecsManager.getFullTaskInfo(region, userTgId, userHostName);
+  public Optional<TaskInfo> getFullTaskInfo(Region region, String clusterName, String taskId) {
+    return ecsManager.getFullTaskInfo(region, clusterName, taskId);
   }
 
   @Override

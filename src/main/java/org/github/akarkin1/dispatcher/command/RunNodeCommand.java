@@ -70,8 +70,8 @@ public final class RunNodeCommand implements BotCommand<EmptyResponse> {
                              + "troubleshoot the issue.");
     } else {
       Optional<TaskInfo> fullTaskInfo = tailscaleNodeService.getFullTaskInfo(taskInfo.getRegion(),
-                                                                             TgUserContext.getUsername(),
-                                                                             taskInfo.getHostName());
+                                                                             taskInfo.getCluster(),
+                                                                             taskInfo.getId());
       StringBuilder successMessage = new StringBuilder("The node has been started successfully.");
       if (fullTaskInfo.isPresent()) {
         successMessage.append(" Node details:\n")
