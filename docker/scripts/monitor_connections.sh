@@ -4,6 +4,9 @@
 : "${INACTIVITY_TIMEOUT:=600}"  # 10 minutes
 : "${STATUS_CHECK_INTERVAL:=60}"  # Check every minute
 
+# If stop command from ECS interface we need to logout before exit
+trap "tailscale logout" SIGTERM
+
 # Initialize a counter for inactive time
 inactive_time=0
 
