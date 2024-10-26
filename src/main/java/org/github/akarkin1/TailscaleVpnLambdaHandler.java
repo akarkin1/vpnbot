@@ -42,7 +42,8 @@ public class TailscaleVpnLambdaHandler implements
   private static final CommandDispatcher COMMAND_DISPATCHER;
   private static final BotCommunicator COMMUNICATOR;
   private static final UpdateEventsRegistry EVENTS_REGISTRY;
-  private static final String BOT_SERVER_ERROR = "The request finished with an error. Please, reach "
+  private static final String BOT_SERVER_ERROR =
+      "The request finished with an error. Please, reach "
       + "out @karkin_ai to troubleshoot the issue.";
 
   static {
@@ -56,7 +57,8 @@ public class TailscaleVpnLambdaHandler implements
     COMMAND_DISPATCHER = new CommandDispatcher(COMMUNICATOR);
 
     COMMAND_DISPATCHER.registerCommand("/version", new VersionCommand());
-    COMMAND_DISPATCHER.registerCommand("/listRunningNodes", new ListNodesCommand(nodeService));
+    COMMAND_DISPATCHER.registerCommand("/listRunningNodes", new ListNodesCommand(nodeService,
+                                                                                 authenticator));
     COMMAND_DISPATCHER.registerCommand("/runNodeIn",
                                        new RunNodeCommand(nodeService,
                                                           authenticator,

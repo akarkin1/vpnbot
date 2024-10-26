@@ -13,6 +13,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class WhiteListAuthenticator implements Authenticator {
 
+  // ToDo: File user registration is inconvenient, add a command
   private final AuthConfiguration config;
 
   @Override
