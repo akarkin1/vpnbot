@@ -8,6 +8,7 @@ import org.github.akarkin1.ecs.RunTaskStatus;
 import org.github.akarkin1.ecs.TaskInfo;
 import software.amazon.awssdk.regions.Region;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -123,9 +124,12 @@ public class TailscaleEcsNodeService implements TailscaleNodeService {
 
   @Override
   public List<TaskInfo> listTasks(String userTgId) {
-    Map<String, String> matchingTags = Map.of(
-        config.getServiceNameTag(), config.getServiceName(),
-        config.getRunByTag(), userTgId);
+    Map<String, String> matchingTags = new HashMap<>();
+    matchingTags.put(config.getServiceNameTag(), config.getServiceName());
+    if (userTgId != null) {
+      matchingTags.put(config.getRunByTag(), userTgId);
+    }
+
     return ecsManager.listTasks(matchingTags);
   }
 
