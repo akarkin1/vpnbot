@@ -25,7 +25,7 @@ while true; do
             exit 0  # Exit the script, which will stop the container
         fi
     else
-        echo "A user is connect to the Tailscale Node."
+        echo "A user is connected to the Tailscale Node."
         # Reset the inactive time counter if there are active connections
         inactive_time=0
     fi
