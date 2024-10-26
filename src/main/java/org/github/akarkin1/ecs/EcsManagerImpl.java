@@ -152,7 +152,7 @@ public class EcsManagerImpl implements EcsManager {
     return task.containers()
         .stream()
         .filter(container -> container.name().equals(config.getEssentialContainerName()))
-        .map(container -> RunTaskStatus.valueOf(container.lastStatus()))
+        .map(container -> RunTaskStatus.valueOf(container.healthStatus().name()))
         .findFirst()
         .orElse(RunTaskStatus.UNKNOWN);
 
