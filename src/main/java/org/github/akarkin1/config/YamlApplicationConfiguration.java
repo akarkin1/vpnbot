@@ -36,6 +36,7 @@ public class YamlApplicationConfiguration {
   @Setter
   public static class EcsConfiguration {
 
+    private String essentialContainerName;
     private String serviceName;
     private EcsContainerHealth health;
     private String hostNameEnv;

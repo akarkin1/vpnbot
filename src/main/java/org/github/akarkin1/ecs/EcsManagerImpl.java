@@ -94,11 +94,9 @@ public class EcsManagerImpl implements EcsManager {
     Task task = resp.tasks().getFirst();
 
     return TaskInfo.builder()
-        .state(task.lastStatus())
         .id(taskIdFromArn(task.taskArn()))
         .cluster(taskParams.getEcsClusterName())
         .region(region)
-        .location(regionToCitiesMap.get(region.id()))
         .build();
   }
 
@@ -141,20 +139,23 @@ public class EcsManagerImpl implements EcsManager {
         continue;
       }
 
-      List<Container> containers = task.containers();
-      if (containers.isEmpty()) {
-        log.warn("No containers found for task {}. ", taskId);
-        return RunTaskStatus.UNHEALTHY;
-      }
-
-      Container container = containers.getFirst();
-      lastStatus = RunTaskStatus.valueOf(container.healthStatus().name());
-      if (HealthStatus.HEALTHY.equals(container.healthStatus())) {
+      lastStatus = getContainerHealthStatus(task);
+      if (RunTaskStatus.HEALTHY.equals(lastStatus)) {
         return RunTaskStatus.HEALTHY;
       } else {
         TimeUnit.MILLISECONDS.sleep(health.getIntervalMs());
       }
     }
+  }
+
+  private RunTaskStatus getContainerHealthStatus(Task task) {
+    return task.containers()
+        .stream()
+        .filter(container -> container.name().equals(config.getEssentialContainerName()))
+        .map(container -> RunTaskStatus.valueOf(container.lastStatus()))
+        .findFirst()
+        .orElse(RunTaskStatus.UNKNOWN);
+
   }
 
   private List<Tag> toEcsTags(Map<String, String> tags) {
@@ -226,7 +227,7 @@ public class EcsManagerImpl implements EcsManager {
         TaskInfo taskInfo = TaskInfo.builder()
             .hostName(hostName)
             .id(taskIdFromArn(task.taskArn()))
-            .state(task.lastStatus())
+            .state(getContainerHealthStatus(task).name())
             .cluster(clusterName)
             .region(region)
             .location(regionToCitiesMap.get(region.id()))
@@ -305,7 +306,7 @@ public class EcsManagerImpl implements EcsManager {
           return TaskInfo.builder()
               .hostName(hostName)
               .id(taskId)
-              .state(task.lastStatus())
+              .state(getContainerHealthStatus(task).name())
               .cluster(clusterName)
               .region(region)
               .location(regionToCitiesMap.get(region.id()))

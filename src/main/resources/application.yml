@@ -8,6 +8,7 @@ s3:
 
 ecs:
   service-name: tailscale-node
+  essential-container-name: vpn-container
   host-name-env: TAILSCALE_HOSTNAME
   service-name-tag: ServiceName
   host-name-tag: Hostname

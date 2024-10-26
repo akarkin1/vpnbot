@@ -25,6 +25,7 @@ public final class ListNodesCommand implements BotCommand<TextCommandResponse> {
 
     taskInfos.forEach(taskInfo ->
                           responseBuilder.append("\t– Node Name: %s%n".formatted(taskInfo.getHostName()))
+                              .append("\t  Node Status: %s%n".formatted(taskInfo.getState()))
                               .append("\t  Public IP: %s%n".formatted(taskInfo.getPublicIp()))
                               .append("\t  Region: %s (%s)%n".formatted(taskInfo.getLocation(), taskInfo.getRegion())));
 
