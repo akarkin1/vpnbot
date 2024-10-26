@@ -199,12 +199,13 @@ public class EcsManagerImpl implements EcsManager {
 
       DescribeTasksResponse describeTaskResp = client.describeTasks(describeTasksRequest);
       for (Task task : describeTaskResp.tasks()) {
-        boolean tagsMissmatch = task.tags()
+        log.debug("Task tags: {}, checking tags: {}", task.tags(), matchingTags);
+        boolean tagMissmatch = task.tags()
             .stream()
-            .anyMatch(tag -> !matchingTags.containsKey(tag.key())
-                             || !matchingTags.get(tag.key()).equals(tag.value()));
+            .anyMatch(tag -> matchingTags.containsKey(tag.key())
+                             && !matchingTags.get(tag.key()).equals(tag.value()));
 
-        if (tagsMissmatch) {
+        if (tagMissmatch) {
           continue;
         }
 
