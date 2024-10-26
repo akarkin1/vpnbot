@@ -263,7 +263,7 @@ Resources:
           HealthCheck:
             Command:
               - CMD-SHELL
-              - 'tailscale status | grep "logged in" || exit 1'
+              - 'tailscale status | grep -qE "${TAILSCALE_HOSTNAME}.*(active|idle)" || exit 1'
             Interval: 30
             Timeout: 60
             Retries: 3
