@@ -9,8 +9,11 @@ import java.util.List;
 @Log4j2
 @RequiredArgsConstructor
 public final class HelpCommand implements BotCommand<TextCommandResponse> {
-  private static final String APP_DESCRIPTION = "The bot allows to manage VPN Servers deployed in "
-                                                + "AWS.%nThe list of supported commands:%n %s";
+  private static final String APP_DESCRIPTION =
+      "The bot allows to manage Tailscale VPN Nodes deployed in AWS. For more details about Tailscale,"
+      + "please visit: https://tailscale.com/. In order to connect to a running node, you need to"
+      + "register in Tailscale and request access to the Tailscale network. For the last one, please"
+      + "reach out @karkin_ai.%nThe list of supported commands:%n %s";
 
   private final CommandDispatcher commandDispatcher;
 
