@@ -12,7 +12,7 @@ public final class HelpCommand implements BotCommand<TextCommandResponse> {
   private static final String APP_DESCRIPTION =
       "The bot allows to manage Tailscale VPN Nodes deployed in AWS. For more details about Tailscale,"
       + "please visit: https://tailscale.com/. In order to connect to a running node, you need to"
-      + "register in Tailscale and request access to the Tailscale network. For the last one, please"
+      + "register in Tailscale and request access to the Tailscale network. For the last one, please, "
       + "reach out @karkin_ai. If a node is being run for more than 10 seconds without an active "
       + "connection, it will be terminated automatically. %nThe list of supported commands:%n %s";
 
