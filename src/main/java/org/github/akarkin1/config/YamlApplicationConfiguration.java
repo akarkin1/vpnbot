@@ -2,11 +2,13 @@ package org.github.akarkin1.config;
 
 import lombok.Getter;
 import lombok.Setter;
+import org.github.akarkin1.auth.UserAction;
 import org.yaml.snakeyaml.Yaml;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.List;
 import java.util.Map;
 
 @Getter
@@ -20,6 +22,8 @@ public class YamlApplicationConfiguration {
   private EcsConfiguration ecs;
 
   private AWSConfiguration aws;
+
+  private AuthConfiguration auth;
 
   @Getter
   @Setter
@@ -62,6 +66,24 @@ public class YamlApplicationConfiguration {
     private Map<String, String> regionCities;
 
   }
+
+  @Getter
+  @Setter
+  public static class AuthConfiguration {
+
+    private boolean whiteListEnabled;
+    private TGUsersWhiteList tgusersWhiteList;
+
+  }
+
+  @Getter
+  @Setter
+  public static class TGUsersWhiteList {
+
+    private Map<String, List<UserAction>> userActions;
+
+  }
+
 
   public static YamlApplicationConfiguration load(String applicationYaml) {
     Yaml yaml = SnakeYamlCustomFactory.createYaml();

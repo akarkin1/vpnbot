@@ -1,5 +1,11 @@
 version: ${project.version}
 
+auth:
+  white-list-enabled: true
+  tgusers-white-list:
+    'alex':
+      - RUN_NODES
+
 s3:
   config-bucket: openvpn-server-s3
   config-root-dir: ecs-tailscale-node/config
