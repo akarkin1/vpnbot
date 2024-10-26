@@ -215,11 +215,9 @@ Resources:
           systemctl enable iptables
           systemctl start iptables
           # Enable IP forwarding
-          echo "net.ipv4.ip_forward=1" >> /etc/sysctl.d/custom-ip-forwarding.conf
-          sysctl -p /etc/sysctl.d/custom-ip-forwarding.conf
+          sysctl -w net.ipv4.ip_forward=1
           # Configure iptables (example rules)
-          iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
-          iptables -F FORWARD
+          iptables -t nat -A POSTROUTING -o ens5 -s 0.0.0.0/0 -j MASQUERADE
           # Save the iptables rules
           service iptables save
           service iptables restart
