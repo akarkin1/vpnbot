@@ -2,7 +2,6 @@ package org.github.akarkin1.auth;
 
 import lombok.RequiredArgsConstructor;
 import org.github.akarkin1.config.YamlApplicationConfiguration.AuthConfiguration;
-import org.github.akarkin1.config.YamlApplicationConfiguration.TGUsersWhiteList;
 
 import java.util.List;
 import java.util.Map;
@@ -22,8 +21,7 @@ public class WhiteListAuthenticator implements Authenticator {
       return true;
     }
 
-    TGUsersWhiteList whiteList = config.getTgusersWhiteList();
-    Map<String, List<UserAction>> usersMap = whiteList.getUserActions();
+    Map<String, List<UserAction>> usersMap = config.getTgusersWhiteList();
 
     return usersMap.containsKey(tgUsername)
            && usersMap.get(tgUsername).contains(action);

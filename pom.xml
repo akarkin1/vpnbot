@@ -117,7 +117,7 @@
         <executions>
           <execution>
             <id>copy-version-file</id>
-            <phase>package</phase>
+            <phase>prepare-package</phase>
             <goals>
               <goal>copy-resources</goal>
             </goals>

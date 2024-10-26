@@ -72,15 +72,7 @@ public class YamlApplicationConfiguration {
   public static class AuthConfiguration {
 
     private boolean whiteListEnabled;
-    private TGUsersWhiteList tgusersWhiteList;
-
-  }
-
-  @Getter
-  @Setter
-  public static class TGUsersWhiteList {
-
-    private Map<String, List<UserAction>> userActions;
+    private Map<String, List<UserAction>> tgusersWhiteList;
 
   }
 
