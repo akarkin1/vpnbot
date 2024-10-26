@@ -73,14 +73,12 @@ public final class RunNodeCommand implements BotCommand<EmptyResponse> {
                                                                              taskInfo.getCluster(),
                                                                              taskInfo.getId());
       StringBuilder successMessage = new StringBuilder("The node has been started successfully.");
-      if (fullTaskInfo.isPresent()) {
-        successMessage.append(" Node details:\n")
-            .append("\t- Node Name: %s%n".formatted(taskInfo.getHostName()))
-            .append("\t\tNode Status: %s%n".formatted(taskInfo.getState()))
-            .append("\t\tPublic IP: %s%n".formatted(taskInfo.getPublicIp()))
-            .append("\t\tLocation: %s (%s)".formatted(taskInfo.getLocation(),
-                                                           taskInfo.getRegion().id()));
-      }
+      fullTaskInfo.ifPresent(fullInfoLocal -> successMessage.append(" Node details:\n")
+          .append("\t- Node Name: %s%n".formatted(fullInfoLocal.getHostName()))
+          .append("\t\tNode Status: %s%n".formatted(fullInfoLocal.getState()))
+          .append("\t\tPublic IP: %s%n".formatted(fullInfoLocal.getPublicIp()))
+          .append("\t\tLocation: %s (%s)".formatted(fullInfoLocal.getLocation(),
+                                                    fullInfoLocal.getRegion().id())));
 
       messageConsumer.accept(successMessage.toString());
     }
