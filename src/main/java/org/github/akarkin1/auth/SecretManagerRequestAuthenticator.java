@@ -14,7 +14,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class SecretManagerRequestAuthenticator implements RequestAuthenticator {
 
-  private final static String SECRET_TOKEN_HEADER = "X-Telegram-Bot-Api-Secret-Token";
+  private final static String SECRET_TOKEN_HEADER = "x-telegram-bot-api-secret-token";
 
   private final SecretsManagerClient client;
   private final String secretTokenId;
