@@ -13,9 +13,13 @@ Parameters:
   EnvTgBotToken:
     Type: String
     Description: Telegram Bot Token.
+    NoEcho: true
   EnvTgBotUsername:
     Type: String
     Description: Telegram Bot Username.
+  EnvTgBotSecretTokenId:
+    Type: String
+    Description: Secret Id in Secret Manager for Telegram Secret Token is to be used during request authentication.
   EnvPauseBetweenStatusCheckMs:
     Type: Number
     Description: Pause between status check of EC2 instance in milliseconds.
@@ -398,6 +402,7 @@ Resources:
         Variables:
           BOT_TOKEN: !Ref EnvTgBotToken
           BOT_USERNAME: !Ref EnvTgBotUsername
+          BOT_SECRET_TOKEN_ID: !Ref EnvTgBotSecretTokenId
 #          STATUS_CHECK_PAUSE_MS: !Ref EnvPauseBetweenStatusCheckMs
 #          OPERATION_WAIT_TIMEOUT_SEC: !Ref EnvOperationWaitTimeoutSec
 #          RESTART_SLEEP_TIME_SEC_ENV: !Ref EnvRestartSleepTimeSec
@@ -470,6 +475,14 @@ Resources:
                   - logs:CreateLogStream
                   - logs:PutLogEvents
                 Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/custom/apigateway/*:*
+        - PolicyName: TgSecretTokenAccessPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'secretsmanager:GetSecretValue'
+                Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${EnvTgBotSecretTokenId}*"
 
 
   LambdaApiGatewayIntegration:

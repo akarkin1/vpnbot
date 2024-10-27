@@ -6,6 +6,7 @@ import lombok.extern.log4j.Log4j2;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 
 import static java.lang.System.getenv;
 
@@ -18,6 +19,7 @@ public class ConfigManager {
   private static final String EVENT_ROOT_DIR = "/mnt/efs/eventIds";
   private static final String BOT_TOKEN_ENV = "BOT_TOKEN";
   private static final String BOT_USERNAME_ENV = "BOT_USERNAME";
+  private static final String BOT_SECRET_TOKEN_ID_ENV = "BOT_SECRET_TOKEN_ID";
   private static final String STATUS_CHECK_PAUSE_MS_ENV = "STATUS_CHECK_PAUSE_MS";
   private static final String OP_WAIT_TIMEOUT_SEC_ENV = "OPERATION_WAIT_TIMEOUT_SEC";
   private static final String RESTART_SLEEP_TIME_SEC_ENV = "RESTART_SLEEP_TIME_SEC";
@@ -71,12 +73,23 @@ public class ConfigManager {
     return List.of(envValStr.split(","));
   }
 
+  public static String getSecretTokenId() {
+    return envOrThrow(BOT_SECRET_TOKEN_ID_ENV, () -> new IllegalStateException(
+        "Environment variable 'BOT_SECRET_TOKEN_ID_ENV' is not set"));
+  }
+
   public static YamlApplicationConfiguration getApplicationYaml() {
     return APP_CONFIG;
   }
 
   private static String envOrDefault(String envVarName, String defaultValue) {
     return Optional.ofNullable(getenv(envVarName)).orElse(defaultValue);
+  }
+
+  private static String envOrThrow(String envVarName,
+                                   Supplier<RuntimeException> exceptionSupplier) {
+    return Optional.ofNullable(getenv(envVarName))
+        .orElseThrow(exceptionSupplier);
   }
 
 }
