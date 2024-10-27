@@ -167,11 +167,7 @@ Resources:
         - IpProtocol: tcp
           FromPort: 443
           ToPort: 443
-          CidrIp: !Select [0, !Ref TelegramIpRanges]
-        - IpProtocol: tcp
-          FromPort: 443
-          ToPort: 443
-          CidrIp: !Select [1, !Ref TelegramIpRanges ]
+          CidrIp: !Ref ClientIPCIDR
       SecurityGroupEgress:
         - IpProtocol: tcp
           FromPort: 443
@@ -487,7 +483,6 @@ Resources:
                   - logs:CreateLogStream
                   - logs:PutLogEvents
                 Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/custom/apigateway/*:*
-
 
   LambdaApiGatewayIntegration:
     DependsOn:
