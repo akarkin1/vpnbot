@@ -1,5 +1,4 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Transform: 'AWS::LanguageExtensions'
 Description: OpenVPN Configurer Lambda Stack
 
 Parameters:
@@ -165,13 +164,14 @@ Resources:
       GroupDescription: "Security group for NAT instance"
       VpcId: !Ref VpnConfigurerVpc
       SecurityGroupIngress:
-        Fn::ForEach::TelegramCidrIps:
-          - TelegramCidrIp
-          - !Ref TelegramIpRanges
-          - - IpProtocol: tcp
-              FromPort: 443
-              ToPort: 443
-              CidrIp: '${TelegramCidrIp}'
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: !Select [0, !Ref TelegramIpRanges]
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: !Select [1, !Ref TelegramIpRanges ]
       SecurityGroupEgress:
         - IpProtocol: tcp
           FromPort: 443
