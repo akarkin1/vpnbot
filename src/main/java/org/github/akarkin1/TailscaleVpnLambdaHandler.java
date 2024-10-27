@@ -93,7 +93,7 @@ public class TailscaleVpnLambdaHandler implements
 
       update = MAPPER.readValue(receivedPayload, Update.class);
     } catch (Exception e) {
-      log.error("Failed to parse update: ", e);
+      log.error("Failed to process request: ", e);
       COMMUNICATOR.sendMessageToTheBot(BOT_SERVER_ERROR);
       return new APIGatewayProxyResponseEvent()
           .withBody("{}")
