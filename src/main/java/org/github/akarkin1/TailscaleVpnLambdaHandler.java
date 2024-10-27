@@ -77,11 +77,11 @@ public class TailscaleVpnLambdaHandler implements
   public APIGatewayProxyResponseEvent handleRequest(
       APIGatewayProxyRequestEvent gwEvent,
       Context context) {
-    log.debug("Got request: {}", serializeObject(gwEvent));
-    REQUEST_AUTHENTICATOR.authenticate(gwEvent);
 
     Update update;
     try {
+      log.debug("Got request: {}", serializeObject(gwEvent));
+      REQUEST_AUTHENTICATOR.authenticate(gwEvent);
       String receivedPayload = gwEvent.getBody();
       log.debug("Received payload: {}", receivedPayload);
       if (StringUtils.isBlank(receivedPayload)) {
