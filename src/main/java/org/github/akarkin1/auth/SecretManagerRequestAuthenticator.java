@@ -22,7 +22,9 @@ public class SecretManagerRequestAuthenticator implements RequestAuthenticator {
   @Override
   public void authenticate(APIGatewayProxyRequestEvent request)
       throws UnauthorizedRequestException {
+    log.debug("Request={}", request);
     Map<String, String> headers = request.getHeaders();
+    log.debug("Headers={}", headers);
     if (!headers.containsKey(SECRET_TOKEN_HEADER)) {
       log.warn("{} is missing", SECRET_TOKEN_HEADER);
       throw new UnauthorizedRequestException();
