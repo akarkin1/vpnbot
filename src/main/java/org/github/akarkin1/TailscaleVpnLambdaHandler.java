@@ -4,11 +4,14 @@ import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang3.StringUtils;
 import org.github.akarkin1.auth.Authorizer;
-import org.github.akarkin1.auth.WhiteListAuthConfigurer;
+import org.github.akarkin1.auth.AuthorizerConfigurer;
+import org.github.akarkin1.auth.RequestAuthenticator;
+import org.github.akarkin1.auth.RequestAuthenticatorConfigurer;
 import org.github.akarkin1.deduplication.FSUpdateEventsRegistry;
 import org.github.akarkin1.deduplication.UpdateEventsRegistry;
 import org.github.akarkin1.dispatcher.CommandDispatcher;
@@ -45,13 +48,16 @@ public class TailscaleVpnLambdaHandler implements
   private static final String BOT_SERVER_ERROR =
       "The request finished with an error. Please, reach "
       + "out @karkin_ai to troubleshoot the issue.";
+  private static final RequestAuthenticator REQUEST_AUTHENTICATOR;
 
   static {
+    REQUEST_AUTHENTICATOR = new RequestAuthenticatorConfigurer().configure();
+
     EVENTS_REGISTRY = new FSUpdateEventsRegistry(getEventTtlSec(), getEventRootDir());
 
     final AbsSender sender = sender(getBotToken(), getBotUsernameEnv());
     final TailscaleNodeService nodeService = new TailscaleEcsNodeServiceConfigurer().configure();
-    final Authorizer authorizer = new WhiteListAuthConfigurer().configure();
+    final Authorizer authorizer = new AuthorizerConfigurer().configure();
 
     COMMUNICATOR = new BotCommunicator(sender);
     COMMAND_DISPATCHER = new CommandDispatcher(COMMUNICATOR);
@@ -71,8 +77,11 @@ public class TailscaleVpnLambdaHandler implements
   public APIGatewayProxyResponseEvent handleRequest(
       APIGatewayProxyRequestEvent gwEvent,
       Context context) {
+
     Update update;
     try {
+      log.debug("Got request: {}", serializeObject(gwEvent));
+      REQUEST_AUTHENTICATOR.authenticate(gwEvent);
       String receivedPayload = gwEvent.getBody();
       log.debug("Received payload: {}", receivedPayload);
       if (StringUtils.isBlank(receivedPayload)) {
@@ -84,7 +93,7 @@ public class TailscaleVpnLambdaHandler implements
 
       update = MAPPER.readValue(receivedPayload, Update.class);
     } catch (Exception e) {
-      log.error("Failed to parse update: ", e);
+      log.error("Failed to process request: ", e);
       COMMUNICATOR.sendMessageToTheBot(BOT_SERVER_ERROR);
       return new APIGatewayProxyResponseEvent()
           .withBody("{}")
@@ -104,6 +113,14 @@ public class TailscaleVpnLambdaHandler implements
     return new APIGatewayProxyResponseEvent()
         .withBody("{}")
         .withStatusCode(201);
+  }
+
+  private static String serializeObject(APIGatewayProxyRequestEvent gwEvent) {
+    try {
+      return MAPPER.writeValueAsString(gwEvent);
+    } catch (Exception e) {
+      return gwEvent.toString();
+    }
   }
 
   private void handleUpdate(Update update) {

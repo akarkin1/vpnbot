@@ -16,8 +16,15 @@ public class BotCommunicator {
 
   @SneakyThrows(TelegramApiException.class)
   public void sendMessageToTheBot(String message) {
+    Long chatId = TgUserContext.getChatId();
+    if (chatId == null) {
+      log.error("Unable to send response back to user – chatId is null");
+      return;
+    }
+
+
     SendMessage sendMessage = new SendMessage();
-    sendMessage.setChatId(TgUserContext.getChatId());
+    sendMessage.setChatId(chatId);
     sendMessage.setText(message);
     Message responseMessage = sender.execute(sendMessage);
     log.debug("Received response: {}", responseMessage);
