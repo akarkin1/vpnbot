@@ -1,9 +1,15 @@
 package org.github.akarkin1.auth;
 
+import lombok.Getter;
+
+@Getter
 public class UnauthorizedRequestException extends RuntimeException {
 
-  public UnauthorizedRequestException() {
-    super("Unauthorized request! Telegram Secret Token is incorrect or missing!");
+  private final UserPermission requiredPermission;
+
+  public UnauthorizedRequestException(UserPermission requiredPermission) {
+    super("User doesn't have required permission: %s".formatted(requiredPermission));
+    this.requiredPermission = requiredPermission;
   }
 
 }

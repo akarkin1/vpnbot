@@ -4,15 +4,15 @@ import java.util.List;
 
 public interface UserSignupService {
 
-  void addPermissionsTo(String tgUsername, List<UserAction> actions);
+  void addPermissionsTo(String tgUsername, List<UserPermission> actions);
 
   default void addReadOnlyPermissionsTo(String tgUsername) {
-    this.addPermissionsTo(tgUsername, List.of(UserAction.LIST_NODES, UserAction.SUPPORTED_REGIONS));
+    this.addPermissionsTo(tgUsername, List.of(UserPermission.LIST_NODES, UserPermission.SUPPORTED_REGIONS));
   }
 
-  default void addAdminPermissions(String tgUsername, List<UserAction> actions) {
-    this.addPermissionsTo(tgUsername, List.of(UserAction.LIST_NODES, UserAction.SUPPORTED_REGIONS,
-                                              UserAction.RUN_NODES));
+  default void addAdminPermissions(String tgUsername, List<UserPermission> actions) {
+    this.addPermissionsTo(tgUsername, List.of(UserPermission.LIST_NODES, UserPermission.SUPPORTED_REGIONS,
+                                              UserPermission.RUN_NODES));
   }
 
 }

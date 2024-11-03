@@ -21,20 +21,20 @@ public class SecretManagerRequestAuthenticator implements RequestAuthenticator {
 
   @Override
   public void authenticate(APIGatewayProxyRequestEvent request)
-      throws UnauthorizedRequestException {
+      throws UnauthenticatedRequestException {
     log.debug("Request={}", request);
     Map<String, String> headers = request.getHeaders();
     log.debug("Headers={}", headers);
     if (!headers.containsKey(SECRET_TOKEN_HEADER)) {
       log.warn("{} is missing", SECRET_TOKEN_HEADER);
-      throw new UnauthorizedRequestException();
+      throw new UnauthenticatedRequestException();
     }
 
     String userTokenValue = headers.get(SECRET_TOKEN_HEADER);
 
     if (StringUtils.isBlank(userTokenValue)) {
       log.warn("{} is blank", SECRET_TOKEN_HEADER);
-      throw new UnauthorizedRequestException();
+      throw new UnauthenticatedRequestException();
     }
 
     GetSecretValueRequest smRequest = GetSecretValueRequest.builder()
@@ -54,7 +54,7 @@ public class SecretManagerRequestAuthenticator implements RequestAuthenticator {
 
     if (!userTokenValue.equals(smSecretValue)) {
       smSecretValue = null;
-      throw new UnauthorizedRequestException();
+      throw new UnauthenticatedRequestException();
     }
 
     log.info("Request authenticated successfully");

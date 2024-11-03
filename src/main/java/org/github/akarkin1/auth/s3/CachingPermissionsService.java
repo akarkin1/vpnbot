@@ -1,7 +1,7 @@
 package org.github.akarkin1.auth.s3;
 
 import lombok.RequiredArgsConstructor;
-import org.github.akarkin1.auth.UserAction;
+import org.github.akarkin1.auth.UserPermission;
 
 import java.util.List;
 import java.util.Map;
@@ -10,10 +10,10 @@ import java.util.Map;
 public class CachingPermissionsService implements PermissionsService {
 
   private final PermissionsService delegate;
-  private Map<String, List<UserAction>> cachedPermissions;
+  private Map<String, List<UserPermission>> cachedPermissions;
 
   @Override
-  public Map<String, List<UserAction>> getUserPermissions() {
+  public Map<String, List<UserPermission>> getUserPermissions() {
     if (cachedPermissions == null) {
       cachedPermissions = delegate.getUserPermissions();
     }
@@ -22,7 +22,7 @@ public class CachingPermissionsService implements PermissionsService {
   }
 
   @Override
-  public void addPermissionsTo(String tgUsername, List<UserAction> actions) {
+  public void addPermissionsTo(String tgUsername, List<UserPermission> actions) {
     // invalidate cache
     cachedPermissions = null;
     delegate.addPermissionsTo(tgUsername, actions);

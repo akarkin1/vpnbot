@@ -2,7 +2,7 @@ package org.github.akarkin1.auth.s3;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import lombok.RequiredArgsConstructor;
-import org.github.akarkin1.auth.UserAction;
+import org.github.akarkin1.auth.UserPermission;
 import org.github.akarkin1.config.YamlApplicationConfiguration.S3Configuration;
 import org.github.akarkin1.s3.S3ConfigManager;
 
@@ -23,20 +23,20 @@ public class S3PermissionsService implements PermissionsService {
   private final S3Configuration s3Config;
 
   @Override
-  public Map<String, List<UserAction>> getUserPermissions() {
+  public Map<String, List<UserPermission>> getUserPermissions() {
     String fileContent = s3ConfigManager.downloadConfigFromS3(s3Config.getUserPermissionsKey());
     Map<String, List<String>> userPermissions = parseJson(fileContent,
                                                           new TypeReference<>() {});
     return userPermissions.entrySet()
         .stream()
         .map(entry -> Map.entry(entry.getKey(),
-                                entry.getValue().stream().map(UserAction::valueOf).toList()))
+                                entry.getValue().stream().map(UserPermission::valueOf).toList()))
         .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
   }
 
   @Override
-  public void addPermissionsTo(String tgUsername, List<UserAction> actions) {
-    Map<String, List<UserAction>> userPermissions = new HashMap<>(this.getUserPermissions());
+  public void addPermissionsTo(String tgUsername, List<UserPermission> actions) {
+    Map<String, List<UserPermission>> userPermissions = new HashMap<>(this.getUserPermissions());
     userPermissions.computeIfAbsent(tgUsername, ignored -> new ArrayList<>())
         .addAll(actions);
     s3ConfigManager.uploadConfigToS3(s3Config.getUserPermissionsKey(), toJson(userPermissions));

@@ -15,15 +15,15 @@ import org.github.akarkin1.auth.s3.PermissionsService;
 import org.github.akarkin1.auth.s3.PermissionsServiceConfigurer;
 import org.github.akarkin1.deduplication.FSUpdateEventsRegistry;
 import org.github.akarkin1.deduplication.UpdateEventsRegistry;
-import org.github.akarkin1.dispatcher.CommandDispatcher;
-import org.github.akarkin1.dispatcher.command.ListNodesCommand;
-import org.github.akarkin1.dispatcher.command.RunNodeCommand;
-import org.github.akarkin1.dispatcher.command.SupportedRegionCommand;
-import org.github.akarkin1.dispatcher.command.VersionCommand;
+import org.github.akarkin1.dispatcher.command.ecs.CommandDispatcherV2;
+import org.github.akarkin1.dispatcher.command.ecs.ListNodesCommand;
+import org.github.akarkin1.dispatcher.command.ecs.RunNodeCommand;
+import org.github.akarkin1.dispatcher.command.ecs.SupportedRegionCommand;
+import org.github.akarkin1.dispatcher.command.ecs.VersionCommandV2;
 import org.github.akarkin1.tailscale.TailscaleEcsNodeServiceConfigurer;
 import org.github.akarkin1.tailscale.TailscaleNodeService;
 import org.github.akarkin1.tg.BotCommunicator;
-import org.github.akarkin1.tg.TgUserContext;
+import org.github.akarkin1.tg.TgRequestContext;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.User;
@@ -43,7 +43,7 @@ public class TailscaleVpnLambdaHandler implements
     RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
-  private static final CommandDispatcher COMMAND_DISPATCHER;
+  private static final CommandDispatcherV2 COMMAND_DISPATCHER;
   private static final BotCommunicator COMMUNICATOR;
   private static final UpdateEventsRegistry EVENTS_REGISTRY;
   private static final String BOT_SERVER_ERROR =
@@ -62,17 +62,16 @@ public class TailscaleVpnLambdaHandler implements
     final Authorizer authorizer = new AuthorizerConfigurer().configure(permissionsService);
 
     COMMUNICATOR = new BotCommunicator(sender);
-    COMMAND_DISPATCHER = new CommandDispatcher(COMMUNICATOR);
+    COMMAND_DISPATCHER = new CommandDispatcherV2(COMMUNICATOR, authorizer);
 
-    COMMAND_DISPATCHER.registerCommand("/version", new VersionCommand());
-    COMMAND_DISPATCHER.registerCommand("/listRunningNodes", new ListNodesCommand(nodeService,
-                                                                                 authorizer));
+    COMMAND_DISPATCHER.registerCommand("/version", new VersionCommandV2());
+    COMMAND_DISPATCHER.registerCommand("/listRunningNodes", new ListNodesCommand(
+        nodeService, authorizer));
     COMMAND_DISPATCHER.registerCommand("/runNodeIn",
                                        new RunNodeCommand(nodeService,
-                                                          authorizer,
                                                           COMMUNICATOR::sendMessageToTheBot));
     COMMAND_DISPATCHER.registerCommand("/supportedRegions",
-                                       new SupportedRegionCommand(nodeService, authorizer));
+                                       new SupportedRegionCommand(nodeService));
   }
 
   @Override
@@ -131,7 +130,7 @@ public class TailscaleVpnLambdaHandler implements
       return;
     }
 
-    TgUserContext.initContext(update);
+    TgRequestContext.initContext(update);
     log.info("Saving event to the registry (deduplication logic). Update: {}", update);
     EVENTS_REGISTRY.registerEvent(update);
 
