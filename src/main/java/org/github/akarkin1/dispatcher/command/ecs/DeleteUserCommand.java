@@ -47,7 +47,7 @@ public class DeleteUserCommand implements BotCommandV2<EmptyResponse> {
     }
 
     if (!atLeastOneDeleted) {
-      messageConsumer.accept("No users found to delete.");
+      messageConsumer.accept("No users to delete.");
     }
 
     return EmptyResponse.NONE;
