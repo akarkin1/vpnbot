@@ -5,6 +5,7 @@ import org.github.akarkin1.auth.Permission;
 import org.github.akarkin1.auth.UserRole;
 import org.github.akarkin1.auth.UserSignupService;
 import org.github.akarkin1.dispatcher.command.TextCommandResponse;
+import org.github.akarkin1.util.UserNameUtil;
 
 import java.util.List;
 import java.util.Set;
@@ -13,10 +14,10 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @RequiredArgsConstructor
-public class AssignRoleCommand implements BotCommandV2<TextCommandResponse> {
+public class AssignRolesCommand implements BotCommandV2<TextCommandResponse> {
 
   public static final String USAGE_NOTE = """
-          Usage: /assignRole <TelegramUsername> <UserRoleList>,
+          Usage: /assignRoles <TelegramUsername> <UserRoleList>,
           whereas:
             - <TelegramUsername> – is the username of the telegram user, for which role will be assigned.
             - <UserRoleList> – is the list separated by space of user role. Each User Role can accept one of the following values: %s
@@ -42,7 +43,7 @@ public class AssignRoleCommand implements BotCommandV2<TextCommandResponse> {
           + USAGE_NOTE.formatted(knownRoleValues));
     }
 
-    String username = args.getFirst();
+    String username = UserNameUtil.normalizeUserName(args.getFirst());
     List<String> rolesValues = args.subList(1, args.size());
 
     List<String> unknownRoleValues = rolesValues.stream()

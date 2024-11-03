@@ -13,7 +13,7 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 @RequiredArgsConstructor
-public class DeleteUserCommand implements BotCommandV2<EmptyResponse> {
+public class DeleteUsersCommand implements BotCommandV2<EmptyResponse> {
 
   private final PermissionsService permissionsService;
   private final Consumer<String> messageConsumer;
@@ -64,7 +64,7 @@ public class DeleteUserCommand implements BotCommandV2<EmptyResponse> {
   public String getDescription() {
     return """
         Removes the specified users by telegram usernames
-        USAGE: /deleteUser <TelegramUserNames>
+        USAGE: /deleteUsers <TelegramUserNames>
         """;
   }
 

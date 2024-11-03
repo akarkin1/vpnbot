@@ -15,9 +15,9 @@ import org.github.akarkin1.auth.s3.PermissionsService;
 import org.github.akarkin1.auth.s3.PermissionsServiceConfigurer;
 import org.github.akarkin1.deduplication.FSUpdateEventsRegistry;
 import org.github.akarkin1.deduplication.UpdateEventsRegistry;
-import org.github.akarkin1.dispatcher.command.ecs.AssignRoleCommand;
+import org.github.akarkin1.dispatcher.command.ecs.AssignRolesCommand;
 import org.github.akarkin1.dispatcher.command.ecs.CommandDispatcherV2;
-import org.github.akarkin1.dispatcher.command.ecs.DeleteUserCommand;
+import org.github.akarkin1.dispatcher.command.ecs.DeleteUsersCommand;
 import org.github.akarkin1.dispatcher.command.ecs.DescribeRolesCommand;
 import org.github.akarkin1.dispatcher.command.ecs.ListNodesCommand;
 import org.github.akarkin1.dispatcher.command.ecs.ListUsersCommand;
@@ -76,13 +76,13 @@ public class TailscaleVpnLambdaHandler implements
                                                           COMMUNICATOR::sendMessageToTheBot));
     COMMAND_DISPATCHER.registerCommand("/supportedRegions",
                                        new SupportedRegionCommand(nodeService));
-    COMMAND_DISPATCHER.registerCommand("/assignRole",
-                                       new AssignRoleCommand(permissionsService));
+    COMMAND_DISPATCHER.registerCommand("/assignRoles",
+                                       new AssignRolesCommand(permissionsService));
     COMMAND_DISPATCHER.registerCommand("/describeRoles",
                                        new DescribeRolesCommand(permissionsService));
-    COMMAND_DISPATCHER.registerCommand("/deleteUser",
-                                       new DeleteUserCommand(permissionsService,
-                                                             COMMUNICATOR::sendMessageToTheBot));
+    COMMAND_DISPATCHER.registerCommand("/deleteUsers",
+                                       new DeleteUsersCommand(permissionsService,
+                                                              COMMUNICATOR::sendMessageToTheBot));
     COMMAND_DISPATCHER.registerCommand("/listRegisteredUsers",
                                        new ListUsersCommand(permissionsService));
   }
