@@ -8,7 +8,7 @@ s3:
   config-root-dir: ecs-tailscale-node/config
   regions-key: supported-regions.txt
   stack-output-parameters-key: vpn-ecs-resources-output-parameters.json
-  user-permissions: user-permissions.json
+  user-permissions-key: user-permissions.json
 
 ecs:
   service-name: tailscale-node
