@@ -6,7 +6,7 @@ Parameters:
     Type: String
     Default: 0.0.0.0/0
     Description: CIDR IP to be granted access by the SG, use 0.0.0.0/0 to accept all IPs
-  LambdaSourcesBucketName:
+  LambdaConfigBucketName:
     Type: String
     Description: S3 Bucket with source code of the lambda.
   # Lambda environment variables
@@ -288,11 +288,13 @@ Resources:
                   - !Sub "arn:aws:iam::${AWS::AccountId}:role/*"
               - Effect: Allow
                 Action:
+                  - "s3:ListBucket"
                   - "s3:GetObject"
                   - "s3:ListBucket"
+                  - "s3:PutObject"
                 Resource: !Sub
                   - arn:aws:s3:::${bucketName}/*
-                  - bucketName: !Ref LambdaSourcesBucketName
+                  - bucketName: "LambdaConfigBucketName"
               # Permissions to manage CW logs
               - Action:
                   - "logs:CreateLogGroup"
@@ -330,13 +332,6 @@ Resources:
                   - "ecs:ListTasks"
                   - "ecs:TagResource"
                   - "tag:GetResources"
-                Effect: Allow
-                Resource: "*"
-              # Permissions to work with S3
-              - Action:
-                  - "s3:ListBuckets"
-                  - "s3:GetObject"
-                  - "s3:ListBucket"
                 Effect: Allow
                 Resource: "*"
               # Permissions to manage EFS file system
@@ -418,7 +413,7 @@ Resources:
         - Arn: !GetAtt LambdaEfsAccessPoint.Arn
           LocalMountPath: /mnt/efs
       Code:
-        S3Bucket: !Ref LambdaSourcesBucketName
+        S3Bucket: "LambdaConfigBucketName"
         S3Key: 'openvpn-server-tgbot/vpnbot-1.0-SNAPSHOT.jar'
       VpcConfig:
         SecurityGroupIds:

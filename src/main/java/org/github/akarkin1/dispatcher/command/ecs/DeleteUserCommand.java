@@ -28,20 +28,25 @@ public class DeleteUserCommand implements BotCommandV2<EmptyResponse> {
         .filter(Predicate.not(userPermissions::containsKey))
         .toList();
 
-    if (!notFoundUsers.isEmpty()) {
-      messageConsumer.accept("ERROR! The following users were not found: %s.".formatted(notFoundUsers));
-    }
-
-    boolean atLeastSingleDeleted = false;
-    for (String arg : args) {
-      if (!notFoundUsers.contains(arg)) {
-        permissionsService.deleteUser(arg);
-        messageConsumer.accept("The user '%s' has been deleted successfully.".formatted(arg));
-        atLeastSingleDeleted = true;
+    boolean atLeastOneDeleted = false;
+    for (String userName : args) {
+      if (notFoundUsers.contains(userName)) {
+        messageConsumer.accept("ERROR! The following user is not found: %s.".formatted(userName));
+        continue;
       }
+
+      // do not allow to delete the root user
+      if (userPermissions.get(userName).contains(Permission.ROOT_ACCESS)) {
+        messageConsumer.accept("ERROR! Root user cannot be deleted: %s.".formatted(userName));
+        continue;
+      }
+
+      permissionsService.deleteUser(userName);
+      messageConsumer.accept("The user '%s' has been deleted successfully.".formatted(userName));
+      atLeastOneDeleted = true;
     }
 
-    if (!atLeastSingleDeleted) {
+    if (!atLeastOneDeleted) {
       messageConsumer.accept("No users found to delete.");
     }
 
@@ -55,6 +60,6 @@ public class DeleteUserCommand implements BotCommandV2<EmptyResponse> {
 
   @Override
   public List<Permission> getRequiredPermissions() {
-    return List.of(Permission.USER_MANAGEMENT);
+    return List.of(Permission.DELETE_USERS);
   }
 }

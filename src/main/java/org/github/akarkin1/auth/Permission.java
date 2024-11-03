@@ -5,5 +5,6 @@ public enum Permission {
   LIST_NODES,
   SUPPORTED_REGIONS,
   USER_MANAGEMENT,
+  DELETE_USERS,
   ROOT_ACCESS
 }
