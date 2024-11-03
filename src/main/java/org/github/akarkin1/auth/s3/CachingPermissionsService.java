@@ -10,10 +10,10 @@ import java.util.Map;
 public class CachingPermissionsService implements PermissionsService {
 
   private final PermissionsService delegate;
-  private Map<String, List<String>> cachedPermissions;
+  private Map<String, List<UserAction>> cachedPermissions;
 
   @Override
-  public Map<String, List<String>> getUserPermissions() {
+  public Map<String, List<UserAction>> getUserPermissions() {
     if (cachedPermissions == null) {
       cachedPermissions = delegate.getUserPermissions();
     }

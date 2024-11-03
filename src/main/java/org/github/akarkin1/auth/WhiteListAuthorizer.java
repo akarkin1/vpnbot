@@ -26,11 +26,11 @@ public class WhiteListAuthorizer implements Authorizer {
       return true;
     }
 
-    Map<String, List<String>> usersMap = permissionsProvider.getUserPermissions();
+    Map<String, List<UserAction>> usersMap = permissionsProvider.getUserPermissions();
     log.debug("usersMap: {}", usersMap);
 
     return usersMap.containsKey(tgUsername)
-           && (usersMap.get(tgUsername).contains(UserAction.ROOT_ACCESS.name())
-               || usersMap.get(tgUsername).contains(action.name()));
+           && (usersMap.get(tgUsername).contains(UserAction.ROOT_ACCESS)
+               || usersMap.get(tgUsername).contains(action));
   }
 }

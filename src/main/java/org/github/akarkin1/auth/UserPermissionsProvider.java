@@ -5,6 +5,6 @@ import java.util.Map;
 
 public interface UserPermissionsProvider {
 
-  Map<String, List<String>> getUserPermissions();
+  Map<String, List<UserAction>> getUserPermissions();
 
 }

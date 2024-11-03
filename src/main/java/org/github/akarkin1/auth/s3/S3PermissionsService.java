@@ -9,6 +9,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.stream.Collectors;
 
 import static org.github.akarkin1.util.JsonUtils.parseMapOfListsSilently;
 import static org.github.akarkin1.util.JsonUtils.toJson;
@@ -20,16 +22,21 @@ public class S3PermissionsService implements PermissionsService {
   private final S3Configuration s3Config;
 
   @Override
-  public Map<String, List<String>> getUserPermissions() {
+  public Map<String, List<UserAction>> getUserPermissions() {
     String fileContent = s3ConfigManager.downloadConfigFromS3(s3Config.getUserPermissionsKey());
-    return parseMapOfListsSilently(fileContent);
+    Map<String, List<String>> userPermissions = parseMapOfListsSilently(fileContent);
+    return userPermissions.entrySet()
+        .stream()
+        .map(entry -> Map.entry(entry.getKey(),
+                                entry.getValue().stream().map(UserAction::valueOf).toList()))
+        .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
   }
 
   @Override
   public void addPermissionsTo(String tgUsername, List<UserAction> actions) {
-    Map<String, List<String>> userPermissions = new HashMap<>(this.getUserPermissions());
+    Map<String, List<UserAction>> userPermissions = new HashMap<>(this.getUserPermissions());
     userPermissions.computeIfAbsent(tgUsername, ignored -> new ArrayList<>())
-        .addAll(actions.stream().map(UserAction::name).toList());
+        .addAll(actions);
     s3ConfigManager.uploadConfigToS3(s3Config.getUserPermissionsKey(), toJson(userPermissions));
   }
 
