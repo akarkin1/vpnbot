@@ -2,13 +2,11 @@ package org.github.akarkin1.config;
 
 import lombok.Getter;
 import lombok.Setter;
-import org.github.akarkin1.auth.UserAction;
 import org.yaml.snakeyaml.Yaml;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.List;
 import java.util.Map;
 
 @Getter
@@ -33,6 +31,7 @@ public class YamlApplicationConfiguration {
     private String configRootDir;
     private String regionsKey;
     private String stackOutputParametersKey;
+    private String userPermissionsKey;
 
   }
 
@@ -71,8 +70,7 @@ public class YamlApplicationConfiguration {
   @Setter
   public static class AuthConfiguration {
 
-    private boolean whiteListEnabled;
-    private Map<String, List<String>> tgusersWhiteList;
+    private boolean enabled;
 
   }
 

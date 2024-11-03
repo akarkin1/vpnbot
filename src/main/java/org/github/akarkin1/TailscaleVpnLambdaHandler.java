@@ -4,7 +4,6 @@ import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang3.StringUtils;
@@ -12,6 +11,8 @@ import org.github.akarkin1.auth.Authorizer;
 import org.github.akarkin1.auth.AuthorizerConfigurer;
 import org.github.akarkin1.auth.RequestAuthenticator;
 import org.github.akarkin1.auth.RequestAuthenticatorConfigurer;
+import org.github.akarkin1.auth.s3.PermissionsService;
+import org.github.akarkin1.auth.s3.PermissionsServiceConfigurer;
 import org.github.akarkin1.deduplication.FSUpdateEventsRegistry;
 import org.github.akarkin1.deduplication.UpdateEventsRegistry;
 import org.github.akarkin1.dispatcher.CommandDispatcher;
@@ -57,7 +58,8 @@ public class TailscaleVpnLambdaHandler implements
 
     final AbsSender sender = sender(getBotToken(), getBotUsernameEnv());
     final TailscaleNodeService nodeService = new TailscaleEcsNodeServiceConfigurer().configure();
-    final Authorizer authorizer = new AuthorizerConfigurer().configure();
+    final PermissionsService permissionsService = new PermissionsServiceConfigurer().configure();
+    final Authorizer authorizer = new AuthorizerConfigurer().configure(permissionsService);
 
     COMMUNICATOR = new BotCommunicator(sender);
     COMMAND_DISPATCHER = new CommandDispatcher(COMMUNICATOR);
@@ -70,7 +72,7 @@ public class TailscaleVpnLambdaHandler implements
                                                           authorizer,
                                                           COMMUNICATOR::sendMessageToTheBot));
     COMMAND_DISPATCHER.registerCommand("/supportedRegions",
-                                       new SupportedRegionCommand(nodeService));
+                                       new SupportedRegionCommand(nodeService, authorizer));
   }
 
   @Override

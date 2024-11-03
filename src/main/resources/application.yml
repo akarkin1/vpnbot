@@ -1,27 +1,14 @@
 version: ${project.version}
 
 auth:
-  white-list-enabled: true
-  tgusers-white-list:
-    'karkin_ai':
-      - RUN_NODES
-      - ADMIN
-    'Ilya174':
-      - RUN_NODES
-    'Igorn_1964':
-      - RUN_NODES
-    'kalpltoska':
-      - RUN_NODES
-    'Veltmann':
-      - RUN_NODES
-    'nickrom0':
-      - RUN_NODES
+  enabled: true
 
 s3:
   config-bucket: openvpn-server-s3
   config-root-dir: ecs-tailscale-node/config
   regions-key: supported-regions.txt
   stack-output-parameters-key: vpn-ecs-resources-output-parameters.json
+  user-permissions: user-permissions.json
 
 ecs:
   service-name: tailscale-node

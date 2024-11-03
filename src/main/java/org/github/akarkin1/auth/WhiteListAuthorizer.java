@@ -16,19 +16,21 @@ public class WhiteListAuthorizer implements Authorizer {
 
   // ToDo: File user registration is inconvenient, add a command
   private final AuthConfiguration config;
+  private final UserPermissionsProvider permissionsProvider;
 
   @Override
   public boolean isAllowed(String tgUsername, UserAction action) {
     log.debug("auth debug: username='{}', action={}, isWhiteListEnabled={}",
-              tgUsername, action, config.isWhiteListEnabled());
-    if (!Boolean.TRUE.equals(config.isWhiteListEnabled())) {
+              tgUsername, action, config.isEnabled());
+    if (!Boolean.TRUE.equals(config.isEnabled())) {
       return true;
     }
 
-    Map<String, List<String>> usersMap = config.getTgusersWhiteList();
+    Map<String, List<String>> usersMap = permissionsProvider.getUserPermissions();
     log.debug("usersMap: {}", usersMap);
 
     return usersMap.containsKey(tgUsername)
-           && usersMap.get(tgUsername).contains(action.name());
+           && (usersMap.get(tgUsername).contains(UserAction.ROOT_ACCESS.name())
+               || usersMap.get(tgUsername).contains(action.name()));
   }
 }

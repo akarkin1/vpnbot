@@ -23,7 +23,7 @@ public final class ListNodesCommand implements BotCommand<TextCommandResponse> {
       return new TextCommandResponse("Action is not allowed.");
     }
 
-    if (authorizer.isAllowed(username, UserAction.ADMIN)) {
+    if (authorizer.isAllowed(username, UserAction.ROOT_ACCESS)) {
       // no username restriction is required, just list all nodes running
       username = null;
     }

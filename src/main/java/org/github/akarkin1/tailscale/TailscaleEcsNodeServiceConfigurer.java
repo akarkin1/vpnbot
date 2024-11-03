@@ -10,9 +10,8 @@ import org.github.akarkin1.ecs.EcsClientPool;
 import org.github.akarkin1.ecs.EcsManager;
 import org.github.akarkin1.ecs.EcsManagerImpl;
 
-public class TailscaleEcsNodeServiceConfigurer implements TailscaleNodeServiceConfigurer {
+public class TailscaleEcsNodeServiceConfigurer {
 
-  @Override
   public TailscaleNodeService configure() {
     YamlApplicationConfiguration appConfig = ConfigManager.getApplicationYaml();
 

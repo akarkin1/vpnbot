@@ -4,5 +4,5 @@ public enum UserAction {
   RUN_NODES,
   LIST_NODES,
   SUPPORTED_REGIONS,
-  ADMIN
+  ROOT_ACCESS
 }
