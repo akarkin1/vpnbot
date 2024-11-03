@@ -1,5 +1,6 @@
 package org.github.akarkin1.auth.s3;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import lombok.RequiredArgsConstructor;
 import org.github.akarkin1.auth.UserAction;
 import org.github.akarkin1.config.YamlApplicationConfiguration.S3Configuration;
@@ -12,7 +13,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
 
-import static org.github.akarkin1.util.JsonUtils.parseMapOfListsSilently;
+import static org.github.akarkin1.util.JsonUtils.parseJson;
 import static org.github.akarkin1.util.JsonUtils.toJson;
 
 @RequiredArgsConstructor
@@ -24,7 +25,8 @@ public class S3PermissionsService implements PermissionsService {
   @Override
   public Map<String, List<UserAction>> getUserPermissions() {
     String fileContent = s3ConfigManager.downloadConfigFromS3(s3Config.getUserPermissionsKey());
-    Map<String, List<String>> userPermissions = parseMapOfListsSilently(fileContent);
+    Map<String, List<String>> userPermissions = parseJson(fileContent,
+                                                          new TypeReference<>() {});
     return userPermissions.entrySet()
         .stream()
         .map(entry -> Map.entry(entry.getKey(),

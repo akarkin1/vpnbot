@@ -1,5 +1,6 @@
 package org.github.akarkin1.config;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
@@ -9,7 +10,6 @@ import org.github.akarkin1.config.exception.S3DownloadFailureException;
 import org.github.akarkin1.config.model.CfnStackOutputParameter;
 import org.github.akarkin1.config.model.StackOutputParameters;
 import org.github.akarkin1.s3.S3ConfigManager;
-import org.github.akarkin1.util.JsonUtils;
 import software.amazon.awssdk.regions.Region;
 
 import java.util.List;
@@ -18,6 +18,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.github.akarkin1.s3.S3ConfigManager.joinPath;
+import static org.github.akarkin1.util.JsonUtils.parseJson;
 
 @Log4j2
 @RequiredArgsConstructor(access = AccessLevel.PACKAGE)
@@ -64,7 +65,8 @@ public class S3TaskConfigService implements TaskConfigService {
 
     String jsonContent = s3ConfigManager.downloadConfigFromS3(
         joinPath(region.id(), config.getStackOutputParametersKey()));
-    List<CfnStackOutputParameter> outputParameters = JsonUtils.parseListSilently(jsonContent);
+    List<CfnStackOutputParameter> outputParameters = parseJson(jsonContent,
+                                                               new TypeReference<>() {});
 
     val runtimeParamBuilder = TaskRuntimeParameters.builder();
     for (CfnStackOutputParameter stackOutParam : outputParameters) {

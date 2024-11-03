@@ -5,9 +5,6 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.experimental.UtilityClass;
 
-import java.util.List;
-import java.util.Map;
-
 @UtilityClass
 public class JsonUtils {
 
@@ -21,17 +18,7 @@ public class JsonUtils {
     }
   }
 
-  public static <T> List<T> parseListSilently(String json) {
-    return parseTypeSilently(json, new TypeReference<>() {
-    });
-  }
-
-  public static <K, V> Map<K, List<V>> parseMapOfListsSilently(String json) {
-    return parseTypeSilently(json, new TypeReference<>() {
-    });
-  }
-
-  private static <T> T parseTypeSilently(String json, TypeReference<T> returnType) {
+  public static <T> T parseJson(String json, TypeReference<T> returnType) {
     try {
       return MAPPER.readValue(json, returnType);
     } catch (JsonProcessingException e) {
