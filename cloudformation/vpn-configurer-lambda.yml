@@ -6,9 +6,12 @@ Parameters:
     Type: String
     Default: 0.0.0.0/0
     Description: CIDR IP to be granted access by the SG, use 0.0.0.0/0 to accept all IPs
-  LambdaConfigBucketName:
+  LambdaSourcesBucketName:
     Type: String
     Description: S3 Bucket with source code of the lambda.
+  LambdaConfigBucketName:
+    Type: String
+    Description: S3 Bucket with configs and source code of the lambda.
   # Lambda environment variables
   EnvTgBotToken:
     Type: String
