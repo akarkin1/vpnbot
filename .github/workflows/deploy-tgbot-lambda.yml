@@ -7,6 +7,10 @@ on:
         description: 'AWS Region'
         required: true
         default: eu-north-1
+      lambda-source-version:
+        description: 'Source code version of the lambda'
+        required: true
+        default: 1.1-SNAPSHOT
 
 env:
   TG_BOT_USERNAME: ${{ vars.TG_BOT_USERNAME }}
@@ -43,7 +47,7 @@ jobs:
           template: cloudformation/vpn-configurer-lambda.yml
           no-fail-on-empty-changeset: "1"
           capabilities: CAPABILITY_IAM,CAPABILITY_NAMED_IAM
-          parameter-overrides: 'LambdaConfigBucketName=${{ env.S3_CONFIG_BUCKET_NAME }},EnvTgBotToken=${{ secrets.TG_BOT_TOKEN }},EnvTgBotUsername=${{ env.TG_BOT_USERNAME }},EnvTgBotSecretTokenId=${{ env.TG_SECRET_TOKEN_ID }}'
+          parameter-overrides: 'LambdaConfigBucketName=${{ env.S3_CONFIG_BUCKET_NAME }},LambdaSourceVersion=${{ github.event.inputs.lambda-source-version }},EnvTgBotToken=${{ secrets.TG_BOT_TOKEN }},EnvTgBotUsername=${{ env.TG_BOT_USERNAME }},EnvTgBotSecretTokenId=${{ env.TG_SECRET_TOKEN_ID }}'
       - name: Upload 'user-permissions.json' to S3
         id: user-permissions-upload
         run: |

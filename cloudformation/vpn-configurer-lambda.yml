@@ -9,6 +9,9 @@ Parameters:
   LambdaConfigBucketName:
     Type: String
     Description: S3 Bucket with source code of the lambda.
+  LambdaSourceVersion:
+    Type: String
+    Description: Version of the lambda source code, i. g. 1.1-SNAPSHOT
   # Lambda environment variables
   EnvTgBotToken:
     Type: String
@@ -294,7 +297,7 @@ Resources:
                   - "s3:PutObject"
                 Resource: !Sub
                   - arn:aws:s3:::${bucketName}/*
-                  - bucketName: "LambdaConfigBucketName"
+                  - bucketName: !Ref LambdaConfigBucketName
               # Permissions to manage CW logs
               - Action:
                   - "logs:CreateLogGroup"
@@ -413,8 +416,10 @@ Resources:
         - Arn: !GetAtt LambdaEfsAccessPoint.Arn
           LocalMountPath: /mnt/efs
       Code:
-        S3Bucket: "LambdaConfigBucketName"
-        S3Key: 'openvpn-server-tgbot/vpnbot-1.0-SNAPSHOT.jar'
+        S3Bucket: !Ref LambdaConfigBucketName
+        S3Key: !Sub
+          - 'openvpn-server-tgbot/vpnbot-${LambdaSourceVersion}.jar'
+          - LambdaSourceVersion: !Ref LambdaSourceVersion
       VpcConfig:
         SecurityGroupIds:
           - !GetAtt LambdaSecurityGroup.GroupId
