@@ -91,11 +91,11 @@ public final class RunNodeCommand implements BotCommandV2<EmptyResponse> {
   @Override
   public String getDescription() {
     return """
-        Runs Tailscale VPN node in specified region. 
-        USAGE: /runNode RegionName [NodeName], 
-        whereas 
-         - RegionName – is either AWS Region Id or Name of the city, where the node will be run;
-         - NodeName (optional) – hostname of Tailscale node (should be unique within all running nodes)
+        Runs Tailscale VPN node in specified region.
+        USAGE: /runNodeIn RegionName [NodeName],
+        whereas
+         - RegionName – is either AWS Region Id or Name of the city, where the node will be run.
+         - NodeName (optional) – hostname of Tailscale node (should be unique within all running nodes).
         """;
   }
 

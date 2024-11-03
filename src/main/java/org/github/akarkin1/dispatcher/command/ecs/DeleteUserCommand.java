@@ -1,9 +1,11 @@
 package org.github.akarkin1.dispatcher.command.ecs;
 
 import lombok.RequiredArgsConstructor;
+import org.apache.commons.lang3.StringUtils;
 import org.github.akarkin1.auth.Permission;
 import org.github.akarkin1.auth.s3.PermissionsService;
 import org.github.akarkin1.dispatcher.command.EmptyResponse;
+import org.github.akarkin1.util.UserNameUtil;
 
 import java.util.List;
 import java.util.Map;
@@ -18,18 +20,23 @@ public class DeleteUserCommand implements BotCommandV2<EmptyResponse> {
 
   @Override
   public EmptyResponse run(List<String> args) {
-    if (args.isEmpty()) {
+    List<String> usersNames = args.stream()
+        .map(UserNameUtil::normalizeUserName)
+        .filter(StringUtils::isNotBlank)
+        .toList();
+
+    if (usersNames.isEmpty()) {
       messageConsumer.accept("ERROR! You need to specify at least one user to delete.");
       return EmptyResponse.NONE;
     }
 
     Map<String, List<Permission>> userPermissions = permissionsService.getUserPermissions();
-    List<String> notFoundUsers = args.stream()
+    List<String> notFoundUsers = usersNames.stream()
         .filter(Predicate.not(userPermissions::containsKey))
         .toList();
 
     boolean atLeastOneDeleted = false;
-    for (String userName : args) {
+    for (String userName : usersNames) {
       if (notFoundUsers.contains(userName)) {
         messageConsumer.accept("ERROR! The following user is not found: %s.".formatted(userName));
         continue;
@@ -55,7 +62,10 @@ public class DeleteUserCommand implements BotCommandV2<EmptyResponse> {
 
   @Override
   public String getDescription() {
-    return "removes the specified users by telegram usernames";
+    return """
+        Removes the specified users by telegram usernames
+        USAGE: /deleteUser <TelegramUserNames>
+        """;
   }
 
   @Override
