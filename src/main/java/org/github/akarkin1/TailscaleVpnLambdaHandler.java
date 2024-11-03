@@ -15,8 +15,12 @@ import org.github.akarkin1.auth.s3.PermissionsService;
 import org.github.akarkin1.auth.s3.PermissionsServiceConfigurer;
 import org.github.akarkin1.deduplication.FSUpdateEventsRegistry;
 import org.github.akarkin1.deduplication.UpdateEventsRegistry;
+import org.github.akarkin1.dispatcher.command.ecs.AssignRoleCommand;
 import org.github.akarkin1.dispatcher.command.ecs.CommandDispatcherV2;
+import org.github.akarkin1.dispatcher.command.ecs.DeleteUserCommand;
+import org.github.akarkin1.dispatcher.command.ecs.DescribeRolesCommand;
 import org.github.akarkin1.dispatcher.command.ecs.ListNodesCommand;
+import org.github.akarkin1.dispatcher.command.ecs.ListUsersCommand;
 import org.github.akarkin1.dispatcher.command.ecs.RunNodeCommand;
 import org.github.akarkin1.dispatcher.command.ecs.SupportedRegionCommand;
 import org.github.akarkin1.dispatcher.command.ecs.VersionCommandV2;
@@ -72,6 +76,15 @@ public class TailscaleVpnLambdaHandler implements
                                                           COMMUNICATOR::sendMessageToTheBot));
     COMMAND_DISPATCHER.registerCommand("/supportedRegions",
                                        new SupportedRegionCommand(nodeService));
+    COMMAND_DISPATCHER.registerCommand("/assignRole",
+                                       new AssignRoleCommand(permissionsService));
+    COMMAND_DISPATCHER.registerCommand("/describeRoles",
+                                       new DescribeRolesCommand(permissionsService));
+    COMMAND_DISPATCHER.registerCommand("/deleteUser",
+                                       new DeleteUserCommand(permissionsService,
+                                                             COMMUNICATOR::sendMessageToTheBot));
+    COMMAND_DISPATCHER.registerCommand("/listRegisteredUsers",
+                                       new ListUsersCommand(permissionsService));
   }
 
   @Override

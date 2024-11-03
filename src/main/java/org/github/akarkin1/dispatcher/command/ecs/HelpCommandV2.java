@@ -2,7 +2,7 @@ package org.github.akarkin1.dispatcher.command.ecs;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
-import org.github.akarkin1.auth.UserPermission;
+import org.github.akarkin1.auth.Permission;
 import org.github.akarkin1.dispatcher.command.TextCommandResponse;
 
 import java.util.Collections;
@@ -33,7 +33,7 @@ public final class HelpCommandV2 implements BotCommandV2<TextCommandResponse> {
   }
 
   @Override
-  public List<UserPermission> getRequiredPermissions() {
+  public List<Permission> getRequiredPermissions() {
     return Collections.emptyList();
   }
 

@@ -18,18 +18,18 @@ public class WhiteListAuthorizer implements Authorizer {
   private final UserPermissionsProvider permissionsProvider;
 
   @Override
-  public boolean hasPermission(String tgUsername, UserPermission permission) {
+  public boolean hasPermission(String tgUsername, Permission permission) {
     log.debug("auth debug: username='{}', action={}, isWhiteListEnabled={}",
               tgUsername, permission, config.isEnabled());
     if (!Boolean.TRUE.equals(config.isEnabled())) {
       return true;
     }
 
-    Map<String, List<UserPermission>> usersMap = permissionsProvider.getUserPermissions();
+    Map<String, List<Permission>> usersMap = permissionsProvider.getUserPermissions();
     log.debug("usersMap: {}", usersMap);
 
     return usersMap.containsKey(tgUsername)
-           && (usersMap.get(tgUsername).contains(UserPermission.ROOT_ACCESS)
+           && (usersMap.get(tgUsername).contains(Permission.ROOT_ACCESS)
                || usersMap.get(tgUsername).contains(permission));
   }
 }

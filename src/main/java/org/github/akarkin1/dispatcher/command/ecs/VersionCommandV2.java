@@ -1,7 +1,7 @@
 package org.github.akarkin1.dispatcher.command.ecs;
 
 import lombok.extern.log4j.Log4j2;
-import org.github.akarkin1.auth.UserPermission;
+import org.github.akarkin1.auth.Permission;
 import org.github.akarkin1.dispatcher.command.TextCommandResponse;
 
 import java.util.List;
@@ -23,8 +23,8 @@ public final class VersionCommandV2 implements BotCommandV2<TextCommandResponse>
   }
 
   @Override
-  public List<UserPermission> getRequiredPermissions() {
-    return List.of(UserPermission.ROOT_ACCESS);
+  public List<Permission> getRequiredPermissions() {
+    return List.of(Permission.ROOT_ACCESS);
   }
 
 }

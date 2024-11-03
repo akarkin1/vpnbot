@@ -1,6 +1,6 @@
 package org.github.akarkin1.dispatcher.command.ecs;
 
-import org.github.akarkin1.auth.UserPermission;
+import org.github.akarkin1.auth.Permission;
 import org.github.akarkin1.dispatcher.command.CommandResponse;
 
 import java.util.Collections;
@@ -16,6 +16,6 @@ public interface BotCommandV2<R extends CommandResponse> {
 
   String getDescription();
 
-  List<UserPermission> getRequiredPermissions();
+  List<Permission> getRequiredPermissions();
 
 }

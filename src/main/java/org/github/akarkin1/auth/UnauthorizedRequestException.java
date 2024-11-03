@@ -5,9 +5,9 @@ import lombok.Getter;
 @Getter
 public class UnauthorizedRequestException extends RuntimeException {
 
-  private final UserPermission requiredPermission;
+  private final Permission requiredPermission;
 
-  public UnauthorizedRequestException(UserPermission requiredPermission) {
+  public UnauthorizedRequestException(Permission requiredPermission) {
     super("User doesn't have required permission: %s".formatted(requiredPermission));
     this.requiredPermission = requiredPermission;
   }

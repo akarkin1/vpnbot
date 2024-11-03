@@ -1,7 +1,7 @@
 package org.github.akarkin1.dispatcher.command.ecs;
 
 import lombok.RequiredArgsConstructor;
-import org.github.akarkin1.auth.UserPermission;
+import org.github.akarkin1.auth.Permission;
 import org.github.akarkin1.dispatcher.command.TextCommandResponse;
 import org.github.akarkin1.tailscale.TailscaleNodeService;
 
@@ -31,8 +31,8 @@ public final class SupportedRegionCommand implements BotCommandV2<TextCommandRes
   }
 
   @Override
-  public List<UserPermission> getRequiredPermissions() {
-    return List.of(UserPermission.SUPPORTED_REGIONS);
+  public List<Permission> getRequiredPermissions() {
+    return List.of(Permission.SUPPORTED_REGIONS);
   }
 
 }

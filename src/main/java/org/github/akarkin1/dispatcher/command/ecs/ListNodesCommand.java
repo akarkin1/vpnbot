@@ -2,7 +2,7 @@ package org.github.akarkin1.dispatcher.command.ecs;
 
 import lombok.RequiredArgsConstructor;
 import org.github.akarkin1.auth.Authorizer;
-import org.github.akarkin1.auth.UserPermission;
+import org.github.akarkin1.auth.Permission;
 import org.github.akarkin1.dispatcher.command.TextCommandResponse;
 import org.github.akarkin1.ecs.TaskInfo;
 import org.github.akarkin1.tailscale.TailscaleNodeService;
@@ -24,7 +24,7 @@ public final class ListNodesCommand implements BotCommandV2<TextCommandResponse>
       return new TextCommandResponse("Action is not allowed.");
     }
 
-    if (authorizer.hasPermission(username, UserPermission.ROOT_ACCESS)) {
+    if (authorizer.hasPermission(username, Permission.ROOT_ACCESS)) {
       // no username restriction is required, just list all nodes running
       username = null;
     }
@@ -53,7 +53,7 @@ public final class ListNodesCommand implements BotCommandV2<TextCommandResponse>
   }
 
   @Override
-  public List<UserPermission> getRequiredPermissions() {
-    return List.of(UserPermission.LIST_NODES);
+  public List<Permission> getRequiredPermissions() {
+    return List.of(Permission.LIST_NODES);
   }
 }

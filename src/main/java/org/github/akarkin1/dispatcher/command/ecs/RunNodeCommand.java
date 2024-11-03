@@ -2,7 +2,7 @@ package org.github.akarkin1.dispatcher.command.ecs;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
-import org.github.akarkin1.auth.UserPermission;
+import org.github.akarkin1.auth.Permission;
 import org.github.akarkin1.dispatcher.command.EmptyResponse;
 import org.github.akarkin1.ecs.RunTaskStatus;
 import org.github.akarkin1.ecs.TaskInfo;
@@ -100,7 +100,8 @@ public final class RunNodeCommand implements BotCommandV2<EmptyResponse> {
   }
 
   @Override
-  public List<UserPermission> getRequiredPermissions() {
-    return List.of(UserPermission.RUN_NODES);
+  public List<Permission> getRequiredPermissions() {
+    return List.of(Permission.RUN_NODES);
   }
+
 }

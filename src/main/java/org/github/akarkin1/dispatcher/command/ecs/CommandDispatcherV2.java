@@ -3,7 +3,7 @@ package org.github.akarkin1.dispatcher.command.ecs;
 import lombok.extern.log4j.Log4j2;
 import org.github.akarkin1.auth.Authorizer;
 import org.github.akarkin1.auth.UnauthorizedRequestException;
-import org.github.akarkin1.auth.UserPermission;
+import org.github.akarkin1.auth.Permission;
 import org.github.akarkin1.dispatcher.command.CommandResponse;
 import org.github.akarkin1.dispatcher.command.EmptyResponse;
 import org.github.akarkin1.dispatcher.command.TextCommandResponse;
@@ -94,7 +94,7 @@ public class CommandDispatcherV2 {
 
   private void checkUserPermissions(BotCommandV2<?> botCommand) {
     String username = TgRequestContext.getUsername();
-    for (UserPermission requiredPermission : botCommand.getRequiredPermissions()) {
+    for (Permission requiredPermission : botCommand.getRequiredPermissions()) {
       if (!authorizer.hasPermission(username, requiredPermission)) {
         throw new UnauthorizedRequestException(requiredPermission);
       }
