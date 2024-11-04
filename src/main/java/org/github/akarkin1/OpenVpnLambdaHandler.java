@@ -23,7 +23,7 @@ import org.github.akarkin1.ec2.Ec2ClientPool;
 import org.github.akarkin1.ec2.Ec2Manager;
 import org.github.akarkin1.ec2.EnvBasedRegionService;
 import org.github.akarkin1.tg.BotCommunicator;
-import org.github.akarkin1.tg.TgUserContext;
+import org.github.akarkin1.tg.TgRequestContext;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.User;
@@ -125,7 +125,7 @@ public class OpenVpnLambdaHandler implements
     log.info("Saving event to the registry (deduplication logic). Update: {}", update);
     EVENTS_REGISTRY.registerEvent(update);
 
-    TgUserContext.initContext(update);
+    TgRequestContext.initContext(update);
     Message message = update.getMessage();
     if (message == null) {
       log.warn("Empty message received from a user. Update Event: {}", update);

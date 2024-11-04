@@ -16,7 +16,7 @@ public class BotCommunicator {
 
   @SneakyThrows(TelegramApiException.class)
   public void sendMessageToTheBot(String message) {
-    Long chatId = TgUserContext.getChatId();
+    Long chatId = TgRequestContext.getChatId();
     if (chatId == null) {
       log.error("Unable to send response back to user – chatId is null");
       return;

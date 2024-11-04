@@ -14,21 +14,22 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class WhiteListAuthorizer implements Authorizer {
 
-  // ToDo: File user registration is inconvenient, add a command
   private final AuthConfiguration config;
+  private final UserPermissionsProvider permissionsProvider;
 
   @Override
-  public boolean isAllowed(String tgUsername, UserAction action) {
+  public boolean hasPermission(String tgUsername, Permission permission) {
     log.debug("auth debug: username='{}', action={}, isWhiteListEnabled={}",
-              tgUsername, action, config.isWhiteListEnabled());
-    if (!Boolean.TRUE.equals(config.isWhiteListEnabled())) {
+              tgUsername, permission, config.isEnabled());
+    if (!Boolean.TRUE.equals(config.isEnabled())) {
       return true;
     }
 
-    Map<String, List<String>> usersMap = config.getTgusersWhiteList();
+    Map<String, List<Permission>> usersMap = permissionsProvider.getUserPermissions();
     log.debug("usersMap: {}", usersMap);
 
     return usersMap.containsKey(tgUsername)
-           && usersMap.get(tgUsername).contains(action.name());
+           && (usersMap.get(tgUsername).contains(Permission.ROOT_ACCESS)
+               || usersMap.get(tgUsername).contains(permission));
   }
 }

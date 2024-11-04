@@ -1,12 +1,14 @@
-package org.github.akarkin1.dispatcher.command;
+package org.github.akarkin1.dispatcher.command.ecs;
 
 import lombok.RequiredArgsConstructor;
+import org.github.akarkin1.auth.Permission;
+import org.github.akarkin1.dispatcher.command.TextCommandResponse;
 import org.github.akarkin1.tailscale.TailscaleNodeService;
 
 import java.util.List;
 
 @RequiredArgsConstructor
-public final class SupportedRegionCommand implements BotCommand<TextCommandResponse> {
+public final class SupportedRegionCommand implements BotCommandV2<TextCommandResponse> {
 
   private final TailscaleNodeService tailscaleNodeService;
 
@@ -26,6 +28,11 @@ public final class SupportedRegionCommand implements BotCommand<TextCommandRespo
   @Override
   public String getDescription() {
     return "Shows list of available regions, where Tailscale infrastructure is set up.";
+  }
+
+  @Override
+  public List<Permission> getRequiredPermissions() {
+    return List.of(Permission.SUPPORTED_REGIONS);
   }
 
 }

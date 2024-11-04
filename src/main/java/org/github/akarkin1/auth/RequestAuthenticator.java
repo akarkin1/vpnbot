@@ -4,6 +4,6 @@ import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 
 public interface RequestAuthenticator {
 
-  void authenticate(APIGatewayProxyRequestEvent request) throws UnauthorizedRequestException;
+  void authenticate(APIGatewayProxyRequestEvent request) throws UnauthenticatedRequestException;
 
 }

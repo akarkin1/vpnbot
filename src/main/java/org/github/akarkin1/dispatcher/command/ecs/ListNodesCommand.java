@@ -1,29 +1,30 @@
-package org.github.akarkin1.dispatcher.command;
+package org.github.akarkin1.dispatcher.command.ecs;
 
 import lombok.RequiredArgsConstructor;
 import org.github.akarkin1.auth.Authorizer;
-import org.github.akarkin1.auth.UserAction;
+import org.github.akarkin1.auth.Permission;
+import org.github.akarkin1.dispatcher.command.TextCommandResponse;
 import org.github.akarkin1.ecs.TaskInfo;
 import org.github.akarkin1.tailscale.TailscaleNodeService;
-import org.github.akarkin1.tg.TgUserContext;
+import org.github.akarkin1.tg.TgRequestContext;
 
 import java.util.List;
 
 @RequiredArgsConstructor
-public final class ListNodesCommand implements BotCommand<TextCommandResponse> {
+public final class ListNodesCommand implements BotCommandV2<TextCommandResponse> {
 
   private final TailscaleNodeService tailscaleNodeService;
   private final Authorizer authorizer;
 
   @Override
   public TextCommandResponse run(List<String> args) {
-    String username = TgUserContext.getUsername();
+    String username = TgRequestContext.getUsername();
 
     if (username == null) {
       return new TextCommandResponse("Action is not allowed.");
     }
 
-    if (authorizer.isAllowed(username, UserAction.ADMIN)) {
+    if (authorizer.hasPermission(username, Permission.ROOT_ACCESS)) {
       // no username restriction is required, just list all nodes running
       username = null;
     }
@@ -49,5 +50,10 @@ public final class ListNodesCommand implements BotCommand<TextCommandResponse> {
   @Override
   public String getDescription() {
     return "Shows the list of Tailscale nodes run by the user.";
+  }
+
+  @Override
+  public List<Permission> getRequiredPermissions() {
+    return List.of(Permission.LIST_NODES);
   }
 }

@@ -1,8 +1,10 @@
 package org.github.akarkin1.auth;
 
-public enum UserAction {
+public enum Permission {
   RUN_NODES,
   LIST_NODES,
   SUPPORTED_REGIONS,
-  ADMIN
+  USER_MANAGEMENT,
+  DELETE_USERS,
+  ROOT_ACCESS
 }
