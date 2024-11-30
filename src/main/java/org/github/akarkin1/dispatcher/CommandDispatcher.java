@@ -64,7 +64,7 @@ public class CommandDispatcher {
       if (resp instanceof TextCommandResponse txtResp) {
         String commandOutput = txtResp.text();
         log.debug("Sending the result to telegram bot...");
-        botCommunicator.sendMessageToTheBot(commandOutput);
+        botCommunicator.sendMessageToTheBot(commandOutput, txtResp.params());
       } else if (!(resp instanceof EmptyResponse)) {
         throw new IllegalStateException(
             "Unsupported Command response type: %s"

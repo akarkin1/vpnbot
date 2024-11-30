@@ -69,7 +69,7 @@ public class CommandDispatcherV2 {
       if (resp instanceof TextCommandResponse txtResp) {
         String commandOutput = txtResp.text();
         log.debug("Sending the result to telegram bot...");
-        botCommunicator.sendMessageToTheBot(commandOutput);
+        botCommunicator.sendMessageToTheBot(commandOutput, txtResp.params());
       } else if (!(resp instanceof EmptyResponse)) {
         throw new IllegalStateException(
             "Unsupported Command response type: %s"
@@ -84,7 +84,7 @@ public class CommandDispatcherV2 {
                 TgRequestContext.getUsername(),
                 botCommand.getClass().getSimpleName(),
                 e.getRequiredPermission());
-      botCommunicator.sendMessageToTheBot("You are not allowed to run this command.");
+      botCommunicator.sendMessageToTheBot("${user.not-authorized.error}");
     } catch (CommandExecutionFailedException e) {
       log.debug("Failed to execute command {}. Sending error message to telegram bot...",
                 commandName, e);
@@ -104,15 +104,11 @@ public class CommandDispatcherV2 {
 
   private void sendNotACommandError(Update updateEvent) {
     String userInput = updateEvent.getMessage().getText();
-    String errorMessage = "Unsupported syntax: '%s'. Please enter a command (it should start with '/')"
-        .formatted(userInput);
-    botCommunicator.sendMessageToTheBot(errorMessage);
+    botCommunicator.sendMessageToTheBot("${syntax.not-supported.error}", userInput);
   }
 
   private void sendUnknownCommandError(String command) {
-    String errorMessage = "Unsupported command: '%s'. Please enter a valid command. "
-        + "The following commands are supported: %n%s".formatted(command, getSupportedCommands());
-    botCommunicator.sendMessageToTheBot(errorMessage);
+    botCommunicator.sendMessageToTheBot("${command.not-supported.error}", command, getSupportedCommands());
   }
 
   public String getSupportedCommands() {

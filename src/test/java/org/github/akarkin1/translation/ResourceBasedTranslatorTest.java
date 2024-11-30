@@ -67,4 +67,29 @@ class ResourceBasedTranslatorTest {
         assertEquals("The value available only in English",
                      translator.translate("ru-RU", "${text.message.default.value}"));
     }
+
+    @Test
+    void translate_multiple_placeholders_langIsRu_ru_repeatedValue() {
+        String messageWithPlaceholders =
+            "Number 112 is translated to Russian as: "
+            + "'${test.message.no-params.value3} ${test.message.params.value1}-${test.message.params.value1}-${test.message.params.value2}'";
+
+        String expectedTranslation =
+            "Number 112 is translated to Russian as: 'число один(1)-один(1)-два(2)'";
+
+        assertEquals(expectedTranslation,
+                     translator.translate("ru-RU", messageWithPlaceholders, 1, 2));
+    }
+
+    @Test
+    void test_multilineSupport() {
+      String expectedText = """
+          Some enumeration:
+           (1) first item;
+           (2) second item.
+          """;
+
+      assertEquals(expectedText,
+                   translator.translate("en-US", "${test.message.multiline}", 1, 2));
+    }
 }

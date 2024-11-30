@@ -4,7 +4,9 @@ import org.apache.commons.lang3.StringUtils;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
@@ -16,26 +18,50 @@ public class ResourceBasedTranslator implements Translator {
     private static final String DEFAULT_TRANSLATIONS_FILE = "messages.properties";
     private static final String LANG_TRANSLATIONS_FILE = "messages_%1$s.properties";
     private static final String DEFAULT_LANGUAGE_CODE = "en-US";
-    private static final Pattern MESSAGE_PLACEHOLDER_PATTERN = Pattern.compile("^\\$\\{(.*?)}$");
+    private static final Pattern MESSAGE_PLACEHOLDER_PATTERN = Pattern.compile("\\$\\{(.*?)}");
 
     private final Map<String, Properties> translationsCached = new HashMap<>();
 
     @Override
     public String translate(String langCode, String message, Object... params) {
-        Matcher placeholderMatcher = MESSAGE_PLACEHOLDER_PATTERN.matcher(message);
-        if (!placeholderMatcher.matches()) {
+        List<String> translationKeys = findTranslationKeys(message);
+        if (translationKeys.isEmpty()) {
             return message.formatted(params);
         }
 
-        Properties translation = getCachedOrLoadTranslation(message, langCode);
-        String messageKey = placeholderMatcher.group(1);
-        // fallback to the default file – the best we can do
-        if (!translation.containsKey(messageKey)) {
-            return getCachedOrLoadTranslation(message, StringUtils.EMPTY)
-                .getProperty(messageKey, message).formatted(params);
+        String translatedMessage = StringUtils.EMPTY + message;
+
+        for (String translationKey : translationKeys) {
+            String translatedValue = translateValue(langCode, message, translationKey);
+            translatedMessage = translatedMessage.replace("${%s}".formatted(translationKey), translatedValue);
         }
 
-        return translation.getProperty(messageKey).formatted(params);
+        return translatedMessage.formatted(params);
+    }
+
+    private String translateValue(String langCode, String message, String translationKey) {
+        Properties translation = getCachedOrLoadTranslation(message, langCode);
+        // fallback to the default file – the best we can do
+        if (!translation.containsKey(translationKey)) {
+            return getCachedOrLoadTranslation(message, StringUtils.EMPTY)
+                .getProperty(translationKey, message);
+        }
+
+        return translation.getProperty(translationKey);
+    }
+
+    private static List<String> findTranslationKeys(String message) {
+        List<String> foundKeys = new ArrayList<>();
+        Matcher placeholderMatcher = MESSAGE_PLACEHOLDER_PATTERN.matcher(message);
+
+        while(placeholderMatcher.find()) {
+            foundKeys.add(placeholderMatcher.group(1));
+        }
+
+        return foundKeys
+            .stream()
+            .distinct()
+            .toList();
     }
 
     private Properties getCachedOrLoadTranslation(String message, String langCode) {

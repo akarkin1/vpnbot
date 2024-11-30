@@ -51,9 +51,7 @@ public class TailscaleVpnLambdaHandler implements
   private static final CommandDispatcherV2 COMMAND_DISPATCHER;
   private static final BotCommunicator COMMUNICATOR;
   private static final UpdateEventsRegistry EVENTS_REGISTRY;
-  private static final String BOT_SERVER_ERROR =
-      "The request finished with an error. Please, reach "
-      + "out @karkin_ai to troubleshoot the issue.";
+  private static final String BOT_SERVER_ERROR = "${bot.internal.error}";
   private static final RequestAuthenticator REQUEST_AUTHENTICATOR;
 
   static {
