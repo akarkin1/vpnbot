@@ -63,10 +63,8 @@ public class AssignRolesCommand implements BotCommandV2<TextCommandResponse> {
 
   @Override
   public String getDescription() {
-    return """
-      ${command.assign-roles.description.message}
-      ${command.assign-roles.usage-note} %s
-      """.formatted(List.of(UserRole.values()));
+    return "${command.assign-roles.description.message}%n${command.assign-roles.usage-note} "
+           + List.of(UserRole.values());
   }
 
   @Override
