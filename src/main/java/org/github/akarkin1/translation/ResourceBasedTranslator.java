@@ -83,6 +83,7 @@ public class ResourceBasedTranslator implements Translator {
         IetfCode ietfCode = IetfCode.fromString(langCode);
         return loadTranslationResource(ietfCode.fullCode())
             .or(() -> loadTranslationResource(ietfCode.tag()))
+            .or(() -> loadTranslationResource(ietfCode.tag().toLowerCase()))
             .or(() -> loadTranslationResource(DEFAULT_LANGUAGE_CODE))
             .or(() -> loadTranslationResource(StringUtils.EMPTY))
             .orElseThrow(() -> new RuntimeException("No messages.properties file provided in the resources"));
