@@ -16,8 +16,7 @@ public final class HelpCommandV2 implements BotCommandV2<TextCommandResponse> {
 
   @Override
   public TextCommandResponse run(List<String> args) {
-    return new TextCommandResponse("${command.help.app-description.message}",
-                                   commandDispatcher.getSupportedCommands());
+    return new TextCommandResponse("${command.help.app-description.message}%n" + commandDispatcher.getSupportedCommands());
   }
 
   @Override
