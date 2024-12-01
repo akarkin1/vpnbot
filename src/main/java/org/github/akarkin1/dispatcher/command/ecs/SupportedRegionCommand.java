@@ -16,7 +16,7 @@ public final class SupportedRegionCommand implements BotCommandV2<TextCommandRes
   public TextCommandResponse run(List<String> args) {
     List<String> regionDescriptions = tailscaleNodeService.getSupportedRegionDescriptions();
     StringBuilder responseBuilder = new StringBuilder();
-    responseBuilder.append("Supported regions: ").append("\n");
+    responseBuilder.append("${command.supported-regions.supported-regions.message}: ").append("\n");
 
     regionDescriptions.forEach(regionDescription ->
                           responseBuilder.append("\t– %s".formatted(regionDescription))
@@ -27,7 +27,7 @@ public final class SupportedRegionCommand implements BotCommandV2<TextCommandRes
 
   @Override
   public String getDescription() {
-    return "Shows list of available regions, where Tailscale infrastructure is set up.";
+    return "${command.supported-regions.description.message}";
   }
 
   @Override

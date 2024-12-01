@@ -5,18 +5,18 @@ import org.apache.commons.lang3.StringUtils;
 import org.github.akarkin1.auth.Permission;
 import org.github.akarkin1.auth.s3.PermissionsService;
 import org.github.akarkin1.dispatcher.command.EmptyResponse;
+import org.github.akarkin1.message.MessageConsumer;
 import org.github.akarkin1.util.UserNameUtil;
 
 import java.util.List;
 import java.util.Map;
-import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 @RequiredArgsConstructor
 public class DeleteUsersCommand implements BotCommandV2<EmptyResponse> {
 
   private final PermissionsService permissionsService;
-  private final Consumer<String> messageConsumer;
+  private final MessageConsumer messageConsumer;
 
   @Override
   public EmptyResponse run(List<String> args) {

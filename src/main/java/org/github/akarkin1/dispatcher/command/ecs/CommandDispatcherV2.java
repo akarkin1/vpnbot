@@ -104,11 +104,11 @@ public class CommandDispatcherV2 {
 
   private void sendNotACommandError(Update updateEvent) {
     String userInput = updateEvent.getMessage().getText();
-    botCommunicator.sendMessageToTheBot("${syntax.not-supported.error}", userInput);
+    botCommunicator.sendMessageToTheBot("${common.syntax.not-supported.error}", userInput);
   }
 
   private void sendUnknownCommandError(String command) {
-    botCommunicator.sendMessageToTheBot("${command.not-supported.error}", command, getSupportedCommands());
+    botCommunicator.sendMessageToTheBot("${common.command.not-supported.error}", command, getSupportedCommands());
   }
 
   public String getSupportedCommands() {

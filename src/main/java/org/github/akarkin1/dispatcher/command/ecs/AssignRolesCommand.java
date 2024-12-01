@@ -26,7 +26,7 @@ public class AssignRolesCommand implements BotCommandV2<TextCommandResponse> {
 
     if (args.isEmpty()) {
       return new TextCommandResponse(
-        "${command.assign-roles.invalid-syntax.common.error} – "
+        "${common.command.invalid-syntax.message} – "
         + "${command.assign-roles.invalid-syntax.no-username.error}\n"
         + "${command.assign-roles.usage-note}",
         knownRoleValues);
@@ -34,7 +34,7 @@ public class AssignRolesCommand implements BotCommandV2<TextCommandResponse> {
 
     if (args.size() == 1) {
       return new TextCommandResponse(
-        "${command.assign-roles.invalid-syntax.common.error} – "
+        "${common.command.invalid-syntax.message} – "
         + "${command.assign-roles.invalid-syntax.no-role.error}\n"
         + "${command.assign-roles.usage-note}",
         knownRoleValues);
