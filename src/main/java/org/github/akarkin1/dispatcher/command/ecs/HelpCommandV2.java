@@ -21,7 +21,7 @@ public final class HelpCommandV2 implements BotCommandV2<TextCommandResponse> {
 
   @Override
   public String getDescription() {
-    return "prints help message";
+    return "${command.help.description.message}";
   }
 
   @Override
