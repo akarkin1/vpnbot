@@ -32,6 +32,8 @@ public class YamlApplicationConfiguration {
     private String regionsKey;
     private String stackOutputParametersKey;
     private String userPermissionsKey;
+    private Boolean cacheSupportedRegions;
+    private Boolean cacheTaskRuntimeParameters;
 
   }
 

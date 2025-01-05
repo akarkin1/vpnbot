@@ -9,6 +9,8 @@ s3:
   regions-key: supported-regions.txt
   stack-output-parameters-key: vpn-ecs-resources-output-parameters.json
   user-permissions-key: user-permissions.json
+  cache-supported-regions: false
+  cache-task-runtime-parameters: true
 
 ecs:
   service-name: tailscale-node
