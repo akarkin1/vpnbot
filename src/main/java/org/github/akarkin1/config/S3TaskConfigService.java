@@ -12,6 +12,7 @@ import org.github.akarkin1.config.model.StackOutputParameters;
 import org.github.akarkin1.s3.S3ConfigManager;
 import software.amazon.awssdk.regions.Region;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -23,8 +24,12 @@ import static org.github.akarkin1.util.JsonUtils.parseJson;
 @Log4j2
 @RequiredArgsConstructor(access = AccessLevel.PACKAGE)
 public class S3TaskConfigService implements TaskConfigService {
+  private static final List<Region> AWS_REGIONS = new ArrayList<>(Region.regions());
+  static {
+    AWS_REGIONS.add(Region.of("ap-southeast-7"));
+  }
 
-  private static final Map<String, Region> KNOWN_REGIONS = Region.regions()
+  private static final Map<String, Region> KNOWN_REGIONS = AWS_REGIONS
       .stream()
       .collect(Collectors.toMap(Region::id, r -> r));
 
