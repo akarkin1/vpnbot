@@ -28,6 +28,7 @@ import org.github.akarkin1.tailscale.TailscaleEcsNodeServiceConfigurer;
 import org.github.akarkin1.tailscale.TailscaleNodeService;
 import org.github.akarkin1.tg.BotCommunicator;
 import org.github.akarkin1.tg.TgRequestContext;
+import org.github.akarkin1.translation.ResourceBasedTranslator;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.User;
@@ -50,9 +51,7 @@ public class TailscaleVpnLambdaHandler implements
   private static final CommandDispatcherV2 COMMAND_DISPATCHER;
   private static final BotCommunicator COMMUNICATOR;
   private static final UpdateEventsRegistry EVENTS_REGISTRY;
-  private static final String BOT_SERVER_ERROR =
-      "The request finished with an error. Please, reach "
-      + "out @karkin_ai to troubleshoot the issue.";
+  private static final String BOT_SERVER_ERROR = "${bot.internal.error}";
   private static final RequestAuthenticator REQUEST_AUTHENTICATOR;
 
   static {
@@ -65,7 +64,7 @@ public class TailscaleVpnLambdaHandler implements
     final PermissionsService permissionsService = new PermissionsServiceConfigurer().configure();
     final Authorizer authorizer = new AuthorizerConfigurer().configure(permissionsService);
 
-    COMMUNICATOR = new BotCommunicator(sender);
+    COMMUNICATOR = new BotCommunicator(sender, new ResourceBasedTranslator());
     COMMAND_DISPATCHER = new CommandDispatcherV2(COMMUNICATOR, authorizer);
 
     COMMAND_DISPATCHER.registerCommand("/version", new VersionCommandV2());

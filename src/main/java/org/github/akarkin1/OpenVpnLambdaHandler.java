@@ -24,6 +24,7 @@ import org.github.akarkin1.ec2.Ec2Manager;
 import org.github.akarkin1.ec2.EnvBasedRegionService;
 import org.github.akarkin1.tg.BotCommunicator;
 import org.github.akarkin1.tg.TgRequestContext;
+import org.github.akarkin1.translation.ResourceBasedTranslator;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.User;
@@ -56,7 +57,7 @@ public class OpenVpnLambdaHandler implements
 
     val ec2ClientProvider = new Ec2ClientPool();
     val ec2Manager = new Ec2Manager(ec2ClientProvider, EnvBasedRegionService.INSTANCE);
-    COMMUNICATOR = new BotCommunicator(sender);
+    COMMUNICATOR = new BotCommunicator(sender, new ResourceBasedTranslator());
     COMMAND_DISPATCHER = new CommandDispatcher(COMMUNICATOR);
 
     COMMAND_DISPATCHER.registerCommand("/version", new VersionCommand());

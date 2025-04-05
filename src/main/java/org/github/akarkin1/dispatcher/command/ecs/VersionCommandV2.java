@@ -13,13 +13,13 @@ public final class VersionCommandV2 implements BotCommandV2<TextCommandResponse>
 
   @Override
   public TextCommandResponse run(List<String> args) {
-    String responseContent = "Application version: %s".formatted(getAppVersion());
-    return new TextCommandResponse(responseContent);
+    return new TextCommandResponse("${command.version.app-version.message}",
+                                   getAppVersion());
   }
 
   @Override
   public String getDescription() {
-    return "prints version of the backend application";
+    return "${command.version.description.message}";
   }
 
   @Override

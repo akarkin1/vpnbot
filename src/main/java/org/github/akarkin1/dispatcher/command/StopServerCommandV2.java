@@ -3,15 +3,15 @@ package org.github.akarkin1.dispatcher.command;
 import lombok.RequiredArgsConstructor;
 import org.github.akarkin1.ec2.Ec2Manager;
 import org.github.akarkin1.exception.InvalidCommandException;
+import org.github.akarkin1.message.MessageConsumer;
 
 import java.util.List;
-import java.util.function.Consumer;
 
 @RequiredArgsConstructor
 public final class StopServerCommandV2 implements BotCommand<EmptyResponse> {
 
   private final Ec2Manager instanceManager;
-  private final Consumer<String> messageConsumer;
+  private final MessageConsumer messageConsumer;
 
 
   @Override

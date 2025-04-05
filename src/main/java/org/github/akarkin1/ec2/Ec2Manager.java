@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.github.akarkin1.config.ConfigManager;
 import org.github.akarkin1.exception.CommandExecutionFailedException;
+import org.github.akarkin1.message.MessageConsumer;
 import org.github.akarkin1.waiter.InstanceStateWaiter;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.ec2.Ec2Client;
@@ -23,7 +24,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 import static org.github.akarkin1.config.ConfigManager.getOperationTimeoutMs;
@@ -191,7 +191,7 @@ public class Ec2Manager {
     callStartInstancesInTheRegion(regionInstance);
   }
 
-  public void startServerGracefully(String serverName, Consumer<String> messageConsumer) {
+  public void startServerGracefully(String serverName, MessageConsumer messageConsumer) {
     Optional<RegionInstance> regionInstanceOrEmpty = locateInstance(serverNameMatches(serverName));
 
     if (regionInstanceOrEmpty.isEmpty()) {
@@ -220,7 +220,7 @@ public class Ec2Manager {
     }
   }
 
-  public void stopServerGracefully(String serverName, Consumer<String> messageConsumer) {
+  public void stopServerGracefully(String serverName, MessageConsumer messageConsumer) {
     Optional<RegionInstance> regionInstanceOrEmpty = locateInstance(serverNameMatches(serverName));
 
     if (regionInstanceOrEmpty.isEmpty()) {
@@ -245,7 +245,7 @@ public class Ec2Manager {
     }
   }
 
-  public void restartServerGracefully(String serverName, Consumer<String> messageConsumer) {
+  public void restartServerGracefully(String serverName, MessageConsumer messageConsumer) {
     Optional<RegionInstance> regionInstanceOrEmpty = locateInstance(serverNameMatches(serverName));
 
     if (regionInstanceOrEmpty.isEmpty()) {

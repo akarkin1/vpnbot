@@ -6,24 +6,26 @@ import org.github.akarkin1.auth.Permission;
 import org.github.akarkin1.dispatcher.command.EmptyResponse;
 import org.github.akarkin1.ecs.RunTaskStatus;
 import org.github.akarkin1.ecs.TaskInfo;
+import org.github.akarkin1.message.MessageConsumer;
 import org.github.akarkin1.tailscale.TailscaleNodeService;
 import org.github.akarkin1.tg.TgRequestContext;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.function.Consumer;
 
 @Log4j2
 @RequiredArgsConstructor
 public final class RunNodeCommand implements BotCommandV2<EmptyResponse> {
 
   private final TailscaleNodeService tailscaleNodeService;
-  private final Consumer<String> messageConsumer;
+  private final MessageConsumer messageConsumer;
 
   @Override
   public EmptyResponse run(List<String> args) {
     if (args.isEmpty()) {
-      messageConsumer.accept("Missing Region arguments. Command description: " + getDescription());
+      messageConsumer.accept(
+        "${command.run-node.missing-arg.region.error}. ${common.command.description.message}: "
+        + getDescription());
       return EmptyResponse.NONE;
     }
 
@@ -31,17 +33,14 @@ public final class RunNodeCommand implements BotCommandV2<EmptyResponse> {
 
     if (!tailscaleNodeService.isRegionValid(userRegion)) {
       messageConsumer.accept(
-          "Invalid region name: provided region is not valid region in AWS: %s.".formatted(
-              userRegion));
+        "${common.region.invalid-name.error}",
+        userRegion);
       return EmptyResponse.NONE;
     }
 
     if (!tailscaleNodeService.isRegionSupported(userRegion)) {
-      messageConsumer.accept(
-          ("Currently the region '%s' is not supported. You may ask @karkin_ai to set up "
-           + "configuration for this region or just launch your node in some of the supported region. "
-           + "To find out what are the supported regions, you may use /supportedRegions command.")
-              .formatted(userRegion));
+      messageConsumer.accept("${common.region.not-supported.error}",
+                             userRegion);
       return EmptyResponse.NONE;
     }
 
@@ -50,37 +49,34 @@ public final class RunNodeCommand implements BotCommandV2<EmptyResponse> {
       userHost = args.get(1);
       if (!tailscaleNodeService.isHostnameAvailable(userRegion, userHost)) {
         messageConsumer.accept(
-            "A node with such name is incorrect or already in use: %s.".formatted(userHost)
-            + "Please, choose another node name or skip the parameter, so the "
-            + "name will be chosen automatically.");
+          "${command.run-node.node.name-is-incorrect-or-in-use.error}",
+          userHost);
         return EmptyResponse.NONE;
       }
     }
 
-    messageConsumer.accept("Running the node...");
+    messageConsumer.accept("${command.run-node.node.running.message}");
     TaskInfo taskInfo = tailscaleNodeService.runNode(userRegion,
                                                      TgRequestContext.getUsername(),
                                                      userHost);
     log.debug("Task is run, task info: {}", taskInfo);
-    messageConsumer.accept("Task is started. Checking Tailscale node status...");
+    messageConsumer.accept("${command.run-node.task.started.message}");
     RunTaskStatus runTaskStatus = tailscaleNodeService.checkNodeStatus(taskInfo);
     if (RunTaskStatus.UNKNOWN.equals(runTaskStatus)) {
-      messageConsumer.accept("Failed to check task status. Task has been starting for too long. "
-                             + "Please check its status later with /listRunningNodes command.");
+      messageConsumer.accept("${command.run-node.status.check-failed.error}");
     } else if (RunTaskStatus.UNHEALTHY.equals(runTaskStatus)) {
-      messageConsumer.accept("The node failed to start. Please, reach out @karkin_ai to "
-                             + "troubleshoot the issue.");
+      messageConsumer.accept("${command.run-node.node.start-failed.error}");
     } else {
       Optional<TaskInfo> fullTaskInfo = tailscaleNodeService.getFullTaskInfo(taskInfo.getRegion(),
                                                                              taskInfo.getCluster(),
                                                                              taskInfo.getId());
-      StringBuilder successMessage = new StringBuilder("The node has been started successfully.");
-      fullTaskInfo.ifPresent(fullInfoLocal -> successMessage.append(" Node details:\n")
-          .append("\t- Node Name: %s%n".formatted(fullInfoLocal.getHostName()))
-          .append("\t\tNode Status: %s%n".formatted(fullInfoLocal.getState()))
-          .append("\t\tPublic IP: %s%n".formatted(fullInfoLocal.getPublicIp()))
-          .append("\t\tLocation: %s (%s)".formatted(fullInfoLocal.getLocation(),
-                                                    fullInfoLocal.getRegion().id())));
+      StringBuilder successMessage = new StringBuilder("${command.run-node.node.start-succeed.message}");
+      fullTaskInfo.ifPresent(fullInfoLocal -> successMessage.append(" ${common.node.details.message}:\n")
+        .append("\t- ${common.node.name.message}: %s%n".formatted(fullInfoLocal.getHostName()))
+        .append("\t\t${common.node.status.message}: %s%n".formatted(fullInfoLocal.getState()))
+        .append("\t\t${common.node.public-ip.message}: %s%n".formatted(fullInfoLocal.getPublicIp()))
+        .append("\t\t${common.node.location.message}: %s (%s)".formatted(fullInfoLocal.getLocation(),
+                                                  fullInfoLocal.getRegion().id())));
 
       messageConsumer.accept(successMessage.toString());
     }
@@ -90,13 +86,7 @@ public final class RunNodeCommand implements BotCommandV2<EmptyResponse> {
 
   @Override
   public String getDescription() {
-    return """
-        Runs Tailscale VPN node in specified region.
-        USAGE: /runNodeIn RegionName [NodeName],
-        whereas
-         - RegionName – is either AWS Region Id or Name of the city, where the node will be run.
-         - NodeName (optional) – hostname of Tailscale node (should be unique within all running nodes).
-        """;
+    return "${command.run-node.description.message}";
   }
 
   @Override

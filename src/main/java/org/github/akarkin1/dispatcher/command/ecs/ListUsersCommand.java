@@ -19,20 +19,20 @@ public class ListUsersCommand implements BotCommandV2<TextCommandResponse> {
     Map<String, List<Permission>> userPermissions = userPermissionsProvider.getUserPermissions();
 
     if (userPermissions.isEmpty()) {
-      return new TextCommandResponse("No users registered.");
+      return new TextCommandResponse("${command.list-users.no-users-registered.message}");
     }
     StringBuilder responseBuilder = new StringBuilder();
 
-    responseBuilder.append("List of registered users:\n");
+    responseBuilder.append("${command.list-users.list-of-registered-users.message}\n");
     userPermissions.forEach((userName, permissions) -> responseBuilder
-        .append("\t - %s (user permissions: %s)\n".formatted(userName, permissions)));
+        .append("\t - %s (${command.list-users.user-permissions.message} %s)\n".formatted(userName, permissions)));
 
     return new TextCommandResponse(responseBuilder.toString());
   }
 
   @Override
   public String getDescription() {
-    return "returns list of registered users with their permissions";
+    return "${command.list-users.description.message}";
   }
 
   @Override
