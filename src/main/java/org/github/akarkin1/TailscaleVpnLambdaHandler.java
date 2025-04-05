@@ -99,7 +99,7 @@ public class TailscaleVpnLambdaHandler implements
       log.debug("Received payload: {}", receivedPayload);
       if (StringUtils.isBlank(receivedPayload)) {
         return new APIGatewayProxyResponseEvent()
-            .withBody("Open VPN Configurer performs normally. Application version: %s "
+            .withBody("VPN Bot Lambda performs noramlly. Application version: %s "
                           .formatted(getAppVersion()))
             .withStatusCode(200);
       }

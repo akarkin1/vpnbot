@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: OpenVPN Configurer Lambda Stack
+Description: VPN Configurer Lambda Stack
 
 Parameters:
   ClientIPCIDR:
@@ -395,10 +395,7 @@ Resources:
       - LambdaEfsAccessPoint
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: openvpn-server-tgbot
-      # Old version of the lambda to manage EC2 instances with OpenVpn
-#      Handler: org.github.akarkin1.OpenVpnLambdaHandler::handleRequest
-      # New version of the lambda to manage ECS tasks with Tailscale
+      FunctionName: vpnbot
       Handler: org.github.akarkin1.TailscaleVpnLambdaHandler::handleRequest
       Runtime: "java21"
       Role: !GetAtt LambdaRole.Arn
@@ -418,7 +415,7 @@ Resources:
       Code:
         S3Bucket: !Ref LambdaConfigBucketName
         S3Key: !Sub
-          - 'openvpn-server-tgbot/vpnbot-${LambdaSourceVersion}.jar'
+          - 'vpnbot/vpnbot-${LambdaSourceVersion}.jar'
           - LambdaSourceVersion: !Ref LambdaSourceVersion
       VpcConfig:
         SecurityGroupIds:

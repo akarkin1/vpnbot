@@ -22,7 +22,7 @@ env:
 
 jobs:
   deploy-vpn-configurer-lambda:
-    name: Deploy CloudFormation OpenVPN Telegram Bot Lambda
+    name: Deploy CloudFormation For Telegram Bot Lambda
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Source Code
@@ -43,7 +43,7 @@ jobs:
         id: deploy-cfn-stack
         uses: aws-actions/aws-cloudformation-github-deploy@v1.3.0
         with:
-          name: openvpn-server-tgbot-cfn
+          name: vpn-tgbot-cfn
           template: cloudformation/vpn-configurer-lambda.yml
           no-fail-on-empty-changeset: "1"
           capabilities: CAPABILITY_IAM,CAPABILITY_NAMED_IAM
