@@ -82,7 +82,6 @@ class HelpCommandV2Test {
       TextCommandResponse response = helpCommandV2.run(Collections.emptyList());
       String translatedValue = translator.translate("ru-RU", response.text(), response.params());
 
-      // ToDo: Update, once the rest of the commands translated.
       String expectedValue = """
         Бот позволяет управлять нодами Tailscale VPN, развернутыми в AWS. Больше информации о Tailscale можно узнатьпо ссылке: https://tailscale.com/. Чтобы подключиться к запущенной ноде, вам нужно зарегистрироваться в Tailscale и запросить доступ к сети Tailscale. Для последнего, пожалуйста, свяжитесь с @karkin_ai. Если нода работает более 10 минут без активного подключения, она будет автоматически остановлена. Список поддерживаемых команд:
           /help – Выводит описание бота.
