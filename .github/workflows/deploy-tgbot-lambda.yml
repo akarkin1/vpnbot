@@ -10,7 +10,7 @@ on:
       lambda-source-version:
         description: 'Source code version of the lambda'
         required: true
-        default: 1.1-SNAPSHOT
+        default: 2.0-SNAPSHOT
 
 env:
   TG_BOT_USERNAME: ${{ vars.TG_BOT_USERNAME }}
