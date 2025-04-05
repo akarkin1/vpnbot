@@ -1,14 +1,14 @@
-package org.github.akarkin1.dispatcher.command.ecs;
+package org.github.akarkin1.dispatcher.command;
 
 import lombok.RequiredArgsConstructor;
 import org.github.akarkin1.auth.Permission;
-import org.github.akarkin1.dispatcher.command.TextCommandResponse;
+import org.github.akarkin1.dispatcher.response.TextCommandResponse;
 import org.github.akarkin1.tailscale.TailscaleNodeService;
 
 import java.util.List;
 
 @RequiredArgsConstructor
-public final class SupportedRegionCommand implements BotCommandV2<TextCommandResponse> {
+public final class SupportedRegionCommand implements BotCommand<TextCommandResponse> {
 
   private final TailscaleNodeService tailscaleNodeService;
 

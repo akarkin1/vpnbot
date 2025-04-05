@@ -1,16 +1,19 @@
 package org.github.akarkin1.dispatcher;
 
 import lombok.extern.log4j.Log4j2;
+import org.github.akarkin1.auth.Authorizer;
+import org.github.akarkin1.auth.UnauthorizedRequestException;
+import org.github.akarkin1.auth.Permission;
 import org.github.akarkin1.dispatcher.command.BotCommand;
-import org.github.akarkin1.dispatcher.command.CommandResponse;
-import org.github.akarkin1.dispatcher.command.EmptyResponse;
+import org.github.akarkin1.dispatcher.response.CommandResponse;
+import org.github.akarkin1.dispatcher.response.EmptyResponse;
 import org.github.akarkin1.dispatcher.command.HelpCommand;
-import org.github.akarkin1.dispatcher.command.TextCommandResponse;
+import org.github.akarkin1.dispatcher.response.TextCommandResponse;
 import org.github.akarkin1.exception.CommandExecutionFailedException;
 import org.github.akarkin1.exception.InvalidCommandException;
 import org.github.akarkin1.tg.BotCommunicator;
+import org.github.akarkin1.tg.TgRequestContext;
 import org.telegram.telegrambots.meta.api.objects.Update;
-import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -25,8 +28,11 @@ public class CommandDispatcher {
 
   private final BotCommunicator botCommunicator;
 
-  public CommandDispatcher(BotCommunicator botCommunicator) {
+  private final Authorizer authorizer;
+
+  public CommandDispatcher(BotCommunicator botCommunicator, Authorizer authorizer) {
     this.botCommunicator = botCommunicator;
+    this.authorizer = authorizer;
     this.registerCommand("/help", new HelpCommand(this));
   }
 
@@ -59,6 +65,7 @@ public class CommandDispatcher {
     log.debug("Running command: {}, with arguments: {}", commandName, args);
 
     try {
+      checkUserPermissions(botCommand);
       CommandResponse resp = botCommand.run(args);
 
       if (resp instanceof TextCommandResponse txtResp) {
@@ -74,32 +81,50 @@ public class CommandDispatcher {
       String errMessage = "Invalid command syntax: " + e.getMessage();
       log.debug("Invalid command. Sending error message to telegram bot...", e);
       botCommunicator.sendMessageToTheBot(errMessage);
+    } catch (UnauthorizedRequestException e) {
+      log.debug("User {} is not authorized to run the command: {}. Permission required: {}",
+                TgRequestContext.getUsername(),
+                botCommand.getClass().getSimpleName(),
+                e.getRequiredPermission());
+      botCommunicator.sendMessageToTheBot("${user.not-authorized.error}");
     } catch (CommandExecutionFailedException e) {
       log.debug("Failed to execute command {}. Sending error message to telegram bot...",
                 commandName, e);
       botCommunicator.sendMessageToTheBot(e.getMessage());
+    }
+  }
+
+  private void checkUserPermissions(BotCommand<?> botCommand) {
+    String username = TgRequestContext.getUsername();
+    for (Permission requiredPermission : botCommand.getRequiredPermissions()) {
+      if (!authorizer.hasPermission(username, requiredPermission)) {
+        throw new UnauthorizedRequestException(requiredPermission);
+      }
     }
 
   }
 
   private void sendNotACommandError(Update updateEvent) {
     String userInput = updateEvent.getMessage().getText();
-    String errorMessage = "Unsupported syntax: '%s'. Please enter a command (it should start with '/')"
-        .formatted(userInput);
-    botCommunicator.sendMessageToTheBot(errorMessage);
+    botCommunicator.sendMessageToTheBot("${common.syntax.not-supported.error}", userInput);
   }
 
   private void sendUnknownCommandError(String command) {
-    String errorMessage = "Unsupported command: '%s'. Please enter a valid command. "
-        + "The following commands are supported: %n%s".formatted(command, getSupportedCommands());
-    botCommunicator.sendMessageToTheBot(errorMessage);
+    botCommunicator.sendMessageToTheBot("${common.command.not-supported.error}", command, getSupportedCommands());
   }
 
   public String getSupportedCommands() {
+    String username = TgRequestContext.getUsername();
     return registeredCommand.entrySet()
         .stream()
+        .filter(command -> isAuthorizedToUseCommand(command.getValue(), username))
         .map(entry -> "  %s – %s".formatted(entry.getKey(), entry.getValue().getDescription()))
         .collect(Collectors.joining(System.lineSeparator()));
   }
 
+  private boolean isAuthorizedToUseCommand(BotCommand<?> command, String username) {
+    return command.getRequiredPermissions()
+        .stream()
+        .allMatch(permission -> authorizer.hasPermission(username, permission));
+  }
 }

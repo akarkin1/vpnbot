@@ -1,9 +1,9 @@
-package org.github.akarkin1.dispatcher.command.ecs;
+package org.github.akarkin1.dispatcher.command;
 
 import lombok.RequiredArgsConstructor;
 import org.github.akarkin1.auth.Authorizer;
 import org.github.akarkin1.auth.Permission;
-import org.github.akarkin1.dispatcher.command.TextCommandResponse;
+import org.github.akarkin1.dispatcher.response.TextCommandResponse;
 import org.github.akarkin1.ecs.TaskInfo;
 import org.github.akarkin1.tailscale.TailscaleNodeService;
 import org.github.akarkin1.tg.TgRequestContext;
@@ -11,7 +11,7 @@ import org.github.akarkin1.tg.TgRequestContext;
 import java.util.List;
 
 @RequiredArgsConstructor
-public final class ListNodesCommand implements BotCommandV2<TextCommandResponse> {
+public final class ListNodesCommand implements BotCommand<TextCommandResponse> {
 
   private final TailscaleNodeService tailscaleNodeService;
   private final Authorizer authorizer;

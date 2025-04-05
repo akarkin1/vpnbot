@@ -15,15 +15,15 @@ import org.github.akarkin1.auth.s3.PermissionsService;
 import org.github.akarkin1.auth.s3.PermissionsServiceConfigurer;
 import org.github.akarkin1.deduplication.FSUpdateEventsRegistry;
 import org.github.akarkin1.deduplication.UpdateEventsRegistry;
-import org.github.akarkin1.dispatcher.command.ecs.AssignRolesCommand;
-import org.github.akarkin1.dispatcher.command.ecs.CommandDispatcherV2;
-import org.github.akarkin1.dispatcher.command.ecs.DeleteUsersCommand;
-import org.github.akarkin1.dispatcher.command.ecs.DescribeRolesCommand;
-import org.github.akarkin1.dispatcher.command.ecs.ListNodesCommand;
-import org.github.akarkin1.dispatcher.command.ecs.ListUsersCommand;
-import org.github.akarkin1.dispatcher.command.ecs.RunNodeCommand;
-import org.github.akarkin1.dispatcher.command.ecs.SupportedRegionCommand;
-import org.github.akarkin1.dispatcher.command.ecs.VersionCommandV2;
+import org.github.akarkin1.dispatcher.command.AssignRolesCommand;
+import org.github.akarkin1.dispatcher.CommandDispatcher;
+import org.github.akarkin1.dispatcher.command.DeleteUsersCommand;
+import org.github.akarkin1.dispatcher.command.DescribeRolesCommand;
+import org.github.akarkin1.dispatcher.command.ListNodesCommand;
+import org.github.akarkin1.dispatcher.command.ListUsersCommand;
+import org.github.akarkin1.dispatcher.command.RunNodeCommand;
+import org.github.akarkin1.dispatcher.command.SupportedRegionCommand;
+import org.github.akarkin1.dispatcher.command.VersionCommand;
 import org.github.akarkin1.tailscale.TailscaleEcsNodeServiceConfigurer;
 import org.github.akarkin1.tailscale.TailscaleNodeService;
 import org.github.akarkin1.tg.BotCommunicator;
@@ -48,7 +48,7 @@ public class TailscaleVpnLambdaHandler implements
     RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
-  private static final CommandDispatcherV2 COMMAND_DISPATCHER;
+  private static final CommandDispatcher COMMAND_DISPATCHER;
   private static final BotCommunicator COMMUNICATOR;
   private static final UpdateEventsRegistry EVENTS_REGISTRY;
   private static final String BOT_SERVER_ERROR = "${bot.internal.error}";
@@ -65,9 +65,9 @@ public class TailscaleVpnLambdaHandler implements
     final Authorizer authorizer = new AuthorizerConfigurer().configure(permissionsService);
 
     COMMUNICATOR = new BotCommunicator(sender, new ResourceBasedTranslator());
-    COMMAND_DISPATCHER = new CommandDispatcherV2(COMMUNICATOR, authorizer);
+    COMMAND_DISPATCHER = new CommandDispatcher(COMMUNICATOR, authorizer);
 
-    COMMAND_DISPATCHER.registerCommand("/version", new VersionCommandV2());
+    COMMAND_DISPATCHER.registerCommand("/version", new VersionCommand());
     COMMAND_DISPATCHER.registerCommand("/listRunningNodes", new ListNodesCommand(
         nodeService, authorizer));
     COMMAND_DISPATCHER.registerCommand("/runNodeIn",

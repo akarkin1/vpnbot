@@ -1,10 +1,10 @@
-package org.github.akarkin1.dispatcher.command.ecs;
+package org.github.akarkin1.dispatcher.command;
 
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.github.akarkin1.auth.Permission;
 import org.github.akarkin1.auth.s3.PermissionsService;
-import org.github.akarkin1.dispatcher.command.EmptyResponse;
+import org.github.akarkin1.dispatcher.response.EmptyResponse;
 import org.github.akarkin1.message.MessageConsumer;
 import org.github.akarkin1.util.UserNameUtil;
 
@@ -13,7 +13,7 @@ import java.util.Map;
 import java.util.function.Predicate;
 
 @RequiredArgsConstructor
-public class DeleteUsersCommand implements BotCommandV2<EmptyResponse> {
+public class DeleteUsersCommand implements BotCommand<EmptyResponse> {
 
   private final PermissionsService permissionsService;
   private final MessageConsumer messageConsumer;
