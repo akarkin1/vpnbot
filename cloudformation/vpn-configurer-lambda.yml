@@ -415,7 +415,7 @@ Resources:
       Code:
         S3Bucket: !Ref LambdaConfigBucketName
         S3Key: !Sub
-          - 'vpnbot/vpnbot-${LambdaSourceVersion}.jar'
+          - 'vpntgbot/vpnbot-${LambdaSourceVersion}.jar'
           - LambdaSourceVersion: !Ref LambdaSourceVersion
       VpcConfig:
         SecurityGroupIds:
