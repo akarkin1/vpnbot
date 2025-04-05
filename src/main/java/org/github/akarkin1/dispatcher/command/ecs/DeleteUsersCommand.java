@@ -26,7 +26,7 @@ public class DeleteUsersCommand implements BotCommandV2<EmptyResponse> {
         .toList();
 
     if (usersNames.isEmpty()) {
-      messageConsumer.accept("ERROR! You need to specify at least one user to delete.");
+      messageConsumer.accept("${command.delete-users.no-user-specified.error}");
       return EmptyResponse.NONE;
     }
 
@@ -38,23 +38,23 @@ public class DeleteUsersCommand implements BotCommandV2<EmptyResponse> {
     boolean atLeastOneDeleted = false;
     for (String userName : usersNames) {
       if (notFoundUsers.contains(userName)) {
-        messageConsumer.accept("ERROR! The following user is not found: %s.".formatted(userName));
+        messageConsumer.accept("${command.delete-users.user-not-found.error} %s.".formatted(userName));
         continue;
       }
 
       // do not allow to delete the root user
       if (userPermissions.get(userName).contains(Permission.ROOT_ACCESS)) {
-        messageConsumer.accept("ERROR! Root user cannot be deleted: %s.".formatted(userName));
+        messageConsumer.accept("${command.delete-users.root-cannot-be-deleted.error} %s.".formatted(userName));
         continue;
       }
 
       permissionsService.deleteUser(userName);
-      messageConsumer.accept("The user '%s' has been deleted successfully.".formatted(userName));
+      messageConsumer.accept("${command.delete-users.user-is-deleted.message}", userName);
       atLeastOneDeleted = true;
     }
 
     if (!atLeastOneDeleted) {
-      messageConsumer.accept("No users to delete.");
+      messageConsumer.accept("${command.delete-users.no-user-to-delete.message}");
     }
 
     return EmptyResponse.NONE;
@@ -62,10 +62,7 @@ public class DeleteUsersCommand implements BotCommandV2<EmptyResponse> {
 
   @Override
   public String getDescription() {
-    return """
-        Removes the specified users by telegram usernames
-        USAGE: /deleteUsers <TelegramUserNames>
-        """;
+    return "${command.delete-users.description.message}";
   }
 
   @Override

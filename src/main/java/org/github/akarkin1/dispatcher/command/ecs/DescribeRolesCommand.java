@@ -16,7 +16,7 @@ public class DescribeRolesCommand implements BotCommandV2<TextCommandResponse> {
   public TextCommandResponse run(List<String> args) {
     StringBuilder responseBuilder = new StringBuilder();
 
-    responseBuilder.append("Available Roles:\n");
+    responseBuilder.append("${command.describe-roles.available-roles.message}:\n");
     signupService.describeRoles().forEach((role, permissions) -> {
       responseBuilder.append("\t - %s: %s\n".formatted(role, permissions));
     });
@@ -26,7 +26,7 @@ public class DescribeRolesCommand implements BotCommandV2<TextCommandResponse> {
 
   @Override
   public String getDescription() {
-    return "returns the list of all roles with permissions that can be assigned to a user";
+    return "${command.describe-roles.description.message}";
   }
 
   @Override
