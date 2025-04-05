@@ -307,7 +307,7 @@ Resources:
           LocalMountPath: /mnt/efs
       Code:
         S3Bucket: !Ref LambdaSourcesBucketName
-        S3Key: 'openvpn-server-tgbot/vpnbot-1.0-SNAPSHOT.jar'
+        S3Key: 'openvpn-server-tgbot/vpnbot-1.0.jar'
       VpcConfig:
         SecurityGroupIds:
           - !GetAtt LambdaSecurityGroup.GroupId
