@@ -98,11 +98,10 @@ class HelpCommandV2Test {
         ИСПОЛЬЗОВАНИЕ: /assignRoles <TelegramUsername> <UserRoleList>,где:
           - <TelegramUsername> – имя пользователя в Telegram, которому будет назначена роль.
           - <UserRoleList> – список ролей пользователя, разделенных пробелом. Каждая роль может принимать одно из следующих значений: [NODE_ADMIN, USER_ADMIN, READ_ONLY]
-          /describeRoles – returns the list of all roles with permissions that can be assigned to a user
-          /deleteUsers – Removes the specified users by telegram usernames
-        USAGE: /deleteUsers <TelegramUserNames>
-                
-          /listRegisteredUsers – returns list of registered users with their permissions""";
+          /describeRoles – Возвращает список всех ролей, которые могут быть назначены пользователю.
+          /deleteUsers – Удаляет пользователей по перечисленным именам в Telegram.
+            ИСПОЛЬЗОВАНИЕ: /deleteUsers <TelegramUserNames>
+          /listRegisteredUsers – Возвращает список зарегистрированных пользователей с их ролями""";
 
       assertEquals(expectedValue, translatedValue);
     }

@@ -37,7 +37,7 @@ class ResourceBasedTranslatorTest {
 
     @Test
     void translate_placeholder_langIsRU_ru() {
-        assertEquals("Проверка перевода с параметрами: стркововый=foo, интовый=12",
+        assertEquals("Проверка перевода с параметрами: строковый=foo, числовой=12",
                      translator.translate("ru-RU", "${test.message.params}", 12, "foo"));
 
         assertEquals("Проверка перевода",
@@ -46,7 +46,7 @@ class ResourceBasedTranslatorTest {
 
     @Test
     void translate_placeholder_langIsRu() {
-        assertEquals("Проверка перевода с параметрами: стркововый=foo, интовый=12",
+        assertEquals("Проверка перевода с параметрами: строковый=foo, числовой=12",
                      translator.translate("ru", "${test.message.params}", 12, "foo"));
 
         assertEquals("Проверка перевода",
@@ -86,8 +86,7 @@ class ResourceBasedTranslatorTest {
       String expectedText = """
           Some enumeration:
            (1) first item;
-           (2) second item.
-          """;
+           (2) second item.""";
 
       assertEquals(expectedText,
                    translator.translate("en-US", "${test.message.multiline}", 1, 2));
