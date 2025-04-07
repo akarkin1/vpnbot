@@ -81,6 +81,7 @@ jobs:
         if: ${{ github.event.inputs.run-cfn-deploy == 'true' }}
         run: |
           # Save CF Template outputs to S3
+          set -x
           STACK_OUTPUTS=$(aws cloudformation describe-stacks --stack-name ${{ env.STACK_NAME }} --query 'Stacks[0].Outputs' --output json)
           echo "$STACK_OUTPUTS" > ./stack-outputs.json
           aws s3 cp ./stack-outputs.json ${{ env.S3_STACK_OUTPUTS_FILE_URL }} --region ${{ env.S3_CONFIG_BUCKET_REGION }}
@@ -99,6 +100,7 @@ jobs:
           # Add region
           echo "${{ github.event.inputs.region }}" >> ./regions.txt
           aws s3 cp ./regions.txt "${{ env.S3_CONFIG_REGIONS_FILE_URL }}" --region "${{ env.S3_CONFIG_BUCKET_REGION }}"
+          set +x
       - name: Login to Amazon ECR
         id: login-to-ecr
         if: ${{ github.event.inputs.run-docker == 'true' }}
