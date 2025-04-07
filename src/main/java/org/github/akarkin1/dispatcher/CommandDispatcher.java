@@ -110,7 +110,7 @@ public class CommandDispatcher {
   }
 
   private void sendUnknownCommandError(String command) {
-    botCommunicator.sendMessageToTheBot("${common.command.not-supported.error}", command, getSupportedCommands());
+    botCommunicator.sendMessageToTheBot("${common.command.not-supported.error}" + getSupportedCommands(), command);
   }
 
   public String getSupportedCommands() {

@@ -18,7 +18,9 @@ env:
   TG_ROOT_USERNAME: ${{ vars.TG_ROOT_USERNAME }}
   S3_CONFIG_BUCKET_NAME: ${{ vars.S3_CONFIG_BUCKET_NAME }}
   USER_PERMISSIONS_KEY: ${{ vars.S3_CONFIG_DIR }}/${{ vars.S3_USER_PERMISSIONS_FILE_NAME }}
+  SUPPORTED_REGIONS: ${{ vars.S3_CONFIG_DIR }}/supported-regions.txt
   USER_PERMISSIONS_FILE_URI: s3://${{ vars.S3_CONFIG_BUCKET_NAME }}/${{ vars.S3_CONFIG_DIR }}/${{ vars.S3_USER_PERMISSIONS_FILE_NAME }}
+  SUPPORTED_REGIONS_FILE_URI: s3://${{ vars.S3_CONFIG_BUCKET_NAME }}/${{ vars.S3_CONFIG_DIR }}/supported-regions.txt
 
 jobs:
   deploy-vpn-configurer-lambda:
@@ -59,3 +61,15 @@ jobs:
             aws s3 cp ./user-permissions.json ${{ env.USER_PERMISSIONS_FILE_URI }} --region ${{ github.event.inputs.region }}
             rm ./user-permissions.json
           fi
+      - name: Upload 'supported-regions.txt' to S3
+        id: supported-regions-upload
+        run: |
+          if [ $(aws s3api head-object --bucket "${{ env.S3_CONFIG_BUCKET_NAME }}" --key "${{ env.SUPPORTED_REGIONS }}" --region ${{ github.event.inputs.region }} >/dev/null 2>&1; echo $?) = 0 ]; then
+            echo "'supported-regions.txt' file already exists, nothing to upload"
+          else
+            echo "Uploading 'supported-regions.txt' to the S3 bucket"
+            touch supported-regions.txt
+            aws s3 cp ./supported-regions.txt ${{ env.SUPPORTED_REGIONS_FILE_URI }} --region ${{ github.event.inputs.region }}
+            rm ./supported-regions.txt
+          fi
+      
