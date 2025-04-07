@@ -56,6 +56,7 @@ public class SecretManagerRequestAuthenticator implements RequestAuthenticator {
       smSecretValue = null;
       throw new UnauthenticatedRequestException();
     }
+    smSecretValue = null;
 
     log.info("Request authenticated successfully");
   }
