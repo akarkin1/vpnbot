@@ -1,21 +1,28 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: OpenVPN Configurer Lambda Stack
+Description: VPN Configurer Lambda Stack
 
 Parameters:
   ClientIPCIDR:
     Type: String
     Default: 0.0.0.0/0
     Description: CIDR IP to be granted access by the SG, use 0.0.0.0/0 to accept all IPs
-  LambdaSourcesBucketName:
+  LambdaConfigBucketName:
     Type: String
     Description: S3 Bucket with source code of the lambda.
+  LambdaSourceVersion:
+    Type: String
+    Description: Version of the lambda source code, i. g. 2.0-SNAPSHOT
   # Lambda environment variables
   EnvTgBotToken:
     Type: String
     Description: Telegram Bot Token.
+    NoEcho: true
   EnvTgBotUsername:
     Type: String
     Description: Telegram Bot Username.
+  EnvTgBotSecretTokenId:
+    Type: String
+    Description: Secret Id in Secret Manager for Telegram Secret Token is to be used during request authentication.
   EnvPauseBetweenStatusCheckMs:
     Type: Number
     Description: Pause between status check of EC2 instance in milliseconds.
@@ -28,6 +35,18 @@ Parameters:
     Type: Number
     Description: Pause between stop and start operation of EC2 in seconds for /restartServer command.
     Default: 30
+  NatInstanceAMI:
+    Type: String
+    Description: Base AMI of the NAT Ec2 Instance via which traffic will be redirected.
+    Default: ami-02db68a01488594c5
+  NatInstanceSize:
+    Type: String
+    Description: Size of EC2 Nat Instance
+    Default: t3.micro
+  TelegramIpRanges:
+    Type: CommaDelimitedList
+    Description: Comma separated CIDR IP ranges of Telegram API Servers
+    Default: 149.154.160.0/20,91.108.4.0/22
 
 Resources:
   VpnConfigurerVpc:
@@ -40,7 +59,7 @@ Resources:
         - Key: Name
           Value: vpn-configurer-vpc
         - Key: ServiceName
-          Value: openvpn-server
+          Value: vpn-configurer-lambda
 
   VpnConfigurerPrivateSubnet:
     Type: AWS::EC2::Subnet
@@ -51,7 +70,7 @@ Resources:
         - Key: Name
           Value: vpn-configurer-private-sn
         - Key: ServiceName
-          Value: openvpn-server
+          Value: vpn-configurer-lambda
 
   # Create a Public Subnet
   VpnConfigurerPublicSubnet:
@@ -67,7 +86,7 @@ Resources:
         - Key: Name
           Value: vpn-configurer-public-sn
         - Key: ServiceName
-          Value: openvpn-server
+          Value: vpn-configurer-lambda
 
   LambdaSecurityGroup:
     Type: 'AWS::EC2::SecurityGroup'
@@ -140,20 +159,87 @@ Resources:
       DestinationCidrBlock: !Ref ClientIPCIDR
       GatewayId: !Ref VpnConfigurerInternetGateway
 
-  VpnConfigurerEIP:
-    Type: AWS::EC2::EIP
 
-  VpnConfigurerNatGateway:
-    DependsOn:
-      - VpnConfigurerEIP
-      - VpnConfigurerPublicSubnet
-      - VpnConfigurerInternetGatewayAttachment
-    Type: AWS::EC2::NatGateway
+  # Security Group for NAT Instance
+  NatInstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
     Properties:
-      AllocationId: !GetAtt VpnConfigurerEIP.AllocationId
-      SubnetId: !Ref VpnConfigurerPublicSubnet  # Place NAT Gateway in a public subnet
+      GroupDescription: "Security group for NAT instance"
+      VpcId: !Ref VpnConfigurerVpc
+      SecurityGroupIngress:
+        - IpProtocol: -1
+          FromPort: -1
+          ToPort: -1
+          CidrIp: !Ref ClientIPCIDR
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: -1
+          ToPort: -1
+          CidrIp: !Ref ClientIPCIDR
 
-  # Route Table for NAT Gateway
+  VpnConfigurerNatInstanceEIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+
+  VpnConfigurerNatInstanceNetworkInterface:
+    Type: AWS::EC2::NetworkInterface
+    Properties:
+      SubnetId: !Ref VpnConfigurerPublicSubnet
+      Description: Public Interface
+      GroupSet:
+        - !Ref NatInstanceSecurityGroup
+      SourceDestCheck: false
+      Tags:
+        - Key: Name
+          Value: Nat Instance Public ENI
+
+  VpnConfigurerNatInstanceEIPAssociation:
+    DependsOn:
+      - VpnConfigurerNatInstanceEIP
+      - VpnConfigurerNatInstanceNetworkInterface
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      AllocationId: !GetAtt VpnConfigurerNatInstanceEIP.AllocationId
+      NetworkInterfaceId: !Ref VpnConfigurerNatInstanceNetworkInterface
+
+  # NAT Instance
+  VpnConfigurerNatInstance:
+    DependsOn:
+      - VpnConfigurerNatInstanceNetworkInterface
+      - NatInstanceSecurityGroup
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref NatInstanceSize
+      ImageId: !Ref NatInstanceAMI
+      SourceDestCheck: false
+      NetworkInterfaces:
+        - NetworkInterfaceId: !Ref VpnConfigurerNatInstanceNetworkInterface
+          DeviceIndex: 0
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          # Update the system
+          sudo yum update -y
+          # Install iptables
+          sudo yum install iptables-services -y
+          sudo systemctl enable iptables
+          sudo systemctl start iptables
+          # Enable IP forwarding
+          sudo sysctl -w net.ipv4.ip_forward=1
+          # Configure iptables (example rules)
+          sudo iptables -t nat -A POSTROUTING -o ens5 -s 0.0.0.0/0 -j MASQUERADE
+          sudo iptables -F FORWARD
+          # Save the iptables rules
+          sudo service iptables save
+          sudo service iptables restart
+      Tags:
+      - Key: Name
+        Value: vpn-configurer-nat-ec2
+      - Key: ServiceName
+        Value: vpn-configurer-lambda
+
+  # Route Table for NAT Instance
   VpnConfigurerPrivateRouteTable:
     DependsOn:
       - VpnConfigurerVpc
@@ -171,15 +257,15 @@ Resources:
       SubnetId: !Ref VpnConfigurerPrivateSubnet
       RouteTableId: !Ref VpnConfigurerPrivateRouteTable
 
-  VpnConfigurerNatGatewayRoute:
+  VpnConfigurerNatInstanceRoute:
     DependsOn:
       - VpnConfigurerPrivateRouteTableSubnetAssociation
-      - VpnConfigurerNatGateway
+      - VpnConfigurerNatInstance
     Type: AWS::EC2::Route
     Properties:
       RouteTableId: !Ref VpnConfigurerPrivateRouteTable
       DestinationCidrBlock: !Ref ClientIPCIDR
-      NatGatewayId: !Ref VpnConfigurerNatGateway
+      InstanceId: !Ref VpnConfigurerNatInstance
 
   LambdaRole:
     Type: AWS::IAM::Role
@@ -201,11 +287,18 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
-                  - s3:GetObject
-                  - s3:ListBucket
+                  - 'iam:PassRole'
+                Resource:
+                  - !Sub "arn:aws:iam::${AWS::AccountId}:role/*"
+              - Effect: Allow
+                Action:
+                  - "s3:ListBucket"
+                  - "s3:GetObject"
+                  - "s3:ListBucket"
+                  - "s3:PutObject"
                 Resource: !Sub
                   - arn:aws:s3:::${bucketName}/*
-                  - bucketName: !Ref LambdaSourcesBucketName
+                  - bucketName: !Ref LambdaConfigBucketName
               # Permissions to manage CW logs
               - Action:
                   - "logs:CreateLogGroup"
@@ -225,14 +318,14 @@ Resources:
                   - "ec2:UnassignPrivateIpAddresses"
                 Effect: Allow
                 Resource: "*"
-              # Permissions to manage EC2 instances
+              # Permissions to manage ECS instances
               - Action:
-                  - "ec2:DescribeInstances"
-                  - "ec2:StopInstances"
-                  - "ec2:RunInstances"
-                  - "ec2:StartInstances"
-                  - "ec2:TerminateInstances"
-                  - "ec2:RebootInstances"
+                  - "ecs:RunTask"
+                  - "ecs:StopTask"
+                  - "ecs:DescribeTasks"
+                  - "ecs:ListTasks"
+                  - "ecs:TagResource"
+                  - "tag:GetResources"
                 Effect: Allow
                 Resource: "*"
               # Permissions to manage EFS file system
@@ -245,6 +338,10 @@ Resources:
                   - "elasticfilesystem:DescribeAccessPoints"
                 Effect: Allow
                 Resource: "*"
+              - Action:
+                  - 'secretsmanager:GetSecretValue'
+                Effect: Allow
+                Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${EnvTgBotSecretTokenId}*"
 
   LambdaEfsStorage:
     Type: 'AWS::EFS::FileSystem'
@@ -289,8 +386,8 @@ Resources:
       - LambdaEfsAccessPoint
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: openvpn-server-tgbot
-      Handler: org.github.akarkin1.LambdaHandler::handleRequest
+      FunctionName: vpnbot
+      Handler: org.github.akarkin1.TailscaleVpnLambdaHandler::handleRequest
       Runtime: "java21"
       Role: !GetAtt LambdaRole.Arn
       MemorySize: 1024
@@ -299,15 +396,18 @@ Resources:
         Variables:
           BOT_TOKEN: !Ref EnvTgBotToken
           BOT_USERNAME: !Ref EnvTgBotUsername
-          STATUS_CHECK_PAUSE_MS: !Ref EnvPauseBetweenStatusCheckMs
-          OPERATION_WAIT_TIMEOUT_SEC: !Ref EnvOperationWaitTimeoutSec
-          RESTART_SLEEP_TIME_SEC_ENV: !Ref EnvRestartSleepTimeSec
+          BOT_SECRET_TOKEN_ID: !Ref EnvTgBotSecretTokenId
+#          STATUS_CHECK_PAUSE_MS: !Ref EnvPauseBetweenStatusCheckMs
+#          OPERATION_WAIT_TIMEOUT_SEC: !Ref EnvOperationWaitTimeoutSec
+#          RESTART_SLEEP_TIME_SEC_ENV: !Ref EnvRestartSleepTimeSec
       FileSystemConfigs:
         - Arn: !GetAtt LambdaEfsAccessPoint.Arn
           LocalMountPath: /mnt/efs
       Code:
-        S3Bucket: !Ref LambdaSourcesBucketName
-        S3Key: 'openvpn-server-tgbot/vpnbot-1.0-SNAPSHOT.jar'
+        S3Bucket: !Ref LambdaConfigBucketName
+        S3Key: !Sub
+          - 'vpntgbot/vpnbot-${LambdaSourceVersion}.jar'
+          - LambdaSourceVersion: !Ref LambdaSourceVersion
       VpcConfig:
         SecurityGroupIds:
           - !GetAtt LambdaSecurityGroup.GroupId
@@ -371,7 +471,6 @@ Resources:
                   - logs:CreateLogStream
                   - logs:PutLogEvents
                 Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/custom/apigateway/*:*
-
 
   LambdaApiGatewayIntegration:
     DependsOn:

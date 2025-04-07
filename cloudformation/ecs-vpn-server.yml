@@ -1,41 +1,51 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: OpenVPN Server Stack
+Description: Tailscale Node Stack
 
 Parameters:
   ClientIPCIDR:
     Type: String
     Default: 0.0.0.0/0
-    Description: CIDR IP to be granted access by the SG, use 0.0.0.0/0 to accept all IPs
+    Description: CIDR IP to be granted access by the SG, use 0.0.0.0/0 to accept all IPs.
   VpcCidrBlock:
     Type: String
     Default: 10.1.0.0/28
-    Description: CIDR IP to be granted access by the SG, use 0.0.0.0/0 to accept all IPs
-  AwsDnsAddressInSubnet:
-    Type: String
-    Default: 10.1.0.2
-    Description: CIDR IP to be granted access by the SG, use 0.0.0.0/0 to accept all IPs
+    Description: CIDR IP to be granted access by the SG, use 0.0.0.0/0 to accept all IPs.
   EcsClusterName:
     Type: String
-    Description: Name of the ECS Cluster to be hosting VPN Server tasks
+    Description: Name of the ECS Cluster to be hosting VPN Server tasks.
   EcrRepositoryName:
     Type: String
-    Description: Name of the ECS Cluster to be hosting VPN Server tasks
+    Description: Name of the ECS Cluster to be hosting VPN Server tasks.
   EcsTaskDefinitionName:
     Type: String
     Description: Task Definition name
-    Default: openvpn-server-task-def
-  EcsTaskDanteUsername:
+    Default: tailscale-node-task-def
+  TailscaleAuthTokenSecretId:
     Type: String
-    Description: Username to be used to connect to Dante Proxy via which VPN connection goes
-    Default: openvpn-user
-  EcsTaskDantePasswordSecret:
+    Description: Id of Tailscale Auth Key Secret in Secret Manager.
+  TailscaleAuthTokenSecretRegion:
     Type: String
-    Description: SSM Secret where password to Dante Proxy will be stored required for establish client connection to VPN
-    NoEcho: true
+    Description: AWS Region, where the secret with Tailscale Auth Key is stored within the account.
+  TailscaleInactivityTimeoutSeconds:
+    Type: String
+    Description: Number of seconds without active connections to wait before stop the Tailscale task.
+    Default: 600
+  StatusCheckIntervalSeconds:
+    Type: String
+    Description: Interval in seconds between active connections checks.
+    Default: 60
+  TailscaleNodeMemory:
+    Type: String
+    Description: How much memory units need to be allocated for a Tailscale task.
+    Default: 1024
+  TailscaleNodeCpu:
+    Type: String
+    Description: How much CPU units need to be allocated for a Tailscale task.
+    Default: 512
 
 
 Resources:
-  OpenVpnVPC:
+  TailscaleNodeVPC:
     Type: AWS::EC2::VPC
     Properties:
       CidrBlock: !Ref VpcCidrBlock
@@ -43,140 +53,87 @@ Resources:
       EnableDnsHostnames: true
       Tags:
         - Key: Name
-          Value: openvpn-server-vpnc
+          Value: tailscale-node-vpnc
         - Key: ServiceName
-          Value: openvpn-server
+          Value: tailscale-node
 
-  OpenVpnInternetGateway:
+  TailscaleNodeInternetGateway:
     Type: AWS::EC2::InternetGateway
     Properties:
       Tags:
         - Key: Name
-          Value: openvpn-server-internet-gw
+          Value: tailscale-node-internet-gw
         - Key: ServiceName
-          Value: openvpn-server
+          Value: tailscale-node
 
   AttachInternetGateway:
     Type: AWS::EC2::VPCGatewayAttachment
     Properties:
-      VpcId: !Ref OpenVpnVPC
-      InternetGatewayId: !Ref OpenVpnInternetGateway
+      VpcId: !Ref TailscaleNodeVPC
+      InternetGatewayId: !Ref TailscaleNodeInternetGateway
 
-  OpenVpnPublicSubnet:
+  TailscaleNodePublicSubnet:
     Type: AWS::EC2::Subnet
     Properties:
-      VpcId: !Ref OpenVpnVPC
+      VpcId: !Ref TailscaleNodeVPC
       CidrBlock: !Ref VpcCidrBlock
       AvailabilityZone: !Select [ 0, !GetAZs '' ]
       MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
-          Value: openvpn-server-public-sn
+          Value: tailscale-node-public-sn
         - Key: ServiceName
-          Value: openvpn-server
+          Value: tailscale-node
 
-  OpenVpnRouteTablePublic:
+  TailscaleNodeRouteTablePublic:
     Type: AWS::EC2::RouteTable
     Properties:
-      VpcId: !Ref OpenVpnVPC
+      VpcId: !Ref TailscaleNodeVPC
       Tags:
         - Key: Name
-          Value: openvpn-server-rt
+          Value: tailscale-node-rt
         - Key: ServiceName
-          Value: openvpn-server
+          Value: tailscale-node
 
   RouteDefaultPublic:
     Type: AWS::EC2::Route
     DependsOn: AttachInternetGateway
     Properties:
       DestinationCidrBlock: !Ref ClientIPCIDR
-      GatewayId: !Ref OpenVpnInternetGateway
-      RouteTableId: !Ref OpenVpnRouteTablePublic
+      GatewayId: !Ref TailscaleNodeInternetGateway
+      RouteTableId: !Ref TailscaleNodeRouteTablePublic
 
   PublicSubnetRouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      SubnetId: !Ref OpenVpnPublicSubnet
-      RouteTableId: !Ref OpenVpnRouteTablePublic
+      SubnetId: !Ref TailscaleNodePublicSubnet
+      RouteTableId: !Ref TailscaleNodeRouteTablePublic
 
-  OpenVpnEcsSG:
+  TailscaleNodeEcsSG:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: SG for OpenVPN Server
-      VpcId: !Ref OpenVpnVPC
+      GroupDescription: SG for Tailscale Node
+      VpcId: !Ref TailscaleNodeVPC
       SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 2049
-          ToPort: 2049
-          CidrIp: !Ref ClientIPCIDR
         - IpProtocol: udp
-          FromPort: 1194
-          ToPort: 1194
-          CidrIp: !Ref ClientIPCIDR
-        - IpProtocol: tcp
-          FromPort: 1194
-          ToPort: 1194
-          CidrIp: !Ref ClientIPCIDR
-        - IpProtocol: tcp
-          FromPort: 943
-          ToPort: 943
-          CidrIp: !Ref ClientIPCIDR
-        - IpProtocol: tcp
-          FromPort: 945
-          ToPort: 945
-          CidrIp: !Ref ClientIPCIDR
-        - IpProtocol: tcp
-          FromPort: 1080
-          ToPort: 1080
-          CidrIp: !Ref ClientIPCIDR
-      SecurityGroupEgress:
-        - Description: Allow all outbound traffic
-          IpProtocol: "-1"
-          CidrIp: !Ref ClientIPCIDR
+          FromPort: 41641
+          ToPort: 41641
+          CidrIp: !Ref ClientIPCIDR  # Tailscale default port
 
-  OpenVpnEfsFileSystem:
-    Type: AWS::EFS::FileSystem
-    Properties:
-      LifecyclePolicies:
-        - TransitionToIA: 'AFTER_30_DAYS'
-
-  OpenVpnAccessPoint:
-    DependsOn: OpenVpnEfsFileSystem
-    Type: AWS::EFS::AccessPoint
-    Properties:
-      FileSystemId: !Ref OpenVpnEfsFileSystem
-      PosixUser:
-        Gid: '1000'
-        Uid: '1000'
-      RootDirectory:
-        CreationInfo:
-          OwnerGid: '1000'
-          OwnerUid: '1000'
-          Permissions: '755'
-        Path: '/vpn-server-userdata'
-
-  OpenVpnEcsTaskMountTarget:
-    Type: AWS::EFS::MountTarget
-    Properties:
-      FileSystemId: !Ref OpenVpnEfsFileSystem
-      SubnetId: !Ref OpenVpnPublicSubnet
-      SecurityGroups:
-        - !Ref OpenVpnEcsSG
-
-  OpenVpnEcrRepository:
+  TailscaleNodeEcrRepository:
     Type: AWS::ECR::Repository
     Properties:
       RepositoryName: !Ref EcrRepositoryName
 
-  OpenVpnEcsCluster:
+  TailscaleNodeEcsCluster:
     Type: AWS::ECS::Cluster
     Properties:
       ClusterName: !Ref EcsClusterName
       Tags:
         - Key: ServiceName
-          Value: vpn-server
+          Value: tailscale-node
 
-  VpnServerEcsTaskExecutionRole:
+  TailscaleNodeEcsTaskExecutionRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -187,7 +144,7 @@ Resources:
               Service: ecs-tasks.amazonaws.com
             Action: sts:AssumeRole
 
-  VpnServerEcsTaskRole:
+  TailscaleNodeEcsTaskRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -200,10 +157,10 @@ Resources:
 
   ECRPullPolicy:
     DependsOn:
-      - VpnServerEcsTaskExecutionRole
+      - TailscaleNodeEcsTaskExecutionRole
     Type: AWS::IAM::Policy
     Properties:
-      PolicyName: ECRPullPolicy
+      PolicyName: TailscaleNodeECRPullPolicy
       PolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -215,38 +172,15 @@ Resources:
               - "ecr:GetAuthorizationToken"
             Resource: '*'
       Roles:
-        - !Ref VpnServerEcsTaskExecutionRole
-
-  EFSPermissionsPolicy:
-    DependsOn:
-      - VpnServerEcsTaskExecutionRole
-      - VpnServerEcsTaskRole
-    Type: AWS::IAM::Policy
-    Properties:
-      PolicyName: EFSPermissionsPolicy
-      PolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Action:
-              - "elasticfilesystem:ClientMount"
-              - "elasticfilesystem:ClientWrite"
-              - "elasticfilesystem:ClientRootAccess"
-              - "elasticfilesystem:DescribeFileSystems"
-              - "elasticfilesystem:DescribeMountTargets"
-              - "elasticfilesystem:DescribeAccessPoints"
-            Resource: '*'
-      Roles:
-        - !Ref VpnServerEcsTaskExecutionRole
-        - !Ref VpnServerEcsTaskRole
+        - !Ref TailscaleNodeEcsTaskExecutionRole
 
   CWPermissionsPolicy:
     DependsOn:
-      - VpnServerEcsTaskExecutionRole
-      - VpnServerEcsTaskRole
+      - TailscaleNodeEcsTaskExecutionRole
+      - TailscaleNodeEcsTaskRole
     Type: AWS::IAM::Policy
     Properties:
-      PolicyName: CWPermissionsPolicy
+      PolicyName: TailscaleNodeCWPermissionsPolicy
       PolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -257,15 +191,15 @@ Resources:
               - "logs:PutLogEvents"
             Resource: "*"
       Roles:
-        - !Ref VpnServerEcsTaskExecutionRole
-        - !Ref VpnServerEcsTaskRole
+        - !Ref TailscaleNodeEcsTaskExecutionRole
+        - !Ref TailscaleNodeEcsTaskRole
 
   NetworkingPermissionsPolicy:
     DependsOn:
-      - VpnServerEcsTaskExecutionRole
+      - TailscaleNodeEcsTaskExecutionRole
     Type: AWS::IAM::Policy
     Properties:
-      PolicyName: NetworkingPermissionsPolicy
+      PolicyName: TailscaleNodeNetworkingPermissionsPolicy
       PolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -281,130 +215,105 @@ Resources:
               - "ec2:UnassignPrivateIpAddresses"
             Resource: "*"
       Roles:
-        - !Ref VpnServerEcsTaskExecutionRole
-
-  AllowContainerMetadataAccess:
+        - !Ref TailscaleNodeEcsTaskExecutionRole
+          
+  AllowAuthTokenSecretAccess:
     DependsOn:
-      - VpnServerEcsTaskRole
+      - TailscaleNodeEcsTaskRole
     Type: AWS::IAM::Policy
     Properties:
-      PolicyName: ContainerMetadataAccessPolicy
+      PolicyName: TailscaleNodeSecretManagerAccessPolicy
       PolicyDocument:
         Version: '2012-10-17'
         Statement:
           - Effect: Allow
             Action:
-              - 'ecs:DescribeTasks'
-              - 'ecs:ListClusters'
-              - 'ecs:ListTasks'
-              - 'ecs:DescribeClusters'
-            Resource: "*"
+              - 'secretsmanager:GetSecretValue'
+            Resource: !Sub "arn:aws:secretsmanager:${TailscaleAuthTokenSecretRegion}:${AWS::AccountId}:secret:${TailscaleAuthTokenSecretId}*"
       Roles:
-        - !Ref VpnServerEcsTaskRole
+        - !Ref TailscaleNodeEcsTaskRole
 
-  OpenVpnEcsTaskLogGroup:
+  TailscaleNodeEcsTaskLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: /ecs/openvpn-server-task-def-lg
-      RetentionInDays: 7
+      LogGroupName: /ecs/tailscale-node-task-def-lg
+      RetentionInDays: 1
 
-  OpenVpnEcsTaskDefinition:
+  TailscaleNodeEcsTaskDefinition:
     DependsOn:
-      - OpenVpnEcrRepository
-      - VpnServerEcsTaskExecutionRole
-      - VpnServerEcsTaskRole
-      - OpenVpnEfsFileSystem
-      - OpenVpnAccessPoint
+      - TailscaleNodeEcrRepository
+      - TailscaleNodeEcsTaskExecutionRole
+      - TailscaleNodeEcsTaskRole
     Type: AWS::ECS::TaskDefinition
     Properties:
       Family: !Ref EcsTaskDefinitionName
       RequiresCompatibilities:
         - FARGATE
-      Cpu: '512'
-      Memory: '1024'
+      Cpu: !Ref TailscaleNodeCpu
+      Memory: !Ref TailscaleNodeMemory
       NetworkMode: awsvpc
-      ExecutionRoleArn: !GetAtt VpnServerEcsTaskExecutionRole.Arn
-      TaskRoleArn: !GetAtt VpnServerEcsTaskRole.Arn
+      ExecutionRoleArn: !GetAtt TailscaleNodeEcsTaskExecutionRole.Arn
+      TaskRoleArn: !GetAtt TailscaleNodeEcsTaskRole.Arn
       ContainerDefinitions:
         - Name: vpn-container
           Essential: true
-          Image: !Join [':', [!GetAtt OpenVpnEcrRepository.RepositoryUri, 'latest']]
-          Memory: 1024
-          Cpu: 512
           LinuxParameters:
             InitProcessEnabled: true
-          MountPoints:
-            - SourceVolume: 'UserDataEfsVolume'
-              ContainerPath: '/mnt/efs'
+          Image: !Join [':', [!GetAtt TailscaleNodeEcrRepository.RepositoryUri, 'latest']]
+          Cpu: !Ref TailscaleNodeCpu
+          Memory: !Ref TailscaleNodeMemory
+          HealthCheck:
+            Command:
+              - CMD-SHELL
+              - 'tailscale status | grep -qE "${TAILSCALE_HOSTNAME}.*(active|idle)" || exit 1'
+            Interval: 30
+            Timeout: 60
+            Retries: 3
           PortMappings:
-            # OpenVPN Port
-            - ContainerPort: 1194
+            # Tailscale Port
+            - ContainerPort: 41641
+              HostPort: 41641
               Protocol: tcp
-            - ContainerPort: 1194
-              Protocol: udp
-            - ContainerPort: 1080
-              Protocol: tcp
-            # Port for EFS
-            - ContainerPort: 2049
-            # Other ports for VPN server, like port for Admin UI
-            - ContainerPort: 943
-            - ContainerPort: 945
           LogConfiguration:
             LogDriver: awslogs
             Options:
-              awslogs-group: !Ref OpenVpnEcsTaskLogGroup
+              awslogs-group: !Ref TailscaleNodeEcsTaskLogGroup
               awslogs-region: !Ref AWS::Region
-              awslogs-stream-prefix: openvpn-server-task
+              awslogs-stream-prefix: tailscale-node-task
           Environment:
-            # flag indicates that a container run in ECS, so the init script can call Metadata URI
-            # to receive container's public IP
-            - Name: RUN_IN_ECS
-              Value: '1'
-            - Name: MAX_CONNECTION_WAIT_TIME_MIN
-              Value: '5'
-            - Name: SUBNET_CIDR
-              Value: !Ref VpcCidrBlock
-            - Name: AWS_DNS_SERVER_IP
-              Value: !Ref AwsDnsAddressInSubnet
-            - Name: DANTE_PROXY_USERNAME
-              Value: !Ref EcsTaskDanteUsername
-            - Name: DANTE_PROXY_PASSWORD
-              Value: !Sub "{{resolve:secretsmanager:${EcsTaskDantePasswordSecret}}}"
-      Volumes:
-        - Name: 'UserDataEfsVolume'
-          EFSVolumeConfiguration:
-            FileSystemId: !GetAtt OpenVpnEfsFileSystem.FileSystemId
-            TransitEncryption: 'ENABLED'
-            AuthorizationConfig:
-              AccessPointId: !GetAtt OpenVpnAccessPoint.AccessPointId
+            - Name: TAILSCALE_TOKEN_SECRET_ID
+              Value: !Ref TailscaleAuthTokenSecretId
+            - Name: TAILSCALE_TOKEN_SECRET_REGION
+              Value: !Ref TailscaleAuthTokenSecretRegion
+            - Name: INACTIVITY_TIMEOUT
+              Value: !Ref TailscaleInactivityTimeoutSeconds
+            - Name: STATUS_CHECK_INTERVAL
+              Value: !Ref StatusCheckIntervalSeconds
       Tags:
         - Key: Name
           Value: !Ref EcsTaskDefinitionName
         - Key: ServiceName
-          Value: openvpn-server
+          Value: tailscale-node
 
 Outputs:
   EcsTaskRoleArn:
     Description: Role ARN for an ECS Task to create.
-    Value: !GetAtt VpnServerEcsTaskRole.Arn
+    Value: !GetAtt TailscaleNodeEcsTaskRole.Arn
   EcsTaskExecutionRoleArn:
     Description: Role ARN for an ECS Task to create.
-    Value: !GetAtt VpnServerEcsTaskExecutionRole.Arn
+    Value: !GetAtt TailscaleNodeEcsTaskExecutionRole.Arn
   EcrRepositoryUrl:
     Description: Url of the created ECR repository, where Docker images with VPN Server will be stored.
-    Value: !GetAtt OpenVpnEcrRepository.RepositoryUri
+    Value: !GetAtt TailscaleNodeEcrRepository.RepositoryUri
   EcsTaskDefinitionArn:
     Description: Arn of created ECS Task Definition.
-    Value: !GetAtt OpenVpnEcsTaskDefinition.TaskDefinitionArn
+    Value: !GetAtt TailscaleNodeEcsTaskDefinition.TaskDefinitionArn
+  EcsClusterName:
+    Description: The name of ECS cluster, where a VPN task will be spin out.
+    Value: !Ref TailscaleNodeEcsCluster
   SubnetId:
     Description: ID of the Subnet, where an ECS Task will be launched.
-    Value: !GetAtt OpenVpnPublicSubnet.SubnetId
+    Value: !GetAtt TailscaleNodePublicSubnet.SubnetId
   SecurityGroupId:
     Description: ID of the Subgroup, which an ECS Task will be launched with.
-    Value: !GetAtt OpenVpnEcsSG.GroupId
-  EfsFileSystemId:
-    Description: ID of the EFS system to be attached to an ECS Task.
-    Value: !GetAtt OpenVpnEfsFileSystem.FileSystemId
-  EfsAccessPointId:
-    Description: ID of the Access Point to be associated with mounting volume of an ECS Task.
-    Value: !GetAtt OpenVpnAccessPoint.AccessPointId
+    Value: !GetAtt TailscaleNodeEcsSG.GroupId

@@ -1,25 +1,18 @@
-FROM kylemanna/openvpn
+# Use Amazon Linux 2 as the base image
+FROM amazonlinux:2
 
-ENV DANTE_VER 1.4.2
-ENV DANTE_URL https://www.inet.no/dante/files/dante-$DANTE_VER.tar.gz
+# Install Tailscale
+RUN yum update -y && \
+    yum install -y yum-utils && \
+    yum-config-manager --add-repo https://pkgs.tailscale.com/stable/amazon-linux/2/tailscale.repo && \
+    yum install -y tailscale aws-cli && \
+    yum clean all && \
+    rm -rf /var/cache/yum
 
-ARG DANTE_PROXY_USERNAME
-ARG DANTE_PROXY_PASSWORD
+# Create a script to monitor connections
+COPY ./scripts/monitor_connections.sh /usr/local/bin/monitor_connections.sh
+COPY ./scripts/start_tailscale.sh /usr/local/bin/start_tailscale.sh
+RUN chmod +x /usr/local/bin/monitor_connections.sh /usr/local/bin/start_tailscale.sh
 
-ADD ./scripts/ /usr/local/bin/
-ADD ./conf/danted.conf /etc/
-
-RUN chmod a+x /usr/local/bin/*
-# install Dante SOCKS5 proxy
-RUN apk add dante-server
-RUN adduser -H -D -s /bin/bash $DANTE_PROXY_USERNAME && echo "$DANTE_PROXY_USERNAME:$DANTE_PROXY_PASSWORD" | chpasswd
-
-# Additional components
-RUN wget https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 && \
-    mv jq-linux64 /usr/local/bin/jq && \
-    chmod +x /usr/local/bin/jq
-RUN apk add curl
-
-RUN touch /var/log/openvpn-status.log
-
-CMD /usr/local/bin/configure-and-run-openvpn.sh
+# Start the Tailscale process and monitor connections
+CMD ["/usr/local/bin/start_tailscale.sh"]

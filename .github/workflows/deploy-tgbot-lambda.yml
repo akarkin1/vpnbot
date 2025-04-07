@@ -7,17 +7,24 @@ on:
         description: 'AWS Region'
         required: true
         default: eu-north-1
-      sources-bucket:
-        description: 'S3 Bucket with sources of the lambda'
+      lambda-source-version:
+        description: 'Source code version of the lambda'
         required: true
-        default: openvpn-server-s3
+        default: 2.0-SNAPSHOT
 
 env:
   TG_BOT_USERNAME: ${{ vars.TG_BOT_USERNAME }}
+  TG_SECRET_TOKEN_ID: ${{ vars.TG_SECRET_TOKEN_ID }}
+  TG_ROOT_USERNAME: ${{ vars.TG_ROOT_USERNAME }}
+  S3_CONFIG_BUCKET_NAME: ${{ vars.S3_CONFIG_BUCKET_NAME }}
+  USER_PERMISSIONS_KEY: ${{ vars.S3_CONFIG_DIR }}/${{ vars.S3_USER_PERMISSIONS_FILE_NAME }}
+  SUPPORTED_REGIONS: ${{ vars.S3_CONFIG_DIR }}/supported-regions.txt
+  USER_PERMISSIONS_FILE_URI: s3://${{ vars.S3_CONFIG_BUCKET_NAME }}/${{ vars.S3_CONFIG_DIR }}/${{ vars.S3_USER_PERMISSIONS_FILE_NAME }}
+  SUPPORTED_REGIONS_FILE_URI: s3://${{ vars.S3_CONFIG_BUCKET_NAME }}/${{ vars.S3_CONFIG_DIR }}/supported-regions.txt
 
 jobs:
   deploy-vpn-configurer-lambda:
-    name: Deploy CloudFormation OpenVPN Telegram Bot Lambda
+    name: Deploy CloudFormation For Telegram Bot Lambda
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Source Code
@@ -28,13 +35,41 @@ jobs:
           aws-region: ${{ github.event.inputs.region }}
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      - name: Upload TG Secret Token
+        id: tg-secret-upload
+        run: |
+          if [ $(aws secretsmanager describe-secret --secret-id "${{ env.TG_SECRET_TOKEN_ID }}" --region ${{ github.event.inputs.region }} >/dev/null 2>&1; echo $?) -ne 0 ]; then
+             aws secretsmanager create-secret --name ${{ env.TG_SECRET_TOKEN_ID }} --secret-string "${{ secrets.TG_SECRET_TOKEN }}" --region ${{ github.event.inputs.region }};
+          fi
       - name: Deploy Cloud Formation Stack
         id: deploy-cfn-stack
         uses: aws-actions/aws-cloudformation-github-deploy@v1.3.0
         with:
-          name: openvpn-server-tgbot-cfn
+          name: vpn-tgbot-cfn
           template: cloudformation/vpn-configurer-lambda.yml
           no-fail-on-empty-changeset: "1"
           capabilities: CAPABILITY_IAM,CAPABILITY_NAMED_IAM
-          parameter-overrides: 'LambdaSourcesBucketName=${{ github.event.inputs.sources-bucket }},EnvTgBotToken=${{ secrets.TG_BOT_TOKEN }},EnvTgBotUsername=${{ env.TG_BOT_USERNAME }}'
-
+          parameter-overrides: 'LambdaConfigBucketName=${{ env.S3_CONFIG_BUCKET_NAME }},LambdaSourceVersion=${{ github.event.inputs.lambda-source-version }},EnvTgBotToken=${{ secrets.TG_BOT_TOKEN }},EnvTgBotUsername=${{ env.TG_BOT_USERNAME }},EnvTgBotSecretTokenId=${{ env.TG_SECRET_TOKEN_ID }}'
+      - name: Upload 'user-permissions.json' to S3
+        id: user-permissions-upload
+        run: |
+          if [ $(aws s3api head-object --bucket "${{ env.S3_CONFIG_BUCKET_NAME }}" --key "${{ env.USER_PERMISSIONS_KEY }}" --region ${{ github.event.inputs.region }} >/dev/null 2>&1; echo $?) = 0 ]; then
+            echo "'user-permissions.json' file already exists, nothing to upload"
+          else
+            echo "Uploading 'user-permissions.json' to the S3 bucket"
+            echo '{"${{ env.TG_ROOT_USERNAME }}": ["ROOT_ACCESS"]}' > ./user-permissions.json
+            aws s3 cp ./user-permissions.json ${{ env.USER_PERMISSIONS_FILE_URI }} --region ${{ github.event.inputs.region }}
+            rm ./user-permissions.json
+          fi
+      - name: Upload 'supported-regions.txt' to S3
+        id: supported-regions-upload
+        run: |
+          if [ $(aws s3api head-object --bucket "${{ env.S3_CONFIG_BUCKET_NAME }}" --key "${{ env.SUPPORTED_REGIONS }}" --region ${{ github.event.inputs.region }} >/dev/null 2>&1; echo $?) = 0 ]; then
+            echo "'supported-regions.txt' file already exists, nothing to upload"
+          else
+            echo "Uploading 'supported-regions.txt' to the S3 bucket"
+            touch supported-regions.txt
+            aws s3 cp ./supported-regions.txt ${{ env.SUPPORTED_REGIONS_FILE_URI }} --region ${{ github.event.inputs.region }}
+            rm ./supported-regions.txt
+          fi
+      

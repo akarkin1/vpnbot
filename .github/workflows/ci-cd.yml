@@ -43,9 +43,13 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
     - name: Upload Artifact To S3
-      run: aws s3 cp target/vpnbot-1.0-SNAPSHOT.jar s3://openvpn-server-s3/openvpn-server-tgbot/vpnbot-1.0-SNAPSHOT.jar
+      id: src-upload
+      run: |
+        POM_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+        aws s3 cp target/vpnbot-${POM_VERSION}.jar s3://vpntgbot-s3/vpntgbot/vpnbot-${POM_VERSION}.jar
+        echo "::set-output name=src_s3_key::vpntgbot/vpnbot-${POM_VERSION}.jar"
 
     - name: Update AWS Lambda
       run: |
-        aws lambda update-function-code --function-name openvpn-server-tgbot --s3-bucket openvpn-server-s3 --s3-key openvpn-server-tgbot/vpnbot-1.0-SNAPSHOT.jar
+        aws lambda update-function-code --function-name vpntgbot --s3-bucket vpntgbot-s3 --s3-key "${{ steps.src-upload.outputs.src_s3_key }}"
       

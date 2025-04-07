@@ -1,9 +1,9 @@
 package org.github.akarkin1.tg;
 
 import lombok.RequiredArgsConstructor;
-import lombok.Setter;
 import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
+import org.github.akarkin1.translation.Translator;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.bots.AbsSender;
@@ -14,14 +14,22 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 public class BotCommunicator {
 
   private final AbsSender sender;
-  @Setter
-  private Long chatId;
+  private final Translator translator;
 
   @SneakyThrows(TelegramApiException.class)
-  public void sendMessageToTheBot(String message) {
+  public void sendMessageToTheBot(String message, Object ...params) {
+    Long chatId = TgRequestContext.getChatId();
+    if (chatId == null) {
+      log.error("Unable to send response back to user – chatId is null");
+      return;
+    }
+
+
     SendMessage sendMessage = new SendMessage();
     sendMessage.setChatId(chatId);
-    sendMessage.setText(message);
+    String userLangCode = TgRequestContext.getLanguageCode();
+    log.info("Translating a message to user's language: {}", userLangCode);
+    sendMessage.setText(translator.translate(userLangCode, message, params));
     Message responseMessage = sender.execute(sendMessage);
     log.debug("Received response: {}", responseMessage);
   }

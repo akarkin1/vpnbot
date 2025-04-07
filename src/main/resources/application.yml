@@ -1,0 +1,60 @@
+version: ${project.version}
+
+auth:
+  enabled: true
+
+s3:
+  config-bucket: vpntgbot-s3
+  config-root-dir: ecs-tailscale-node/config
+  regions-key: supported-regions.txt
+  stack-output-parameters-key: vpn-ecs-resources-output-parameters.json
+  user-permissions-key: user-permissions.json
+  cache-supported-regions: false
+  cache-task-runtime-parameters: true
+
+ecs:
+  service-name: tailscale-node
+  essential-container-name: vpn-container
+  host-name-env: TAILSCALE_HOSTNAME
+  service-name-tag: ServiceName
+  host-name-tag: Hostname
+  run-by-tag: RunBy
+  health:
+    interval-ms: 1000
+    timeout-sec: 300
+
+aws:
+  region-cities:
+    'us-east-2': Ohio
+    'us-east-1': N. Virginia
+    'us-west-1': N. California
+    'us-west-2': Oregon
+    'af-south-1': Cape Town
+    'ap-east-1': Hong Kong
+    'ap-south-2': Hyderabad
+    'ap-southeast-3': Jakarta
+    'ap-southeast-5': Malaysia
+    'ap-southeast-4': Melbourne
+    'ap-southeast-7': Thailand
+    'ap-south-1': Mumbai
+    'ap-northeast-3': Osaka
+    'ap-northeast-2': Seoul
+    'ap-southeast-1': Singapore
+    'ap-southeast-2': Sydney
+    'ap-northeast-1': Tokyo
+    'ca-central-1': Central
+    'ca-west-1': Calgary
+    'eu-central-1': Frankfurt
+    'eu-west-1': Ireland
+    'eu-west-2': London
+    'eu-south-1': Milan
+    'eu-west-3': Paris
+    'eu-south-2': Spain
+    'eu-north-1': Stockholm
+    'eu-central-2': Zurich
+    'il-central-1': Tel Aviv
+    'me-south-1': Bahrain
+    'me-central-1': UAE
+    'sa-east-1': São Paulo
+    'us-gov-east-1': US-East
+    'us-gov-west-1': US-West
