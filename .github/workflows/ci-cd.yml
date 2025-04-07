@@ -51,5 +51,5 @@ jobs:
 
     - name: Update AWS Lambda
       run: |
-        aws lambda update-function-code --function-name vpntgbot --s3-bucket vpntgbot-s3 --s3-key "${{ steps.src-upload.outputs.src_s3_key }}"
+        aws lambda update-function-code --function-name vpnbot --s3-bucket vpntgbot-s3 --s3-key "${{ steps.src-upload.outputs.src_s3_key }}"
       
