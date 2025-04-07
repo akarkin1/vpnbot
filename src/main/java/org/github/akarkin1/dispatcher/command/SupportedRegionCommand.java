@@ -16,11 +16,16 @@ public final class SupportedRegionCommand implements BotCommand<TextCommandRespo
   public TextCommandResponse run(List<String> args) {
     List<String> regionDescriptions = tailscaleNodeService.getSupportedRegionDescriptions();
     StringBuilder responseBuilder = new StringBuilder();
-    responseBuilder.append("${command.supported-regions.supported-regions.message}: ").append("\n");
+    if (regionDescriptions.isEmpty()) {
+      responseBuilder.append("${command.supported-regions.no-supported-regions.message}");
+    } else {
+      responseBuilder.append("${command.supported-regions.supported-regions.message}: ").append("\n");
 
-    regionDescriptions.forEach(regionDescription ->
-                          responseBuilder.append("\t– %s".formatted(regionDescription))
-                              .append("\n"));
+      regionDescriptions.forEach(regionDescription ->
+                            responseBuilder.append("\t– %s".formatted(regionDescription))
+                                .append("\n"));
+    }
+
 
     return new TextCommandResponse(responseBuilder.toString());
   }
