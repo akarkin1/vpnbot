@@ -1,20 +1,12 @@
 package org.github.akarkin1.dispatcher.command;
 
+import org.github.akarkin1.auth.Permission;
+import org.github.akarkin1.dispatcher.response.CommandResponse;
+
 import java.util.Collections;
 import java.util.List;
 
-public sealed interface BotCommand<R extends CommandResponse> permits
-    ListInstancesCommand,
-    VersionCommand,
-    HelpCommand,
-    StopInstanceCommand,
-    StartInstanceCommand,
-    StartServerCommandV2,
-    StopServerCommandV2,
-    RestartServerCommand,
-    StartServerCommand,
-    StopServerCommand,
-    RebootServerCommand {
+public interface BotCommand<R extends CommandResponse> {
 
   R run(List<String> args);
 
@@ -23,5 +15,7 @@ public sealed interface BotCommand<R extends CommandResponse> permits
   }
 
   String getDescription();
+
+  List<Permission> getRequiredPermissions();
 
 }

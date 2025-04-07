@@ -1,9 +1,9 @@
-package org.github.akarkin1.dispatcher.command.ecs;
+package org.github.akarkin1.dispatcher.command;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.github.akarkin1.auth.Permission;
-import org.github.akarkin1.dispatcher.command.EmptyResponse;
+import org.github.akarkin1.dispatcher.response.EmptyResponse;
 import org.github.akarkin1.ecs.RunTaskStatus;
 import org.github.akarkin1.ecs.TaskInfo;
 import org.github.akarkin1.message.MessageConsumer;
@@ -15,7 +15,7 @@ import java.util.Optional;
 
 @Log4j2
 @RequiredArgsConstructor
-public final class RunNodeCommand implements BotCommandV2<EmptyResponse> {
+public final class RunNodeCommand implements BotCommand<EmptyResponse> {
 
   private final TailscaleNodeService tailscaleNodeService;
   private final MessageConsumer messageConsumer;

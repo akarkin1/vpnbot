@@ -3,7 +3,17 @@ package org.github.akarkin1.dispatcher.command.ecs;
 import org.github.akarkin1.auth.Authorizer;
 import org.github.akarkin1.auth.Permission;
 import org.github.akarkin1.auth.s3.PermissionsService;
-import org.github.akarkin1.dispatcher.command.TextCommandResponse;
+import org.github.akarkin1.dispatcher.command.AssignRolesCommand;
+import org.github.akarkin1.dispatcher.CommandDispatcher;
+import org.github.akarkin1.dispatcher.command.DeleteUsersCommand;
+import org.github.akarkin1.dispatcher.command.DescribeRolesCommand;
+import org.github.akarkin1.dispatcher.command.HelpCommand;
+import org.github.akarkin1.dispatcher.command.ListNodesCommand;
+import org.github.akarkin1.dispatcher.command.ListUsersCommand;
+import org.github.akarkin1.dispatcher.command.RunNodeCommand;
+import org.github.akarkin1.dispatcher.command.SupportedRegionCommand;
+import org.github.akarkin1.dispatcher.response.TextCommandResponse;
+import org.github.akarkin1.dispatcher.command.VersionCommand;
 import org.github.akarkin1.tailscale.TailscaleNodeService;
 import org.github.akarkin1.tg.BotCommunicator;
 import org.github.akarkin1.tg.TgRequestContext;
@@ -39,32 +49,32 @@ class HelpCommandV2Test {
   @Mock
   private Authorizer authorizer;
 
-  private CommandDispatcherV2 commandDispatcherV2;
-  private HelpCommandV2 helpCommandV2;
+  private CommandDispatcher commandDispatcher;
+  private HelpCommand helpCommandV2;
 
   @BeforeEach
   void setUpHelpCommand() {
-    commandDispatcherV2 = new CommandDispatcherV2(botCommunicator, authorizer);
+    commandDispatcher = new CommandDispatcher(botCommunicator, authorizer);
 
-    commandDispatcherV2.registerCommand("/version", new VersionCommandV2());
-    commandDispatcherV2.registerCommand("/listRunningNodes", new ListNodesCommand(
+    commandDispatcher.registerCommand("/version", new VersionCommand());
+    commandDispatcher.registerCommand("/listRunningNodes", new ListNodesCommand(
       nodeService, authorizer));
-    commandDispatcherV2.registerCommand("/runNodeIn",
-                                        new RunNodeCommand(nodeService,
+    commandDispatcher.registerCommand("/runNodeIn",
+                                      new RunNodeCommand(nodeService,
                                                            botCommunicator::sendMessageToTheBot));
-    commandDispatcherV2.registerCommand("/supportedRegions",
-                                        new SupportedRegionCommand(nodeService));
-    commandDispatcherV2.registerCommand("/assignRoles",
-                                        new AssignRolesCommand(permissionsService));
-    commandDispatcherV2.registerCommand("/describeRoles",
-                                        new DescribeRolesCommand(permissionsService));
-    commandDispatcherV2.registerCommand("/deleteUsers",
-                                        new DeleteUsersCommand(permissionsService,
+    commandDispatcher.registerCommand("/supportedRegions",
+                                      new SupportedRegionCommand(nodeService));
+    commandDispatcher.registerCommand("/assignRoles",
+                                      new AssignRolesCommand(permissionsService));
+    commandDispatcher.registerCommand("/describeRoles",
+                                      new DescribeRolesCommand(permissionsService));
+    commandDispatcher.registerCommand("/deleteUsers",
+                                      new DeleteUsersCommand(permissionsService,
                                                                botCommunicator::sendMessageToTheBot));
-    commandDispatcherV2.registerCommand("/listRegisteredUsers",
-                                        new ListUsersCommand(permissionsService));
+    commandDispatcher.registerCommand("/listRegisteredUsers",
+                                      new ListUsersCommand(permissionsService));
 
-    helpCommandV2 = new HelpCommandV2(commandDispatcherV2);
+    helpCommandV2 = new HelpCommand(commandDispatcher);
   }
 
   @Test
