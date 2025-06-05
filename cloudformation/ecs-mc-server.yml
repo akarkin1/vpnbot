@@ -274,7 +274,7 @@ Resources:
       ExecutionRoleArn: !GetAtt MinecraftServerEcsTaskExecutionRole.Arn
       TaskRoleArn: !GetAtt MinecraftServerEcsTaskRole.Arn
       EphemeralStorage:
-        SizeInGiB: 20
+        SizeInGiB: 21
       ContainerDefinitions:
         - Name: minecraft-server
           Essential: true
