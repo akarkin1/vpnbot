@@ -1,0 +1,82 @@
+name: Deploy Minecraft Server ECS Resources
+
+on:
+  workflow_dispatch:
+    inputs:
+      region:
+        description: 'AWS Region'
+        required: true
+      cluster-name:
+        description: 'Name Of ECS Cluster, where Minecraft Server tasks will be hosted'
+        required: true
+        default: minecraft-server-cluster
+      repository-name:
+        description: 'Name Of ECR Repository, where a Docker image with Minecraft Server will be stored'
+        required: true
+        default: minecraft-server-repo
+      run-cfn-deploy:
+        description: 'Do CloudFormation resources need to be deployed?'
+        required: true
+        default: yes
+        type: choice
+        options:
+          - yes
+          - no
+      run-docker:
+        description: 'Is docker build and push required?'
+        required: true
+        default: yes
+        type: choice
+        options:
+          - yes
+          - no
+
+jobs:
+  deploy-minecraft-server:
+    name: Deploy Minecraft Server ECS Resources
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        if: ${{ github.event.inputs.run-docker == 'yes' || github.event.inputs.run-cfn-deploy == 'yes' }}
+        uses: actions/checkout@v4
+      
+      - name: Configure AWS Credentials
+        if: ${{ github.event.inputs.run-docker == 'yes' || github.event.inputs.run-cfn-deploy == 'yes' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ github.event.inputs.region }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      
+      - name: Deploy Cloud Formation Stack
+        id: deploy-cfn-stack
+        if: ${{ github.event.inputs.run-cfn-deploy == 'yes' }}
+        uses: aws-actions/aws-cloudformation-github-deploy@v1.3.0
+        with:
+          name: minecraft-server-stack
+          template: cloudformation/ecs-mc-server.yml
+          no-fail-on-empty-changeset: "1"
+          parameter-overrides: >-
+            EcsClusterName=${{ github.event.inputs.cluster-name }},
+            EcrRepositoryName=${{ github.event.inputs.repository-name }},
+            RconPassword=${{ secrets.MINECRAFT_RCON_PASSWORD }}
+      
+      - name: Login to Amazon ECR
+        id: login-to-ecr
+        if: ${{ github.event.inputs.run-docker == 'yes' }}
+        uses: aws-actions/amazon-ecr-login@v2
+      
+      - name: Build, tag, and push the image to Amazon ECR
+        id: build-image
+        if: ${{ github.event.inputs.run-docker == 'yes' }}
+        env:
+          ECR_REPOSITORY: ${{ github.event.inputs.repository-name }}
+          BUILD_TAG: ${{ github.run_number }}
+        run: |
+          ECR_REPO_URL=$(aws cloudformation describe-stacks --stack-name minecraft-server-stack --query 'Stacks[0].Outputs[?OutputKey==`EcrRepositoryUrl`].OutputValue' --output text)
+          docker build \
+            -t $ECR_REPO_URL:$BUILD_TAG \
+            -t $ECR_REPO_URL:latest \
+            ./docker/mc-server/;
+          docker push $ECR_REPO_URL:$BUILD_TAG
+          docker push $ECR_REPO_URL:latest
