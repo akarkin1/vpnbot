@@ -281,6 +281,16 @@ Resources:
           Image: !Join [':', [!GetAtt MinecraftServerEcrRepository.RepositoryUri, 'latest']]
           Cpu: !Ref MinecraftServerCpu
           Memory: !Ref MinecraftServerMemory
+          LinuxParameters:
+            InitProcessEnabled: true
+#          HealthCheck:
+#            Command:
+#              - CMD-SHELL
+#              - 'mc-health'
+#            StartPeriod: 120
+#            Interval: 30
+#            Timeout: 60
+#            Retries: 2
           PortMappings:
             # Minecraft Server Port
             - ContainerPort: 25565
