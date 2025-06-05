@@ -30,7 +30,7 @@ The template accepts the following parameters:
 | EcsClusterName        | Name of the ECS Cluster                | minecraft-server-cluster  |
 | EcrRepositoryName     | Name of the ECR repository             | minecraft-server-repo     |
 | EcsTaskDefinitionName | Task Definition name                   | minecraft-server-task-def |
-| S3BucketName          | Name of the S3 bucket                  | minecraft-s3              |
+| S3BucketName          | Name of the S3 bucket                  | akarkin1-minecraf-s3              |
 | S3BackupPath          | Path within the S3 bucket              | world-backup              |
 | RconPassword          | Password for RCON access               | (No default, required)    |
 | BackupIntervalSeconds | Interval between backups               | 3600 (1 hour)             |

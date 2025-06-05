@@ -2,7 +2,7 @@
 set -e
 
 # Define S3 bucket name and data directory
-S3_BUCKET=${S3_BUCKET_NAME:-"minecraft-s3"}
+S3_BUCKET=${S3_BUCKET_NAME:-"akarkin1-minecraf-s3"}
 S3_BACKUP_PATH=${S3_BACKUP_PATH:-"world-backup"}
 MINECRAFT_DATA_DIR="/data"
 WORLD_DIR="${MINECRAFT_DATA_DIR}/world"

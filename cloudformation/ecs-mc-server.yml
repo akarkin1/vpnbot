@@ -24,7 +24,7 @@ Parameters:
     Description: Task Definition name for the Minecraft server.
   S3BucketName:
     Type: String
-    Default: minecraft-s3
+    Default: akarkin1-minecraf-s3
     Description: Name of the S3 bucket for Minecraft world backups.
   S3BackupPath:
     Type: String

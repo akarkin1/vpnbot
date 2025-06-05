@@ -20,7 +20,7 @@ The following environment variables can be set when launching the ECS task:
 - `RCON_PASSWORD`: Password for RCON access (required)
 - `RCON_PORT`: Port for RCON (default: 25575)
 - `TYPE`: Minecraft server type (default: VANILLA)
-- `S3_BUCKET_NAME`: Name of the S3 bucket for backups (default: minecraft-s3)
+- `S3_BUCKET_NAME`: Name of the S3 bucket for backups (default: akarkin1-minecraf-s3)
 - `S3_BACKUP_PATH`: Path within the S3 bucket for backups (default: world-backup)
 - `BACKUP_INTERVAL_SECONDS`: Interval between backups in seconds (default: 3600 - 1 hour)
 - `IDLE_THRESHOLD_SECONDS`: Time in seconds before shutting down when idle (default: 1800 - 30 minutes)
