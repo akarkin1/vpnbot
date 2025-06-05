@@ -36,6 +36,18 @@ jobs:
     name: Deploy Minecraft Server ECS Resources
     runs-on: ubuntu-latest
     steps:
+      - name: Debug Information
+        run: |
+          echo "Debug information:"
+          echo "run-cfn-deploy: '${{ github.event.inputs.run-cfn-deploy }}'"
+          echo "run-docker: '${{ github.event.inputs.run-docker }}'"
+          echo "region: '${{ github.event.inputs.region }}'"
+          echo "cluster-name: '${{ github.event.inputs.cluster-name }}'"
+          echo "repository-name: '${{ github.event.inputs.repository-name }}'"
+          echo "MINECRAFT_RCON_PASSWORD secret exists: ${{ secrets.MINECRAFT_RCON_PASSWORD != '' }}"
+          echo "AWS_ACCESS_KEY_ID secret exists: ${{ secrets.AWS_ACCESS_KEY_ID != '' }}"
+          echo "AWS_SECRET_ACCESS_KEY secret exists: ${{ secrets.AWS_SECRET_ACCESS_KEY != '' }}"
+
       - name: Checkout Source Code
         if: ${{ github.event.inputs.run-docker == 'yes' || github.event.inputs.run-cfn-deploy == 'yes' }}
         uses: actions/checkout@v4
