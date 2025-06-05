@@ -1,0 +1,342 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Minecraft Server on ECS Stack
+
+Parameters:
+  ClientIPCIDR:
+    Type: String
+    Default: 0.0.0.0/0
+    Description: CIDR IP to be granted access by the SG, use 0.0.0.0/0 to accept all IPs.
+  VpcCidrBlock:
+    Type: String
+    Default: 10.2.0.0/28
+    Description: CIDR block for the VPC (must not conflict with existing VPCs).
+  EcsClusterName:
+    Type: String
+    Default: minecraft-server-cluster
+    Description: Name of the ECS Cluster to be hosting Minecraft Server tasks.
+  EcrRepositoryName:
+    Type: String
+    Default: minecraft-server-repo
+    Description: Name of the ECR repository for the Minecraft server image.
+  EcsTaskDefinitionName:
+    Type: String
+    Default: minecraft-server-task-def
+    Description: Task Definition name for the Minecraft server.
+  S3BucketName:
+    Type: String
+    Default: minecraft-s3
+    Description: Name of the S3 bucket for Minecraft world backups.
+  S3BackupPath:
+    Type: String
+    Default: world-backup
+    Description: Path within the S3 bucket for Minecraft world backups.
+  RconPassword:
+    Type: String
+    Description: Password for RCON access to the Minecraft server.
+    NoEcho: true
+  BackupIntervalSeconds:
+    Type: Number
+    Default: 3600
+    Description: Interval between backups in seconds (default is 1 hour).
+  IdleThresholdSeconds:
+    Type: Number
+    Default: 1800
+    Description: Time in seconds before shutting down when idle (default is 30 minutes).
+  CheckIntervalSeconds:
+    Type: Number
+    Default: 300
+    Description: Interval between player checks in seconds (default is 5 minutes).
+  MinecraftServerMemory:
+    Type: String
+    Default: 4096
+    Description: Memory (in MB) to allocate to the Minecraft server task.
+  MinecraftServerCpu:
+    Type: String
+    Default: 2048
+    Description: CPU units to allocate to the Minecraft server task.
+
+Resources:
+  # VPC and Networking
+  MinecraftServerVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCidrBlock
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: minecraft-server-vpc
+        - Key: ServiceName
+          Value: minecraft-server
+
+  MinecraftServerInternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: minecraft-server-internet-gw
+        - Key: ServiceName
+          Value: minecraft-server
+
+  AttachInternetGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref MinecraftServerVPC
+      InternetGatewayId: !Ref MinecraftServerInternetGateway
+
+  MinecraftServerPublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MinecraftServerVPC
+      CidrBlock: !Ref VpcCidrBlock
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: minecraft-server-public-sn
+        - Key: ServiceName
+          Value: minecraft-server
+
+  MinecraftServerRouteTablePublic:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref MinecraftServerVPC
+      Tags:
+        - Key: Name
+          Value: minecraft-server-rt
+        - Key: ServiceName
+          Value: minecraft-server
+
+  RouteDefaultPublic:
+    Type: AWS::EC2::Route
+    DependsOn: AttachInternetGateway
+    Properties:
+      DestinationCidrBlock: !Ref ClientIPCIDR
+      GatewayId: !Ref MinecraftServerInternetGateway
+      RouteTableId: !Ref MinecraftServerRouteTablePublic
+
+  PublicSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref MinecraftServerPublicSubnet
+      RouteTableId: !Ref MinecraftServerRouteTablePublic
+
+  # Security Group for Minecraft Server
+  MinecraftServerEcsSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: SG for Minecraft Server
+      VpcId: !Ref MinecraftServerVPC
+      SecurityGroupIngress:
+        # Minecraft Server Port
+        - IpProtocol: tcp
+          FromPort: 25565
+          ToPort: 25565
+          CidrIp: !Ref ClientIPCIDR
+        # RCON Port
+        - IpProtocol: tcp
+          FromPort: 25575
+          ToPort: 25575
+          CidrIp: !Ref ClientIPCIDR
+
+  # S3 Bucket for Minecraft World Backups
+  MinecraftServerS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref S3BucketName
+#      VersioningConfiguration:
+#        Status: Enabled
+#      LifecycleConfiguration:
+#        Rules:
+#          - Id: DeleteOldVersions
+#            Status: Enabled
+#            NoncurrentVersionExpiration:
+#              NoncurrentDays: 30
+
+  # ECR Repository
+  MinecraftServerEcrRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Ref EcrRepositoryName
+
+  # ECS Cluster
+  MinecraftServerEcsCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Ref EcsClusterName
+      Tags:
+        - Key: ServiceName
+          Value: minecraft-server
+
+  # IAM Roles
+  MinecraftServerEcsTaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+
+  MinecraftServerEcsTaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+
+  # IAM Policies
+  S3AccessPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: MinecraftServerS3AccessPolicy
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - "s3:ListBucket"
+              - "s3:GetObject"
+              - "s3:PutObject"
+              - "s3:DeleteObject"
+              - "s3:ListBucketMultipartUploads"
+              - "s3:ListMultipartUploadParts"
+              - "s3:AbortMultipartUpload"
+            Resource:
+              - !Sub "arn:aws:s3:::${S3BucketName}"
+              - !Sub "arn:aws:s3:::${S3BucketName}/*"
+      Roles:
+        - !Ref MinecraftServerEcsTaskRole
+
+  CloudWatchLogsPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: MinecraftServerCloudWatchLogsPolicy
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - "logs:CreateLogGroup"
+              - "logs:CreateLogStream"
+              - "logs:PutLogEvents"
+            Resource: "*"
+      Roles:
+        - !Ref MinecraftServerEcsTaskRole
+        - !Ref MinecraftServerEcsTaskExecutionRole
+
+  NetworkingPermissionsPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: MinecraftServerNetworkingPermissionsPolicy
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - "ec2:DescribeSubnets"
+              - "ec2:DescribeVpcs"
+              - "ec2:DescribeSecurityGroups"
+              - "ec2:DescribeNetworkInterfaces"
+              - "ec2:CreateNetworkInterface"
+              - "ec2:DeleteNetworkInterface"
+              - "ec2:AssignPrivateIpAddresses"
+              - "ec2:UnassignPrivateIpAddresses"
+            Resource: "*"
+      Roles:
+        - !Ref MinecraftServerEcsTaskExecutionRole
+
+  # CloudWatch Log Group
+  MinecraftServerEcsTaskLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /ecs/minecraft-server
+      RetentionInDays: 7
+
+  # ECS Task Definition
+  MinecraftServerEcsTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Ref EcsTaskDefinitionName
+      RequiresCompatibilities:
+        - FARGATE
+      Cpu: !Ref MinecraftServerCpu
+      Memory: !Ref MinecraftServerMemory
+      NetworkMode: awsvpc
+      ExecutionRoleArn: !GetAtt MinecraftServerEcsTaskExecutionRole.Arn
+      TaskRoleArn: !GetAtt MinecraftServerEcsTaskRole.Arn
+      EphemeralStorage:
+        SizeInGiB: 20
+      ContainerDefinitions:
+        - Name: minecraft-server
+          Essential: true
+          Image: !Join [':', [!GetAtt MinecraftServerEcrRepository.RepositoryUri, 'latest']]
+          Cpu: !Ref MinecraftServerCpu
+          Memory: !Ref MinecraftServerMemory
+          PortMappings:
+            # Minecraft Server Port
+            - ContainerPort: 25565
+              HostPort: 25565
+              Protocol: tcp
+            # RCON Port
+            - ContainerPort: 25575
+              HostPort: 25575
+              Protocol: tcp
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref MinecraftServerEcsTaskLogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: minecraft-server
+          Environment:
+            - Name: RCON_PASSWORD
+              Value: !Ref RconPassword
+            - Name: S3_BUCKET_NAME
+              Value: !Ref S3BucketName
+            - Name: S3_BACKUP_PATH
+              Value: !Ref S3BackupPath
+            - Name: BACKUP_INTERVAL_SECONDS
+              Value: !Ref BackupIntervalSeconds
+            - Name: IDLE_THRESHOLD_SECONDS
+              Value: !Ref IdleThresholdSeconds
+            - Name: CHECK_INTERVAL_SECONDS
+              Value: !Ref CheckIntervalSeconds
+      Tags:
+        - Key: Name
+          Value: !Ref EcsTaskDefinitionName
+        - Key: ServiceName
+          Value: minecraft-server
+
+Outputs:
+  EcsTaskRoleArn:
+    Description: Role ARN for the ECS Task.
+    Value: !GetAtt MinecraftServerEcsTaskRole.Arn
+  EcsTaskExecutionRoleArn:
+    Description: Execution Role ARN for the ECS Task.
+    Value: !GetAtt MinecraftServerEcsTaskExecutionRole.Arn
+  EcrRepositoryUrl:
+    Description: URL of the ECR repository for the Minecraft server image.
+    Value: !GetAtt MinecraftServerEcrRepository.RepositoryUri
+  EcsTaskDefinitionArn:
+    Description: ARN of the ECS Task Definition.
+    Value: !Ref MinecraftServerEcsTaskDefinition
+  EcsClusterName:
+    Description: Name of the ECS cluster.
+    Value: !Ref MinecraftServerEcsCluster
+  SubnetId:
+    Description: ID of the Subnet where the ECS Task will be launched.
+    Value: !Ref MinecraftServerPublicSubnet
+  SecurityGroupId:
+    Description: ID of the Security Group for the ECS Task.
+    Value: !Ref MinecraftServerEcsSG
+  S3BucketName:
+    Description: Name of the S3 bucket for Minecraft world backups.
+    Value: !Ref MinecraftServerS3Bucket

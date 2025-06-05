@@ -1,8 +1,9 @@
 #!/bin/bash
 set -e
 
-# Define S3 bucket name
-S3_BUCKET="minecraft-s3"
+# Define S3 bucket name and data directory
+S3_BUCKET=${S3_BUCKET_NAME:-"minecraft-s3"}
+S3_BACKUP_PATH=${S3_BACKUP_PATH:-"world-backup"}
 MINECRAFT_DATA_DIR="/data"
 WORLD_DIR="${MINECRAFT_DATA_DIR}/world"
 
@@ -20,7 +21,7 @@ perform_final_backup() {
 
     # Sync the data directory to S3
     echo "Syncing data to S3..."
-    aws s3 sync ${MINECRAFT_DATA_DIR}/ s3://${S3_BUCKET}/world-backup/ \
+    aws s3 sync ${MINECRAFT_DATA_DIR}/ s3://${S3_BUCKET}/${S3_BACKUP_PATH}/ \
         --exclude "*.log" \
         --exclude "*.gz" \
         --exclude "crash-reports/*" \
@@ -41,9 +42,9 @@ trap perform_final_backup SIGTERM
 # Function to restore data from S3 if available
 restore_from_s3() {
     echo "Checking for existing world data in S3..."
-    if aws s3 ls s3://${S3_BUCKET}/world-backup/ &>/dev/null; then
+    if aws s3 ls s3://${S3_BUCKET}/${S3_BACKUP_PATH}/ &>/dev/null; then
         echo "Found world backup in S3, restoring..."
-        aws s3 sync s3://${S3_BUCKET}/world-backup/ ${MINECRAFT_DATA_DIR}/
+        aws s3 sync s3://${S3_BUCKET}/${S3_BACKUP_PATH}/ ${MINECRAFT_DATA_DIR}/
         echo "World data restored from S3."
     else
         echo "No existing world data found in S3."
