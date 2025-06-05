@@ -5,8 +5,12 @@ RUN apt-get update && \
     apt-get install -y \
     python3 \
     python3-pip \
-    mcrcon \
-    && pip3 install awscli && \
+    git \
+    build-essential \
+    && git clone https://github.com/Tiiffi/mcrcon.git /opt/mcrcon \
+    && cd /opt/mcrcon \
+    && make && make install \
+    && pip3 install awscli --break-system-packages && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
