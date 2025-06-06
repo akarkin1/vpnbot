@@ -4,8 +4,8 @@ set -e
 # Configuration
 CLUSTER_NAME="minecraft-server-cluster"
 TASK_DEFINITION="minecraft-server-task-def"
-SUBNET_ID="subnet-00abe855dbd75c0ef"  # Will be populated from CloudFormation output
-SECURITY_GROUP_ID="sg-018cf0fab70f1a8c2"  # Will be populated from CloudFormation output
+SUBNET_ID="subnet-0ebbe55d9c3db6d14"  # Will be populated from CloudFormation output
+SECURITY_GROUP_ID="sg-027f604b5a4ed4173"  # Will be populated from CloudFormation output
 
 # Function to display usage information
 usage() {
