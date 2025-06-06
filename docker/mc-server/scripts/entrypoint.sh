@@ -49,6 +49,7 @@ restore_from_s3() {
         # Fix permissions after restore
         echo "Fixing permissions on restored data..."
         chmod -R 755 ${MINECRAFT_DATA_DIR}
+        chown -R 1000:1000 ${MINECRAFT_DATA_DIR}
 
         echo "World data restored from S3."
     else
