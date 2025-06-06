@@ -45,6 +45,11 @@ restore_from_s3() {
     if aws s3 ls s3://${S3_BUCKET}/${S3_BACKUP_PATH}/ &>/dev/null; then
         echo "Found world backup in S3, restoring..."
         aws s3 sync s3://${S3_BUCKET}/${S3_BACKUP_PATH}/ ${MINECRAFT_DATA_DIR}/
+
+        # Fix permissions after restore
+        echo "Fixing permissions on restored data..."
+        chmod -R 755 ${MINECRAFT_DATA_DIR}
+
         echo "World data restored from S3."
     else
         echo "No existing world data found in S3."

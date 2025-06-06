@@ -40,7 +40,7 @@ Parameters:
     Description: Interval between backups in seconds (default is 1 hour).
   IdleThresholdSeconds:
     Type: Number
-    Default: 1800
+    Default: 900
     Description: Time in seconds before shutting down when idle (default is 30 minutes).
   CheckIntervalSeconds:
     Type: Number

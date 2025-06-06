@@ -30,11 +30,11 @@ The template accepts the following parameters:
 | EcsClusterName        | Name of the ECS Cluster                | minecraft-server-cluster  |
 | EcrRepositoryName     | Name of the ECR repository             | minecraft-server-repo     |
 | EcsTaskDefinitionName | Task Definition name                   | minecraft-server-task-def |
-| S3BucketName          | Name of the S3 bucket                  | akarkin1-minecraf-s3              |
+| S3BucketName          | Name of the S3 bucket                  | akarkin1-minecraf-s3      |
 | S3BackupPath          | Path within the S3 bucket              | world-backup              |
 | RconPassword          | Password for RCON access               | (No default, required)    |
 | BackupIntervalSeconds | Interval between backups               | 3600 (1 hour)             |
-| IdleThresholdSeconds  | Time before shutting down when idle    | 1800 (30 minutes)         |
+| IdleThresholdSeconds  | Time before shutting down when idle    | 900 (15 minutes)          |
 | CheckIntervalSeconds  | Interval between player checks         | 300 (5 minutes)           |
 | MinecraftServerMemory | Memory for the task                    | 4096 MB                   |
 | MinecraftServerCpu    | CPU units for the task                 | 2048                      |

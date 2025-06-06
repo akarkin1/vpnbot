@@ -23,7 +23,7 @@ The following environment variables can be set when launching the ECS task:
 - `S3_BUCKET_NAME`: Name of the S3 bucket for backups (default: akarkin1-minecraf-s3)
 - `S3_BACKUP_PATH`: Path within the S3 bucket for backups (default: world-backup)
 - `BACKUP_INTERVAL_SECONDS`: Interval between backups in seconds (default: 3600 - 1 hour)
-- `IDLE_THRESHOLD_SECONDS`: Time in seconds before shutting down when idle (default: 1800 - 30 minutes)
+- `IDLE_THRESHOLD_SECONDS`: Time in seconds before shutting down when idle (default: 900 - 15 minutes)
 - `CHECK_INTERVAL_SECONDS`: Interval between player checks in seconds (default: 300 - 5 minutes)
 
 ### S3 Bucket

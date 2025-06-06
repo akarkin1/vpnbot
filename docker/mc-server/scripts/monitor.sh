@@ -3,7 +3,7 @@ set -e
 
 # Configuration
 CHECK_INTERVAL_SECONDS=${CHECK_INTERVAL_SECONDS:-300}  # Default: Check every 5 minutes
-IDLE_THRESHOLD_SECONDS=${IDLE_THRESHOLD_SECONDS:-1800}  # Default: Shutdown after 30 minutes of inactivity
+IDLE_THRESHOLD_SECONDS=${IDLE_THRESHOLD_SECONDS:-900}  # Default: Shutdown after 15 minutes of inactivity
 MINECRAFT_DATA_DIR="/data"
 # Use /tmp for the last active file to avoid permission issues
 LAST_ACTIVE_FILE="/tmp/.minecraft_last_active"

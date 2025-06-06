@@ -34,10 +34,12 @@ perform_backup() {
 # Main backup loop
 echo "Starting backup service. Will backup every ${BACKUP_INTERVAL_SECONDS} seconds."
 while true; do
-    # Perform backup
-    perform_backup
-
     # Wait for the next backup interval
     echo "Next backup scheduled in ${BACKUP_INTERVAL_SECONDS} seconds."
     sleep ${BACKUP_INTERVAL_SECONDS}
+
+    # Perform backup
+    # Do not perform the backup straightaway after the application has started!
+    # It should be done after the timeout
+    perform_backup
 done
