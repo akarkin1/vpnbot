@@ -26,6 +26,7 @@ perform_final_backup() {
         --exclude "*.gz" \
         --exclude "crash-reports/*" \
         --exclude "logs/*" \
+        --exact-timestamps \
         --delete
 
     echo "Final backup completed. Shutting down..."

@@ -26,6 +26,7 @@ perform_backup() {
         --exclude "*.gz" \
         --exclude "crash-reports/*" \
         --exclude "logs/*" \
+        --exact-timestamps \
         --delete
 
     echo "$(date): Backup completed."
