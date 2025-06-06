@@ -50,6 +50,14 @@ Parameters:
     Type: String
     Default: 4096
     Description: Memory (in MB) to allocate to the Minecraft server task.
+  MinecraftServerInitJvmMemory:
+    Type: String
+    Default: 2048
+    Description: Initial heap size (in MB) to allocate for the main JVM process
+  MinecraftServerMaxJvmMemory:
+    Type: String
+    Default: 3072
+    Description: Max heap size (in MB) to allocate for the main JVM process
   MinecraftServerCpu:
     Type: String
     Default: 2048
@@ -319,8 +327,10 @@ Resources:
               Value: !Ref IdleThresholdSeconds
             - Name: CHECK_INTERVAL_SECONDS
               Value: !Ref CheckIntervalSeconds
-            - Name: MEMORY
-              Value: !Sub "${MinecraftServerMemory}MB"
+            - Name: INIT_MEMORY
+              Value: !Sub "${MinecraftServerInitJvmMemory}m"
+            - Name: MAX_MEMORY
+              Value: !Sub "${MinecraftServerMaxJvmMemory}m"
       Tags:
         - Key: Name
           Value: !Ref EcsTaskDefinitionName
