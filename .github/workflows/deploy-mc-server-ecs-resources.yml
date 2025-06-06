@@ -32,7 +32,7 @@ on:
           - no
 
 env:
-  MINECRAFT_BUCKET_NAME: gh-${{ github.repository_owner }}_minecraft_s3-${{ github.event.inputs.region }}
+  MINECRAFT_BUCKET_NAME: gh-${{ github.repository_owner }}-minecraft-${{ github.event.inputs.region }}-s3
 
 jobs:
   deploy-minecraft-server:
