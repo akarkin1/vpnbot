@@ -51,69 +51,11 @@ restore_from_s3() {
     fi
 }
 
-# Function to set up whitelist and ops
-setup_player_permissions() {
-    # Create whitelist.json if it doesn't exist
-    if [ ! -f "${MINECRAFT_DATA_DIR}/whitelist.json" ]; then
-        echo "Creating whitelist.json..."
-        # Note: These UUIDs are placeholders and should be replaced with real player UUIDs in production
-        # You can obtain real UUIDs from https://mcuuid.net/ or from server logs when players join
-        echo '[
-            {"uuid": "d0d1aa3c-20ac-4167-8ba7-7b4862d9cbaf", "name": "MartyByrde"}
-        ]' > "${MINECRAFT_DATA_DIR}/whitelist.json"
-    fi
-
-    # Create ops.json if it doesn't exist
-    if [ ! -f "${MINECRAFT_DATA_DIR}/ops.json" ]; then
-        echo "Creating ops.json..."
-        # Using the same UUID for admin1 as in the whitelist
-        # The "level" parameter determines operator permission level (1-4):
-        # - Level 1: Can bypass spawn protection
-        # - Level 2: Level 1 + can use commands like /clear, /difficulty, /gamemode, /gamerule, /give, /tp
-        # - Level 3: Level 2 + can use commands like /ban, /deop, /kick, /op
-        # - Level 4: Level 3 + can use /stop (to stop the server)
-        echo '[
-            {"uuid": "d0d1aa3c-20ac-4167-8ba7-7b4862d9cbaf", "name": "MartyByrde", "level": 4, "bypassesPlayerLimit": true}
-        ]' > "${MINECRAFT_DATA_DIR}/ops.json"
-    fi
-}
-
-# Function to set up server properties
-setup_server_properties() {
-    # Create server.properties if it doesn't exist or update it
-    if [ ! -f "${MINECRAFT_DATA_DIR}/server.properties" ]; then
-        echo "Creating server.properties..."
-        touch "${MINECRAFT_DATA_DIR}/server.properties"
-    fi
-
-    # Set RCON properties
-    if [ -n "${RCON_PASSWORD}" ]; then
-        echo "Setting RCON password..."
-        sed -i '/rcon.password=/d' "${MINECRAFT_DATA_DIR}/server.properties"
-        echo "rcon.password=${RCON_PASSWORD}" >> "${MINECRAFT_DATA_DIR}/server.properties"
-    else
-        echo "WARNING: RCON_PASSWORD environment variable not set. Using default password."
-    fi
-
-    # Ensure whitelist is enforced
-    sed -i '/enforce-whitelist=/d' "${MINECRAFT_DATA_DIR}/server.properties"
-    echo "enforce-whitelist=true" >> "${MINECRAFT_DATA_DIR}/server.properties"
-
-    sed -i '/white-list=/d' "${MINECRAFT_DATA_DIR}/server.properties"
-    echo "white-list=true" >> "${MINECRAFT_DATA_DIR}/server.properties"
-}
-
 # Main execution
 echo "Starting Minecraft server setup..."
 
 # Restore from S3 if data exists
 restore_from_s3
-
-# Set up player permissions
-setup_player_permissions
-
-# Set up server properties
-setup_server_properties
 
 # Start the backup and monitoring scripts in the background
 echo "Starting backup and monitoring scripts..."

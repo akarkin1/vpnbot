@@ -53,10 +53,12 @@ To modify these defaults, edit the `entrypoint.sh` script.
 The main entry point for the container. It:
 - Restores data from S3 if available
 - Sets up player permissions (whitelist and ops)
-- Configures server properties
+- Relies on environment variables for server properties configuration
 - Starts the backup and monitoring scripts
 - Launches the Minecraft server
 - Handles SIGTERM signals to ensure data is backed up before container termination
+
+> **Note:** The script does not directly modify server.properties. Instead, it relies on the base image's mechanism of using environment variables to configure the server. This avoids permission issues that can occur when trying to modify server.properties directly.
 
 The script is designed to remain as PID 1 in the container, which allows it to properly receive and handle SIGTERM signals from AWS ECS when the container is being terminated. When a SIGTERM signal is received, the script:
 1. Tells the Minecraft server to save all current data
@@ -76,6 +78,8 @@ Monitors player activity and manages server shutdown:
 - Checks for connected players at regular intervals
 - Tracks idle time when no players are connected
 - Shuts down the server when idle for too long
+
+> **Note:** The script stores the last active timestamp in /tmp/.minecraft_last_active rather than in the /data directory to avoid permission issues.
 
 ## AWS ECS Setup
 
@@ -145,3 +149,14 @@ docker run -e RCON_PASSWORD=your_password -p 25565:25565 -p 25575:25575 minecraf
 - The server automatically accepts the Minecraft EULA
 - All world data is stored in the container's `/data` directory
 - Logs, crash reports, and other temporary files are excluded from backups
+
+## Troubleshooting
+
+### Permission Issues
+
+If you encounter permission errors like `java.nio.file.AccessDeniedException: /data/server.properties`, this is because the base image (itzg/minecraft-server) expects to manage server.properties itself based on environment variables. The scripts have been designed to avoid directly modifying files in the /data directory to prevent these permission issues:
+
+1. Server properties are configured through environment variables rather than direct file modifications
+2. Temporary files (like the last active timestamp) are stored in /tmp rather than in the /data directory
+
+If you need to customize server properties, use the appropriate environment variables as documented in the [itzg/minecraft-server documentation](https://github.com/itzg/docker-minecraft-server).

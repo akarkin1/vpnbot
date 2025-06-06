@@ -19,11 +19,16 @@ ENV EULA=TRUE \
     TYPE=VANILLA \
     ENABLE_RCON=true \
     RCON_PORT=25575 \
-    ENFORCE_WHITELIST=TRUE
+    ENFORCE_WHITELIST=TRUE \
+    WHITELIST=MartyByrde \
+    OPS=MartyByrde
 
 # Copy scripts
 COPY ./scripts/ /scripts/
 RUN chmod +x /scripts/*.sh
+
+# Run as root to ensure write access to /data
+USER root
 
 # Set the entrypoint to our custom startup script
 ENTRYPOINT ["/scripts/entrypoint.sh"]
