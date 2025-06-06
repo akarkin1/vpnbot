@@ -150,6 +150,8 @@ Resources:
   # S3 Bucket for Minecraft World Backups
   MinecraftServerS3Bucket:
     Type: AWS::S3::Bucket
+    # Even when CF template deletion is triggered, the bucket will be retained, since it has backed up world data
+    DeletionPolicy: Retain
     Properties:
       BucketName: !Ref S3BucketName
 #      VersioningConfiguration:
