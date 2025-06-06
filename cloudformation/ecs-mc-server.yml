@@ -319,6 +319,8 @@ Resources:
               Value: !Ref IdleThresholdSeconds
             - Name: CHECK_INTERVAL_SECONDS
               Value: !Ref CheckIntervalSeconds
+            - Name: MEMORY
+              Value: !Sub "${MinecraftServerMemory}MB"
       Tags:
         - Key: Name
           Value: !Ref EcsTaskDefinitionName
