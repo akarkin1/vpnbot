@@ -334,6 +334,8 @@ Resources:
               Value: !Sub "${MinecraftServerInitJvmMemory}m"
             - Name: MAX_MEMORY
               Value: !Sub "${MinecraftServerMaxJvmMemory}m"
+            - Name: ONLINE_MODE
+              Value: 'FALSE'
       Tags:
         - Key: Name
           Value: !Ref EcsTaskDefinitionName
