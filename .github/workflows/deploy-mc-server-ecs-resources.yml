@@ -31,6 +31,9 @@ on:
           - yes
           - no
 
+env:
+  MINECRAFT_BUCKET_NAME: gh-${{ github.repository_owner }}_minecraft_s3-${{ github.event.inputs.region }}
+
 jobs:
   deploy-minecraft-server:
     name: Deploy Minecraft Server ECS Resources
@@ -71,8 +74,9 @@ jobs:
           parameter-overrides: >-
             EcsClusterName=${{ github.event.inputs.cluster-name }},
             EcrRepositoryName=${{ github.event.inputs.repository-name }},
-            RconPassword=${{ secrets.MINECRAFT_RCON_PASSWORD }}
-      
+            RconPassword=${{ secrets.MINECRAFT_RCON_PASSWORD }},
+            S3BucketName=${{ env.MINECRAFT_BUCKET_NAME }}
+
       - name: Login to Amazon ECR
         id: login-to-ecr
         if: ${{ github.event.inputs.run-docker == 'true' }}

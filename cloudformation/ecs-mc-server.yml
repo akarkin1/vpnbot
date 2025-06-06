@@ -1,6 +1,7 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: Minecraft Server on ECS Stack
 
+
 Parameters:
   ClientIPCIDR:
     Type: String
@@ -24,7 +25,7 @@ Parameters:
     Description: Task Definition name for the Minecraft server.
   S3BucketName:
     Type: String
-    Default: akarkin1-minecraf-s3
+    Default: 'minecraft-s3'
     Description: Name of the S3 bucket for Minecraft world backups.
   S3BackupPath:
     Type: String
