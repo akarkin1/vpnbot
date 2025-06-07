@@ -80,6 +80,16 @@ TASK_ARN=$(aws ecs run-task \
     --task-definition $TASK_DEFINITION_ARN \
     --launch-type FARGATE \
     --network-configuration "awsvpcConfiguration={subnets=[$SUBNET_ID],securityGroups=[$SECURITY_GROUP_ID],assignPublicIp=ENABLED}" \
+      --overrides '{
+        "containerOverrides": [
+          {
+            "name": "minecraft-server",
+            "environment": [
+              {"name": "ENFORCE_WHITELIST", "value": "FALSE"}
+            ]
+          }
+        ]
+      }' \
     --query 'tasks[0].taskArn' \
     --output text)
 
