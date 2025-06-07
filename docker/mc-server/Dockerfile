@@ -19,9 +19,7 @@ ENV EULA=TRUE \
     TYPE=VANILLA \
     ENABLE_RCON=true \
     RCON_PORT=25575 \
-    ENFORCE_WHITELIST=TRUE \
-    WHITELIST=MartyByrde \
-    OPS=MartyByrde
+    ENFORCE_WHITELIST=FALSE
 
 # Copy scripts
 COPY ./scripts/ /scripts/
