@@ -3,18 +3,18 @@ package org.github.akarkin1.dispatcher.command;
 import lombok.RequiredArgsConstructor;
 import org.github.akarkin1.auth.Permission;
 import org.github.akarkin1.dispatcher.response.TextCommandResponse;
-import org.github.akarkin1.tailscale.TailscaleNodeService;
+import org.github.akarkin1.service.NodeService;
 
 import java.util.List;
 
 @RequiredArgsConstructor
 public final class SupportedRegionCommand implements BotCommand<TextCommandResponse> {
 
-  private final TailscaleNodeService tailscaleNodeService;
+  private final NodeService nodeService;
 
   @Override
   public TextCommandResponse run(List<String> args) {
-    List<String> regionDescriptions = tailscaleNodeService.getSupportedRegionDescriptions();
+    List<String> regionDescriptions = nodeService.getSupportedRegionDescriptions();
     StringBuilder responseBuilder = new StringBuilder();
     if (regionDescriptions.isEmpty()) {
       responseBuilder.append("${command.supported-regions.no-supported-regions.message}");

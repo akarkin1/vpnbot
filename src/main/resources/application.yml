@@ -5,9 +5,14 @@ auth:
 
 s3:
   config-bucket: vpntgbot-s3
-  config-root-dir: ecs-tailscale-node/config
+  config-root-dir: config/
+  supported-regions:
+    vpn: tailscale-node/supported-regions.txt
+    minecraft: minecraft-server/supported-regions.txt
   regions-key: supported-regions.txt
-  stack-output-parameters-key: vpn-ecs-resources-output-parameters.json
+  service-stack-output-parameters:
+    vpn: tailscale-node/stack-output-parameters.json
+    minecraft: minecraft-server/stack-output-parameters.json
   user-permissions-key: user-permissions.json
   cache-supported-regions: false
   cache-task-runtime-parameters: true

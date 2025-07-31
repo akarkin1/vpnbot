@@ -45,8 +45,16 @@ public class S3TaskConfigService implements TaskConfigService {
 
   @Override
   public List<Region> getSupportedRegions() throws S3DownloadFailureException {
-    String regionsContent = s3ConfigManager.downloadConfigFromS3(config.getRegionsKey());
+    String serviceName = "vpn";
+
+    String regionsContent = s3ConfigManager.downloadConfigFromS3(config.getSupportedRegions().get(serviceName));
     return parseRegions(regionsContent);
+  }
+
+  @Override
+  public TaskRuntimeParameters getTaskRuntimeParameters(Region region) throws S3DownloadFailureException {
+    // Default to VPN service type for backward compatibility
+    return getTaskRuntimeParameters(region, "vpn");
   }
 
   private static List<Region> parseRegions(String content) {
@@ -65,13 +73,21 @@ public class S3TaskConfigService implements TaskConfigService {
   }
 
   @Override
-  public TaskRuntimeParameters getTaskRuntimeParameters(Region region)
+  public TaskRuntimeParameters getTaskRuntimeParameters(Region region, String serviceType)
       throws S3DownloadFailureException {
 
+    String parametersKey;
+    if (config.getServiceStackOutputParameters() != null && config.getServiceStackOutputParameters().containsKey(serviceType)) {
+      parametersKey = config.getServiceStackOutputParameters().get(serviceType);
+    } else {
+      // Fallback to the old property for backward compatibility
+      parametersKey = config.getStackOutputParametersKey();
+    }
+
     String jsonContent = s3ConfigManager.downloadConfigFromS3(
-        joinPath(region.id(), config.getStackOutputParametersKey()));
+        joinPath(region.id(), parametersKey));
     List<CfnStackOutputParameter> outputParameters = parseJson(jsonContent,
-                                                               new TypeReference<>() {});
+                                                             new TypeReference<>() {});
 
     val runtimeParamBuilder = TaskRuntimeParameters.builder();
     for (CfnStackOutputParameter stackOutParam : outputParameters) {

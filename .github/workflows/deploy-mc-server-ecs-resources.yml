@@ -33,6 +33,13 @@ on:
 
 env:
   MINECRAFT_BUCKET_NAME: gh-${{ github.repository_owner }}-minecraft-${{ github.event.inputs.region }}-s3
+  S3_CONFIG_BUCKET_NAME: ${{ vars.S3_MC_CONFIG_BUCKET_NAME }}
+  S3_CONFIG_DIR: ${{ vars.S3_MC_CONFIG_DIR }}
+  S3_SUPPORTED_REGIONS_FILE_NAME: ${{ vars.S3_SUPPORTED_REGIONS_FILE_NAME }}
+  S3_CONFIG_REGIONS_FILE_URL: s3://${{ vars.S3_MC_CONFIG_BUCKET_NAME }}/${{ vars.S3_MC_CONFIG_DIR }}/${{ vars.S3_SUPPORTED_REGIONS_FILE_NAME }}
+  S3_CONFIG_BUCKET_REGION: ${{ vars.CONFIG_BASE_REGION }}
+  S3_STACK_OUTPUTS_FILE_NAME: ${{ vars.S3_MC_SERVER_STACK_OUTPUTS_FILE_NAME }}
+  S3_STACK_OUTPUTS_FILE_URL: s3://${{ vars.S3_MC_CONFIG_BUCKET_NAME }}/${{ vars.S3_MC_CONFIG_DIR }}/${{ github.event.inputs.region }}/${{ vars.S3_MC_SERVER_STACK_OUTPUTS_FILE_NAME }}
 
 jobs:
   deploy-minecraft-server:
@@ -54,7 +61,7 @@ jobs:
       - name: Checkout Source Code
         if: ${{ github.event.inputs.run-docker == 'true' || github.event.inputs.run-cfn-deploy == 'true' }}
         uses: actions/checkout@v4
-      
+
       - name: Configure AWS Credentials
         if: ${{ github.event.inputs.run-docker == 'true' || github.event.inputs.run-cfn-deploy == 'true' }}
         uses: aws-actions/configure-aws-credentials@v4
@@ -62,7 +69,7 @@ jobs:
           aws-region: ${{ github.event.inputs.region }}
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      
+
       - name: Deploy Cloud Formation Stack
         id: deploy-cfn-stack
         if: ${{ github.event.inputs.run-cfn-deploy == 'true' }}
@@ -77,11 +84,35 @@ jobs:
             RconPassword=${{ secrets.MINECRAFT_RCON_PASSWORD }},
             S3BucketName=${{ env.MINECRAFT_BUCKET_NAME }}
 
+      - name: Update Task Configuration In S3
+        id: upload-config-to-s3
+        if: ${{ github.event.inputs.run-cfn-deploy == 'true' }}
+        run: |
+          # Save CF Template outputs to S3
+          STACK_OUTPUTS=$(aws cloudformation describe-stacks --stack-name minecraft-server-stack --query 'Stacks[0].Outputs' --output json)
+          echo "$STACK_OUTPUTS" > ./stack-outputs.json
+          aws s3 cp ./stack-outputs.json ${{ env.S3_STACK_OUTPUTS_FILE_URL }} --region ${{ env.S3_CONFIG_BUCKET_REGION }}
+
+          # Update regions.txt
+          if [ $(aws s3api head-object --bucket "${{ env.S3_CONFIG_BUCKET_NAME }}" --key "${{ env.S3_CONFIG_DIR }}/${{ env.S3_SUPPORTED_REGIONS_FILE_NAME }}" --region ${{ env.S3_CONFIG_BUCKET_REGION }} >/dev/null 2>&1; echo $?) = 0 ]; then
+            aws s3 cp "${{ env.S3_CONFIG_REGIONS_FILE_URL }}" ./regions.txt --region "${{ env.S3_CONFIG_BUCKET_REGION }}"
+            # If region already exists, remove it first
+            grep -v "^${{ github.event.inputs.region }}$" ./regions.txt > ./regions-new.txt
+            rm regions.txt
+            mv regions-new.txt regions.txt
+          else
+            touch ./regions.txt
+          fi
+
+          # Add region
+          echo "${{ github.event.inputs.region }}" >> ./regions.txt
+          aws s3 cp ./regions.txt "${{ env.S3_CONFIG_REGIONS_FILE_URL }}" --region "${{ env.S3_CONFIG_BUCKET_REGION }}"
+
       - name: Login to Amazon ECR
         id: login-to-ecr
         if: ${{ github.event.inputs.run-docker == 'true' }}
         uses: aws-actions/amazon-ecr-login@v2
-      
+
       - name: Build, tag, and push the image to Amazon ECR
         id: build-image
         if: ${{ github.event.inputs.run-docker == 'true' }}

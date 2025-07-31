@@ -3,6 +3,7 @@ package org.github.akarkin1.ecs;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.ToString;
+import org.github.akarkin1.service.ServiceType;
 import software.amazon.awssdk.regions.Region;
 
 
@@ -18,5 +19,6 @@ public class TaskInfo {
   private String publicIp;
   private String location;
   private Region region;
+  private ServiceType serviceType;
 
 }

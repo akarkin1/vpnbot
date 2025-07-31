@@ -1,4 +1,4 @@
-package org.github.akarkin1.tailscale;
+package org.github.akarkin1.service;
 
 import org.github.akarkin1.config.CachedS3TaskConfigService;
 import org.github.akarkin1.config.ConfigManager;
@@ -11,9 +11,17 @@ import org.github.akarkin1.ecs.EcsClientPool;
 import org.github.akarkin1.ecs.EcsManager;
 import org.github.akarkin1.ecs.EcsManagerImpl;
 
-public class TailscaleEcsNodeServiceConfigurer {
+/**
+ * Configurer for the EcsNodeService.
+ */
+public class EcsNodeServiceConfigurer {
 
-  public TailscaleNodeService configure() {
+  /**
+   * Configure and create an EcsNodeService.
+   *
+   * @return the configured EcsNodeService
+   */
+  public NodeService configure() {
     YamlApplicationConfiguration appConfig = ConfigManager.getApplicationYaml();
 
     S3Configuration s3Config = appConfig.getS3();
@@ -22,10 +30,9 @@ public class TailscaleEcsNodeServiceConfigurer {
     EcsClientPool ecsClientPool = new EcsClientPool();
     Ec2ClientPool ec2ClientPool = new Ec2ClientPool();
     EcsManager ecsManager = new EcsManagerImpl(cachedConfigService, ecsClientPool,
-                                               ec2ClientPool, appConfig.getEcs(),
-                                               appConfig.getAws().getRegionCities());
+                                             ec2ClientPool, appConfig.getEcs(),
+                                             appConfig.getAws().getRegionCities());
 
-    return new TailscaleEcsNodeService(ecsManager, appConfig.getEcs(), appConfig.getAws());
+    return new EcsNodeService(ecsManager, appConfig.getEcs(), appConfig.getAws());
   }
-
 }

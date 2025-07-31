@@ -20,12 +20,13 @@ import org.github.akarkin1.dispatcher.CommandDispatcher;
 import org.github.akarkin1.dispatcher.command.DeleteUsersCommand;
 import org.github.akarkin1.dispatcher.command.DescribeRolesCommand;
 import org.github.akarkin1.dispatcher.command.ListNodesCommand;
+import org.github.akarkin1.dispatcher.command.ListServicesCommand;
 import org.github.akarkin1.dispatcher.command.ListUsersCommand;
 import org.github.akarkin1.dispatcher.command.RunNodeCommand;
 import org.github.akarkin1.dispatcher.command.SupportedRegionCommand;
 import org.github.akarkin1.dispatcher.command.VersionCommand;
-import org.github.akarkin1.tailscale.TailscaleEcsNodeServiceConfigurer;
-import org.github.akarkin1.tailscale.TailscaleNodeService;
+import org.github.akarkin1.service.EcsNodeServiceConfigurer;
+import org.github.akarkin1.service.NodeService;
 import org.github.akarkin1.tg.BotCommunicator;
 import org.github.akarkin1.tg.TgRequestContext;
 import org.github.akarkin1.translation.ResourceBasedTranslator;
@@ -44,7 +45,7 @@ import static org.github.akarkin1.config.ConfigManager.getEventTtlSec;
 import static org.github.akarkin1.tg.TelegramBotFactory.sender;
 
 @Log4j2
-public class TailscaleVpnLambdaHandler implements
+public class ServiceLambdaHandler implements
     RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
@@ -60,7 +61,7 @@ public class TailscaleVpnLambdaHandler implements
     EVENTS_REGISTRY = new FSUpdateEventsRegistry(getEventTtlSec(), getEventRootDir());
 
     final AbsSender sender = sender(getBotToken(), getBotUsernameEnv());
-    final TailscaleNodeService nodeService = new TailscaleEcsNodeServiceConfigurer().configure();
+    final NodeService nodeService = new EcsNodeServiceConfigurer().configure();
     final PermissionsService permissionsService = new PermissionsServiceConfigurer().configure();
     final Authorizer authorizer = new AuthorizerConfigurer().configure(permissionsService);
 
@@ -70,11 +71,13 @@ public class TailscaleVpnLambdaHandler implements
     COMMAND_DISPATCHER.registerCommand("/version", new VersionCommand());
     COMMAND_DISPATCHER.registerCommand("/listRunningNodes", new ListNodesCommand(
         nodeService, authorizer));
-    COMMAND_DISPATCHER.registerCommand("/runNodeIn",
+    COMMAND_DISPATCHER.registerCommand("/runNode",
                                        new RunNodeCommand(nodeService,
                                                           COMMUNICATOR::sendMessageToTheBot));
     COMMAND_DISPATCHER.registerCommand("/supportedRegions",
                                        new SupportedRegionCommand(nodeService));
+    COMMAND_DISPATCHER.registerCommand("/listServices",
+                                       new ListServicesCommand(nodeService));
     COMMAND_DISPATCHER.registerCommand("/assignRoles",
                                        new AssignRolesCommand(permissionsService));
     COMMAND_DISPATCHER.registerCommand("/describeRoles",
@@ -99,7 +102,7 @@ public class TailscaleVpnLambdaHandler implements
       log.debug("Received payload: {}", receivedPayload);
       if (StringUtils.isBlank(receivedPayload)) {
         return new APIGatewayProxyResponseEvent()
-            .withBody("VPN Bot Lambda performs noramlly. Application version: %s "
+            .withBody("Service Bot Lambda performs normally. Application version: %s "
                           .formatted(getAppVersion()))
             .withStatusCode(200);
       }
@@ -164,5 +167,4 @@ public class TailscaleVpnLambdaHandler implements
     log.info("User {} has started communication with the bot", userName);
     COMMAND_DISPATCHER.handle(update);
   }
-
 }

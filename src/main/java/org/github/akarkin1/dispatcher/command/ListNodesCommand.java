@@ -5,7 +5,7 @@ import org.github.akarkin1.auth.Authorizer;
 import org.github.akarkin1.auth.Permission;
 import org.github.akarkin1.dispatcher.response.TextCommandResponse;
 import org.github.akarkin1.ecs.TaskInfo;
-import org.github.akarkin1.tailscale.TailscaleNodeService;
+import org.github.akarkin1.service.NodeService;
 import org.github.akarkin1.tg.TgRequestContext;
 
 import java.util.List;
@@ -13,7 +13,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public final class ListNodesCommand implements BotCommand<TextCommandResponse> {
 
-  private final TailscaleNodeService tailscaleNodeService;
+  private final NodeService nodeService;
   private final Authorizer authorizer;
 
   @Override
@@ -29,7 +29,7 @@ public final class ListNodesCommand implements BotCommand<TextCommandResponse> {
       username = null;
     }
 
-    List<TaskInfo> taskInfos = tailscaleNodeService.listTasks(username);
+    List<TaskInfo> taskInfos = nodeService.listTasks(username);
 
     if (taskInfos.isEmpty()) {
       return new TextCommandResponse("${command.list-nodes.no-nodes-run.message}");
@@ -40,6 +40,7 @@ public final class ListNodesCommand implements BotCommand<TextCommandResponse> {
 
     taskInfos.forEach(taskInfo ->
                           responseBuilder.append("\t– ${common.node.name.message}: %s%n".formatted(taskInfo.getHostName()))
+                              .append("\t\t${common.node.type.message}: %s%n".formatted(taskInfo.getServiceType().getDisplayName()))
                               .append("\t\t${common.node.status.message}: %s%n".formatted(taskInfo.getState()))
                               .append("\t\t${common.node.public-ip.message}: %s%n".formatted(taskInfo.getPublicIp()))
                               .append("\t\t${common.node.region.message}: %s (%s)%n".formatted(taskInfo.getLocation(), taskInfo.getRegion())));
