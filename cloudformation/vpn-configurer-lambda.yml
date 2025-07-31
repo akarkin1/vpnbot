@@ -270,7 +270,7 @@ Resources:
   LambdaRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: vpn-configurer-lambda-role
+      RoleName: vpn-configurer-lambda-role-${AWS::Region}
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -281,7 +281,7 @@ Resources:
             Action:
               - sts:AssumeRole
       Policies:
-        - PolicyName: vpn-configurer-lambda-policy
+        - PolicyName: vpn-configurer-lambda-policy-${AWS::Region}
           PolicyDocument:
             Version: 2012-10-17
             Statement:
