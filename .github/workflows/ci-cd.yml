@@ -5,6 +5,7 @@ name: VPN Bot Lambda CI-CD
 
 env:
   S3_CONFIG_BUCKET_NAME: ${{ vars.S3_CONFIG_BUCKET_NAME }}
+  S3_CONFIG_REGION: ${{ vars.CONFIG_BASE_REGION }}
 
 on:
   workflow_dispatch:
@@ -41,7 +42,7 @@ jobs:
     - name: Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
-        aws-region: eu-north-1
+        aws-region: ${{ env.S3_CONFIG_REGION }}
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 

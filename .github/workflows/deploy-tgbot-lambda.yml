@@ -6,7 +6,7 @@ on:
       region:
         description: 'AWS Region'
         required: true
-        default: eu-north-1
+        default: eu-central-1
       lambda-source-version:
         description: 'Source code version of the lambda'
         required: true
