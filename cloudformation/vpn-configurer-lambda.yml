@@ -168,13 +168,13 @@ Resources:
       VpcId: !Ref VpnConfigurerVpc
       SecurityGroupIngress:
         - IpProtocol: -1
-          FromPort: -1
-          ToPort: -1
+          FromPort: 0
+          ToPort: 65535
           CidrIp: !Ref ClientIPCIDR
       SecurityGroupEgress:
         - IpProtocol: tcp
-          FromPort: -1
-          ToPort: -1
+          FromPort: 0
+          ToPort: 65535
           CidrIp: !Ref ClientIPCIDR
 
   VpnConfigurerNatInstanceEIP:
