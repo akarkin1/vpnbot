@@ -38,7 +38,7 @@ Parameters:
   NatInstanceAMI:
     Type: String
     Description: Base AMI of the NAT Ec2 Instance via which traffic will be redirected.
-    Default: ami-02db68a01488594c5
+    Default: ami-0a72753edf3e631b7
   NatInstanceSize:
     Type: String
     Description: Size of EC2 Nat Instance
