@@ -4,7 +4,6 @@ auth:
   enabled: true
 
 s3:
-  config-bucket: ecs-mgmt-tg-bot-euc1-s3
   config-root-dir: config/
   service-configs:
     vpn:
@@ -18,15 +17,20 @@ s3:
   cache-task-runtime-parameters: true
 
 ecs:
-  service-name: tailscale-node
-  essential-container-name: vpn-container
-  host-name-env: TAILSCALE_HOSTNAME
+  essential-container-name: main-container
   service-name-tag: ServiceName
   host-name-tag: Hostname
   run-by-tag: RunBy
   health:
     interval-ms: 1000
     timeout-sec: 300
+  service-env:
+    vpn:
+      TAILSCALE_HOSTNAME: ${Hostname}
+    minecraft:
+      ENFORCE_WHITELIST: FALSE
+      S3_BACKUP_PATH: ${WorldDir}
+
 
 aws:
   region-cities:

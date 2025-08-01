@@ -11,12 +11,12 @@ import software.amazon.awssdk.regions.Region;
 @ToString
 public class TaskInfo {
 
-  private java.lang.String id;
-  private java.lang.String hostName;
-  private java.lang.String state;
-  private java.lang.String cluster;
-  private java.lang.String publicIp;
-  private java.lang.String location;
+  private String id;
+  private String hostName;
+  private String state;
+  private String cluster;
+  private String publicIp;
+  private String location;
   private Region region;
   private String serviceName;
 

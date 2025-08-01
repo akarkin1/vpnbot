@@ -42,7 +42,7 @@ public final class RunNodeCommand implements BotCommand<EmptyResponse> {
       return EmptyResponse.NONE;
     }
 
-    if (!nodeService.isRegionSupported(userRegion, "vpn")) {
+    if (!nodeService.isRegionSupported(userRegion, serviceName)) {
       messageConsumer.accept("${common.region.not-supported.error}",
                              userRegion);
       return EmptyResponse.NONE;
@@ -62,9 +62,10 @@ public final class RunNodeCommand implements BotCommand<EmptyResponse> {
 
     messageConsumer.accept("${command.run-node.node.running.message}", serviceName);
     TaskInfo taskInfo = nodeService.runNode(userRegion,
-                                           TgRequestContext.getUsername(),
-                                           userHost,
-                                            serviceName);
+                                            TgRequestContext.getUsername(),
+                                            userHost,
+                                            serviceName,
+                                            args.subList(2, args.size()));
     log.debug("Task is run, task info: {}", taskInfo);
     messageConsumer.accept("${command.run-node.task.started.message}");
     RunTaskStatus runTaskStatus = nodeService.checkNodeStatus(taskInfo);
@@ -74,16 +75,21 @@ public final class RunNodeCommand implements BotCommand<EmptyResponse> {
       messageConsumer.accept("${command.run-node.node.start-failed.error}");
     } else {
       Optional<TaskInfo> fullTaskInfo = nodeService.getFullTaskInfo(taskInfo.getRegion(),
-                                                                   taskInfo.getCluster(),
-                                                                   taskInfo.getId());
-      StringBuilder successMessage = new StringBuilder("${command.run-node.node.start-succeed.message}");
-      fullTaskInfo.ifPresent(fullInfoLocal -> successMessage.append(" ${common.node.details.message}:\n")
-        .append("\t- ${common.node.name.message}: %s%n".formatted(fullInfoLocal.getHostName()))
-        .append("\t\t${common.node.type.message}: %s%n".formatted(fullInfoLocal.getServiceName()))
-        .append("\t\t${common.node.status.message}: %s%n".formatted(fullInfoLocal.getState()))
-        .append("\t\t${common.node.public-ip.message}: %s%n".formatted(fullInfoLocal.getPublicIp()))
-        .append("\t\t${common.node.location.message}: %s (%s)".formatted(fullInfoLocal.getLocation(),
-                                                  fullInfoLocal.getRegion().id())));
+                                                                    taskInfo.getCluster(),
+                                                                    taskInfo.getId());
+      StringBuilder successMessage = new StringBuilder(
+        "${command.run-node.node.start-succeed.message}");
+      fullTaskInfo.ifPresent(
+        fullInfoLocal -> successMessage.append(" ${common.node.details.message}:\n")
+          .append("\t- ${common.node.name.message}: %s%n".formatted(fullInfoLocal.getHostName()))
+          .append("\t\t${common.node.type.message}: %s%n".formatted(fullInfoLocal.getServiceName()))
+          .append("\t\t${common.node.status.message}: %s%n".formatted(fullInfoLocal.getState()))
+          .append(
+            "\t\t${common.node.public-ip.message}: %s%n".formatted(fullInfoLocal.getPublicIp()))
+          .append(
+            "\t\t${common.node.location.message}: %s (%s)".formatted(fullInfoLocal.getLocation(),
+                                                                     fullInfoLocal.getRegion()
+                                                                       .id())));
 
       messageConsumer.accept(successMessage.toString());
     }

@@ -13,6 +13,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import software.amazon.awssdk.regions.Region;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -20,6 +21,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
@@ -150,12 +152,14 @@ class EcsNodeServiceTest {
         when(ecsConfig.getHostNameTag()).thenReturn("hostname");
         when(ecsConfig.getRunByTag()).thenReturn("runby");
         when(ecsConfig.getServiceNameTag()).thenReturn("service");
-        when(ecsManager.startTask(any(), eq(userHostName), eq(serviceName), any())).thenReturn(mockTaskInfo);
+        when(ecsManager.startTask(any(), eq(userHostName), eq(serviceName), any(),
+                                  anyList())).thenReturn(mockTaskInfo);
 
         EcsNodeService service = createService();
 
         // When
-        TaskInfo result = service.runNode(userRegion, userTgId, userHostName, serviceName);
+        TaskInfo result = service.runNode(userRegion, userTgId, userHostName, serviceName,
+                                          Collections.emptyList());
 
         // Then
         assertNotNull(result);
@@ -234,7 +238,7 @@ class EcsNodeServiceTest {
         EcsNodeService service = createService();
 
         // When
-        List<String> result = service.getSupportedServiceTypes();
+        List<String> result = service.getSupportedServices();
 
         // Then
         assertNotNull(result);

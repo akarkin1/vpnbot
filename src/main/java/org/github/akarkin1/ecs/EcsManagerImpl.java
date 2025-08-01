@@ -3,6 +3,8 @@ package org.github.akarkin1.ecs;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.text.StringSubstitutor;
 import org.github.akarkin1.config.TaskConfigService;
 import org.github.akarkin1.config.TaskRuntimeParameters;
 import org.github.akarkin1.config.YamlApplicationConfiguration.EcsConfiguration;
@@ -32,9 +34,13 @@ import software.amazon.awssdk.services.ecs.model.RunTaskResponse;
 import software.amazon.awssdk.services.ecs.model.Tag;
 import software.amazon.awssdk.services.ecs.model.Task;
 import software.amazon.awssdk.services.ecs.model.TaskField;
+import software.amazon.awssdk.utils.CollectionUtils;
+import software.amazon.awssdk.utils.MapUtils;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -46,7 +52,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class EcsManagerImpl implements EcsManager {
 
-  private static final String CONTAINER_NAME = "vpn-container";
   private static final String ELASTIC_NETWORK_INTERFACE_FIELD = "ElasticNetworkInterface";
   private static final String NETWORK_INTERFACE_ID = "networkInterfaceId";
 
@@ -57,7 +62,8 @@ public class EcsManagerImpl implements EcsManager {
   private final Map<String, String> regionToCitiesMap;
 
   @Override
-  public TaskInfo startTask(Region region, String hostName, String serviceName, Map<String, String> tags) {
+  public TaskInfo startTask(Region region, String hostName, String serviceName, Map<String, String> tags,
+                            List<String> additionalArgs) {
     TaskRuntimeParameters taskParams = taskConfigService.getTaskRuntimeParameters(region, serviceName);
     AwsVpcConfiguration awsVpcConfig = AwsVpcConfiguration.builder()
         .assignPublicIp(AssignPublicIp.ENABLED)
@@ -68,9 +74,12 @@ public class EcsManagerImpl implements EcsManager {
         .awsvpcConfiguration(awsVpcConfig)
         .build();
 
+    Map<String, String> envVarsValues = new HashMap<>();
+    envVarsValues.putAll(tags);
+    envVarsValues.putAll(parseAdditionalArgs(additionalArgs));
     ContainerOverride containerOverride = ContainerOverride.builder()
-        .name(CONTAINER_NAME)
-        .environment(env(config.getHostNameEnv(), hostName))
+        .name(config.getEssentialContainerName())
+        .environment(buildEnvs(config.getServiceEnv().get(serviceName).getEnvVars(), envVarsValues))
         .build();
 
     RunTaskRequest runTaskRequest = RunTaskRequest.builder()
@@ -97,6 +106,35 @@ public class EcsManagerImpl implements EcsManager {
         .cluster(taskParams.getEcsClusterName())
         .region(region)
         .build();
+  }
+
+  private Map<String, String> parseAdditionalArgs(List<String> additionalArgs) {
+    if (CollectionUtils.isNullOrEmpty(additionalArgs)) {
+      return Collections.emptyMap();
+    }
+
+    return additionalArgs.stream()
+      .filter(val -> val.strip().matches("^.*?=.*?$"))
+      .map(val -> {
+        String[] parts = val.split("=", 2);
+        return Map.entry(parts[0].strip(), parts[1].strip());
+      })
+      .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+  }
+
+  private Collection<KeyValuePair> buildEnvs(Map<String, String> envVars,
+                                             Map<String, String> replacements) {
+    return envVars.entrySet()
+      .stream()
+      .map(entry -> entry.getValue().matches("^\\$\\{.*?}$")
+        ? env(entry.getKey(), replacePlaceholders(entry.getValue(), replacements))
+        : env(entry.getKey(), entry.getValue()))
+      .filter(kvPair -> StringUtils.isNotBlank(kvPair.value()))
+      .toList();
+  }
+
+  private static String replacePlaceholders(String value, Map<String, String> replacements) {
+    return new StringSubstitutor(replacements).replace(value);
   }
 
   @Override
@@ -232,7 +270,6 @@ public class EcsManagerImpl implements EcsManager {
         }
       }
     }
-
 
     return foundTasks;
   }

@@ -62,7 +62,7 @@ public class S3TaskConfigService implements TaskConfigService {
 
   private void validateServiceName(String serviceName) {
     if (!config.getServiceConfigs().containsKey(serviceName)) {
-      throw new CommandExecutionFailedException("${error.unsupported.service}: " + serviceName);
+      throw new CommandExecutionFailedException("${common.command.unsupported-service.error}: " + serviceName);
     }
   }
 

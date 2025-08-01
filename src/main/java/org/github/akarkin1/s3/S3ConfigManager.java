@@ -3,6 +3,7 @@ package org.github.akarkin1.s3;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.io.IOUtils;
+import org.github.akarkin1.config.ConfigManager;
 import org.github.akarkin1.config.YamlApplicationConfiguration.S3Configuration;
 import org.github.akarkin1.config.exception.S3DownloadFailureException;
 import software.amazon.awssdk.core.ResponseInputStream;
@@ -26,7 +27,7 @@ public final class S3ConfigManager {
   }
 
   public String downloadConfigFromS3(String fileName) throws S3DownloadFailureException {
-    String bucket = config.getConfigBucket();
+    String bucket = ConfigManager.getS3ConfigBucket();
     GetObjectRequest request = GetObjectRequest.builder()
         .bucket(bucket)
         .key(joinPath(config.getConfigRootDir(), fileName))
@@ -44,7 +45,7 @@ public final class S3ConfigManager {
   }
 
   public void uploadConfigToS3(String fileName, String content) {
-    String bucket = config.getConfigBucket();
+    String bucket = ConfigManager.getS3ConfigBucket();
     PutObjectRequest request = PutObjectRequest.builder()
         .bucket(bucket)
         .key(joinPath(config.getConfigRootDir(), fileName))

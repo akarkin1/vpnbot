@@ -27,7 +27,6 @@ public class YamlApplicationConfiguration {
   @Setter
   public static class S3Configuration {
 
-    private String configBucket;
     private String configRootDir;
     private Map<String, ServiceConfig> serviceConfigs;
     private String userPermissionsKey;
@@ -50,11 +49,17 @@ public class YamlApplicationConfiguration {
     private String essentialContainerName;
     private String serviceName;
     private EcsContainerHealth health;
-    private String hostNameEnv;
     private String hostNameTag;
     private String runByTag;
     private String serviceNameTag;
+    private Map<String, ServiceEnvironment> serviceEnv;
 
+  }
+
+  @Getter
+  @Setter
+  public static class ServiceEnvironment {
+    private Map<String, String> envVars;
   }
 
   @Getter

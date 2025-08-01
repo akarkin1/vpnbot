@@ -11,7 +11,7 @@ public interface EcsManager {
 
   TaskInfo startTask(Region region,
                      String hostName,
-                     String serviceName, Map<String, String> tags);
+                     String serviceName, Map<String, String> tags, List<String> additionalArgs);
 
   RunTaskStatus checkTaskHealth(Region region, String clusterName, String taskId);
 

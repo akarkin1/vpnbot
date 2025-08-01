@@ -17,16 +17,16 @@ public final class ListServicesCommand implements BotCommand<TextCommandResponse
 
   @Override
   public TextCommandResponse run(List<java.lang.String> args) {
-    List<String> strings = nodeService.getSupportedServiceTypes();
+    List<String> supportedServices = nodeService.getSupportedServices();
 
-    if (strings.isEmpty()) {
+    if (supportedServices.isEmpty()) {
       return new TextCommandResponse("${command.list-services.no-services.message}");
     }
 
     StringBuilder responseBuilder = new StringBuilder();
     responseBuilder.append("${command.list-services.supported-services.message}: ").append("\n");
 
-    strings.forEach(serviceType ->
+    supportedServices.forEach(serviceType ->
                           responseBuilder.append("\t– %s".formatted(serviceType))
                               .append("\n"));
 
@@ -34,7 +34,7 @@ public final class ListServicesCommand implements BotCommand<TextCommandResponse
   }
 
   @Override
-  public java.lang.String getDescription() {
+  public String getDescription() {
     return "${command.list-services.description.message}";
   }
 

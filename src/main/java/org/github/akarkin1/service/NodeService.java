@@ -47,7 +47,8 @@ public interface NodeService {
    * @param serviceName the type of service to run
    * @return information about the task
    */
-  TaskInfo runNode(String userRegion, String userTgId, String userHostName, String serviceName);
+  TaskInfo runNode(String userRegion, String userTgId, String userHostName, String serviceName,
+                   List<String> additionalArgs);
 
   /**
    * Get full information about a task.
@@ -87,5 +88,5 @@ public interface NodeService {
    *
    * @return a list of supported service types
    */
-  List<String> getSupportedServiceTypes();
+  List<String> getSupportedServices();
 }

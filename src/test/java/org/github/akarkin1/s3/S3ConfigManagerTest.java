@@ -46,13 +46,10 @@ class S3ConfigManagerTest {
     void testDownloadConfigFromS3_shouldReturnFileContent() throws Exception {
         // Given
         String fileName = "test-config.yml";
-        String bucket = "test-bucket";
         String rootDir = "configs";
         String expectedContent = "test: value";
 
         S3ConfigManager manager = createS3ConfigManager();
-
-        when(config.getConfigBucket()).thenReturn(bucket);
         when(config.getConfigRootDir()).thenReturn(rootDir);
 
         ResponseInputStream<GetObjectResponse> responseStream = createResponseInputStream(expectedContent);
@@ -70,12 +67,10 @@ class S3ConfigManagerTest {
     void testDownloadConfigFromS3_whenS3ThrowsException_shouldThrowS3DownloadFailureException() {
         // Given
         String fileName = "test-config.yml";
-        String bucket = "test-bucket";
         String rootDir = "configs";
 
         S3ConfigManager manager = createS3ConfigManager();
 
-        when(config.getConfigBucket()).thenReturn(bucket);
         when(config.getConfigRootDir()).thenReturn(rootDir);
         when(s3Client.getObject(any(GetObjectRequest.class))).thenThrow(new RuntimeException("S3 error"));
 
@@ -90,12 +85,10 @@ class S3ConfigManagerTest {
         // Given
         String fileName = "test-config.yml";
         String content = "test: value";
-        String bucket = "test-bucket";
         String rootDir = "configs";
 
         S3ConfigManager manager = createS3ConfigManager();
 
-        when(config.getConfigBucket()).thenReturn(bucket);
         when(config.getConfigRootDir()).thenReturn(rootDir);
 
         // When

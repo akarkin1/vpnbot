@@ -102,7 +102,7 @@ public class ServiceLambdaHandler implements
       log.debug("Received payload: {}", receivedPayload);
       if (StringUtils.isBlank(receivedPayload)) {
         return new APIGatewayProxyResponseEvent()
-            .withBody("Service Bot Lambda performs normally. Application version: %s "
+            .withBody("ECS Bot Lambda performs normally. Application version: %s "
                           .formatted(getAppVersion()))
             .withStatusCode(200);
       }
@@ -167,4 +167,5 @@ public class ServiceLambdaHandler implements
     log.info("User {} has started communication with the bot", userName);
     COMMAND_DISPATCHER.handle(update);
   }
+
 }
