@@ -45,7 +45,7 @@ public class ConfigManager {
   }
 
   public static String getS3ConfigBucket() {
-    return envOrThrow(S3_CONFIG_BUCKET, () -> new IllegalStateException("Environment variable 'S3_CONFIG_BUCKET' is not set"));
+    return envOrDefault(S3_CONFIG_BUCKET, System.getProperty(S3_CONFIG_BUCKET));
   }
 
   public static String getAppVersion() {

@@ -1,16 +1,2 @@
 auth:
-  white-list-enabled: true
-  tgusers-white-list:
-    'karkin_ai':
-      - RUN_NODES
-      - ADMIN
-    'Ilya174':
-      - RUN_NODES
-    'Igorn_1964':
-      - RUN_NODES
-    'kalpltoska':
-      - RUN_NODES
-    'Veltmann':
-      - RUN_NODES
-    'nickrom0':
-      - RUN_NODES
+  enabled: true
