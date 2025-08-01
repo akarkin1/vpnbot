@@ -204,9 +204,13 @@
             <phase>process-classes</phase>
             <configuration>
               <proc>only</proc>
-              <annotationProcessors>
-                <annotationProcessor>org.apache.logging.log4j.core.config.plugins.processor.PluginProcessor</annotationProcessor>
-              </annotationProcessors>
+              <annotationProcessorPaths>
+                <path>
+                  <groupId>org.projectlombok</groupId>
+                  <artifactId>lombok</artifactId>
+                  <version>1.18.34</version>
+                </path>
+              </annotationProcessorPaths>
             </configuration>
           </execution>
         </executions>
