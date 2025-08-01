@@ -40,7 +40,7 @@ public final class ListNodesCommand implements BotCommand<TextCommandResponse> {
 
     taskInfos.forEach(taskInfo ->
                           responseBuilder.append("\t– ${common.node.name.message}: %s%n".formatted(taskInfo.getHostName()))
-                              .append("\t\t${common.node.type.message}: %s%n".formatted(taskInfo.getServiceType().getDisplayName()))
+                              .append("\t\t${common.node.type.message}: %s%n".formatted(taskInfo.getServiceName()))
                               .append("\t\t${common.node.status.message}: %s%n".formatted(taskInfo.getState()))
                               .append("\t\t${common.node.public-ip.message}: %s%n".formatted(taskInfo.getPublicIp()))
                               .append("\t\t${common.node.region.message}: %s (%s)%n".formatted(taskInfo.getLocation(), taskInfo.getRegion())));

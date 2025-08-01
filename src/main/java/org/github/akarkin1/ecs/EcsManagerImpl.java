@@ -57,8 +57,8 @@ public class EcsManagerImpl implements EcsManager {
   private final Map<String, String> regionToCitiesMap;
 
   @Override
-  public TaskInfo startTask(Region region, String hostName, Map<String, String> tags) {
-    TaskRuntimeParameters taskParams = taskConfigService.getTaskRuntimeParameters(region);
+  public TaskInfo startTask(Region region, String hostName, String serviceName, Map<String, String> tags) {
+    TaskRuntimeParameters taskParams = taskConfigService.getTaskRuntimeParameters(region, serviceName);
     AwsVpcConfiguration awsVpcConfig = AwsVpcConfiguration.builder()
         .assignPublicIp(AssignPublicIp.ENABLED)
         .securityGroups(taskParams.getSecurityGroupId())
@@ -178,64 +178,61 @@ public class EcsManagerImpl implements EcsManager {
   public List<TaskInfo> listTasks(Map<String, String> matchingTags) {
     List<TaskInfo> foundTasks = new ArrayList<>();
 
-    for (Region region : taskConfigService.getSupportedRegions()) {
-      TaskRuntimeParameters taskRuntimeParameters = taskConfigService.getTaskRuntimeParameters(
-          region);
-      String clusterName = taskRuntimeParameters.getEcsClusterName();
-      EcsClient client = ecsClientPool.get(region);
-      ListTasksRequest listTasksRequest = ListTasksRequest.builder()
-          .cluster(clusterName)
-          .build();
-      ListTasksResponse listTasksResponse = client.listTasks(listTasksRequest);
-      List<String> taskArns = listTasksResponse.taskArns();
-      if (taskArns.isEmpty()) {
-        continue;
-      }
-
-      DescribeTasksRequest describeTasksRequest = DescribeTasksRequest.builder()
-          .cluster(clusterName)
-          .tasks(taskArns)
-          .include(TaskField.TAGS)
-          .build();
-
-      DescribeTasksResponse describeTaskResp = client.describeTasks(describeTasksRequest);
-      for (Task task : describeTaskResp.tasks()) {
-        log.debug("Task tags: {}, checking tags: {}", task.tags(), matchingTags);
-        boolean tagMissmatch = task.tags()
-            .stream()
-            .anyMatch(tag -> matchingTags.containsKey(tag.key())
-                             && !matchingTags.get(tag.key()).equals(tag.value()));
-
-        if (tagMissmatch) {
+    for (String supportedService : taskConfigService.getSupportedServices()) {
+      for (Region region : taskConfigService.getSupportedRegions(supportedService)) {
+        TaskRuntimeParameters runtimeParams = taskConfigService.getTaskRuntimeParameters(region, supportedService);
+        String clusterName = runtimeParams.getEcsClusterName();
+        EcsClient client = ecsClientPool.get(region);
+        ListTasksRequest listTasksRequest = ListTasksRequest.builder()
+            .cluster(clusterName)
+            .build();
+        ListTasksResponse listTasksResponse = client.listTasks(listTasksRequest);
+        List<String> taskArns = listTasksResponse.taskArns();
+        if (taskArns.isEmpty()) {
           continue;
         }
 
-        log.debug("Task attachments: {}", task.attachments());
-
-        String publicIp = getTaskPublicIp(region, task);
-
-        log.debug("Task tags: {}, Hostname tag name: {}", task.tags(),
-                  config.getHostNameTag());
-        String hostName = task.tags()
-            .stream()
-            .filter(tag -> config.getHostNameTag().equals(tag.key()))
-            .map(Tag::value)
-            .findFirst()
-            .orElse(null);
-
-        TaskInfo taskInfo = TaskInfo.builder()
-            .hostName(hostName)
-            .id(taskIdFromArn(task.taskArn()))
-            .state(getContainerHealthStatus(task).name())
+        DescribeTasksRequest describeTasksRequest = DescribeTasksRequest.builder()
             .cluster(clusterName)
-            .region(region)
-            .location(regionToCitiesMap.get(region.id()))
-            .publicIp(publicIp)
+            .tasks(taskArns)
+            .include(TaskField.TAGS)
             .build();
 
-        foundTasks.add(taskInfo);
+        DescribeTasksResponse describeTaskResp = client.describeTasks(describeTasksRequest);
+        for (Task task : describeTaskResp.tasks()) {
+          log.debug("Task tags: {}, checking tags: {}", task.tags(), matchingTags);
+          boolean tagMissmatch = task.tags()
+              .stream()
+              .anyMatch(tag -> matchingTags.containsKey(tag.key())
+                               && !matchingTags.get(tag.key()).equals(tag.value()));
+
+          if (tagMissmatch) {
+            continue;
+          }
+
+          log.debug("Task attachments: {}", task.attachments());
+
+          String publicIp = getTaskPublicIp(region, task);
+
+          log.debug("Task tags: {}, Hostname tag name: {}", task.tags(),
+                    config.getHostNameTag());
+          String hostName = extractTag(task, config.getHostNameTag());
+
+          TaskInfo taskInfo = TaskInfo.builder()
+              .hostName(hostName)
+              .id(taskIdFromArn(task.taskArn()))
+              .state(getContainerHealthStatus(task).name())
+              .cluster(clusterName)
+              .region(region)
+              .location(regionToCitiesMap.get(region.id()))
+              .publicIp(publicIp)
+              .build();
+
+          foundTasks.add(taskInfo);
+        }
       }
     }
+
 
     return foundTasks;
   }
@@ -272,8 +269,8 @@ public class EcsManagerImpl implements EcsManager {
   }
 
   @Override
-  public Set<String> getSupportedRegions() {
-    return taskConfigService.getSupportedRegions()
+  public Set<String> getSupportedRegions(String serviceName) {
+    return taskConfigService.getSupportedRegions(serviceName)
         .stream()
         .map(Region::id)
         .collect(Collectors.toSet());
@@ -295,15 +292,12 @@ public class EcsManagerImpl implements EcsManager {
         .map(task -> {
           String publicIp = getTaskPublicIp(region, task);
 
-          String hostName = task.tags()
-              .stream()
-              .filter(tag -> config.getHostNameTag().equals(tag.key()))
-              .map(Tag::value)
-              .findFirst()
-              .orElse(null);
+          String hostName = extractTag(task, config.getHostNameTag());
+          String serviceName = extractTag(task, config.getServiceNameTag());
 
           return TaskInfo.builder()
               .hostName(hostName)
+              .serviceName(serviceName)
               .id(taskId)
               .state(getContainerHealthStatus(task).name())
               .cluster(clusterName)
@@ -313,6 +307,15 @@ public class EcsManagerImpl implements EcsManager {
               .build();
         })
         .findFirst();
+  }
+
+  private String extractTag(Task task, String tagName) {
+    return task.tags()
+        .stream()
+        .filter(tag -> tagName.equals(tag.key()))
+        .map(Tag::value)
+        .findFirst()
+        .orElse(null);
   }
 
 }

@@ -11,13 +11,13 @@ public interface EcsManager {
 
   TaskInfo startTask(Region region,
                      String hostName,
-                     Map<String, String> tags);
+                     String serviceName, Map<String, String> tags);
 
   RunTaskStatus checkTaskHealth(Region region, String clusterName, String taskId);
 
   List<TaskInfo> listTasks(Map<String, String> matchingTags);
 
-  Set<String> getSupportedRegions();
+  Set<String> getSupportedRegions(String serviceName);
 
   Optional<TaskInfo> getFullTaskInfo(Region region, String clusterName, String taskId);
 }

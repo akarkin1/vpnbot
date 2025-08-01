@@ -24,9 +24,10 @@ public interface NodeService {
    * Check if the region is supported.
    *
    * @param userRegion the region to check
+   * @param serviceName
    * @return true if the region is supported, false otherwise
    */
-  boolean isRegionSupported(String userRegion);
+  boolean isRegionSupported(String userRegion, String serviceName);
 
   /**
    * Check if the hostname is available.
@@ -35,7 +36,7 @@ public interface NodeService {
    * @param userHostName the hostname to check
    * @return true if the hostname is available, false otherwise
    */
-  boolean isHostnameAvailable(String userRegion, String userHostName);
+  boolean isHostnameAvailable(String userRegion, String userHostName, String serviceName);
 
   /**
    * Run a node.
@@ -43,10 +44,10 @@ public interface NodeService {
    * @param userRegion the region to run the node in
    * @param userTgId the Telegram user ID
    * @param userHostName the hostname for the node
-   * @param serviceType the type of service to run
+   * @param serviceName the type of service to run
    * @return information about the task
    */
-  TaskInfo runNode(String userRegion, String userTgId, String userHostName, ServiceType serviceType);
+  TaskInfo runNode(String userRegion, String userTgId, String userHostName, String serviceName);
 
   /**
    * Get full information about a task.
@@ -86,5 +87,5 @@ public interface NodeService {
    *
    * @return a list of supported service types
    */
-  List<ServiceType> getSupportedServiceTypes();
+  List<String> getSupportedServiceTypes();
 }

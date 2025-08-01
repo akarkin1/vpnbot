@@ -3,19 +3,22 @@ package org.github.akarkin1.service;
 import org.apache.commons.lang3.StringUtils;
 import org.github.akarkin1.config.YamlApplicationConfiguration.AWSConfiguration;
 import org.github.akarkin1.config.YamlApplicationConfiguration.EcsConfiguration;
+import org.github.akarkin1.config.YamlApplicationConfiguration.S3Configuration;
 import org.github.akarkin1.ecs.EcsManager;
 import org.github.akarkin1.ecs.RunTaskStatus;
 import org.github.akarkin1.ecs.TaskInfo;
 import software.amazon.awssdk.regions.Region;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 /**
  * Implementation of NodeService that uses ECS to run and manage nodes.
@@ -27,11 +30,12 @@ public class EcsNodeService implements NodeService {
   private final Map<String, Region> regionByCity;
   private final Set<String> knownRegions;
   private final Map<String, String> cityByRegion;
-  private final List<ServiceType> supportedServiceTypes;
+  private final Set<String> supportedServices;
 
   public EcsNodeService(EcsManager ecsManager,
-                         EcsConfiguration ecsConfig,
-                         AWSConfiguration awsConfig) {
+                        EcsConfiguration ecsConfig,
+                        AWSConfiguration awsConfig,
+                        S3Configuration s3Config) {
     this.ecsManager = ecsManager;
     this.config = ecsConfig;
     this.regionByCity = awsConfig.getRegionCities()
@@ -41,7 +45,7 @@ public class EcsNodeService implements NodeService {
                                   entry -> Region.of(entry.getKey())));
     this.cityByRegion = awsConfig.getRegionCities();
     this.knownRegions = awsConfig.getRegionCities().keySet();
-    this.supportedServiceTypes = List.of(ServiceType.values());
+    this.supportedServices = s3Config.getServiceConfigs().keySet();
   }
 
   @Override
@@ -54,44 +58,40 @@ public class EcsNodeService implements NodeService {
   }
 
   @Override
-  public boolean isRegionSupported(String userRegion) {
+  public boolean isRegionSupported(String userRegion, String serviceName) {
     Region region = regionByCity.getOrDefault(userRegion, Region.of(userRegion));
-    return ecsManager.getSupportedRegions().contains(region.id());
+    return ecsManager.getSupportedRegions(serviceName).contains(region.id());
   }
 
   @Override
-  public boolean isHostnameAvailable(String userRegion, String userHostName) {
+  public boolean isHostnameAvailable(String userRegion, String userHostName, String serviceName) {
     if (StringUtils.isBlank(userHostName)) {
       return false;
     }
 
-    // Check if hostname is available across all service types
-    return supportedServiceTypes.stream()
-        .allMatch(serviceType -> {
-            Map<String, String> matchingTags = Map.of(
-                config.getServiceNameTag(), serviceType.getServiceName(),
-                config.getHostNameTag(), userHostName
-            );
-            return ecsManager.listTasks(matchingTags).isEmpty();
-        });
+    Map<String, String> matchingTags = Map.of(
+        config.getHostNameTag(), userHostName,
+        config.getServiceNameTag(), serviceName
+    );
+    return ecsManager.listTasks(matchingTags).isEmpty();
   }
 
   @Override
-  public TaskInfo runNode(String userRegion, String userTgId, String userHostName, ServiceType serviceType) {
+  public TaskInfo runNode(String userRegion, String userTgId, String userHostName, String serviceName) {
     Region region = regionByCity.getOrDefault(userRegion, Region.of(userRegion));
 
     String hostName = userHostName;
     if (userHostName == null) {
-      hostName = chooseHostName(userTgId, region.id(), serviceType);
+      hostName = chooseHostName(userTgId, region.id(), serviceName);
     }
 
     Map<String, String> assignedTags = Map.of(
         config.getHostNameTag(), hostName,
         config.getRunByTag(), userTgId,
-        config.getServiceNameTag(), serviceType.getServiceName()
+        config.getServiceNameTag(), serviceName
     );
     
-    TaskInfo taskInfo = ecsManager.startTask(region, hostName, assignedTags);
+    TaskInfo taskInfo = ecsManager.startTask(region, hostName, serviceName, assignedTags);
     return TaskInfo.builder()
         .id(taskInfo.getId())
         .hostName(taskInfo.getHostName())
@@ -100,27 +100,13 @@ public class EcsNodeService implements NodeService {
         .publicIp(taskInfo.getPublicIp())
         .location(taskInfo.getLocation())
         .region(taskInfo.getRegion())
-        .serviceType(serviceType)
+        .serviceName(serviceName)
         .build();
   }
 
   @Override
   public Optional<TaskInfo> getFullTaskInfo(Region region, String clusterName, String taskId) {
-    return ecsManager.getFullTaskInfo(region, clusterName, taskId)
-        .map(taskInfo -> {
-            // Try to determine the service type from the task tags
-            ServiceType serviceType = determineServiceType(taskInfo);
-            return TaskInfo.builder()
-                .id(taskInfo.getId())
-                .hostName(taskInfo.getHostName())
-                .state(taskInfo.getState())
-                .cluster(taskInfo.getCluster())
-                .publicIp(taskInfo.getPublicIp())
-                .location(taskInfo.getLocation())
-                .region(taskInfo.getRegion())
-                .serviceType(serviceType)
-                .build();
-        });
+    return ecsManager.getFullTaskInfo(region, clusterName, taskId);
   }
 
   @Override
@@ -130,9 +116,9 @@ public class EcsNodeService implements NodeService {
                                       taskInfo.getId());
   }
 
-  private String chooseHostName(String userTgId, String regionId, ServiceType serviceType) {
+  private String chooseHostName(String userTgId, String regionId, String serviceName) {
     Set<String> hostNames = ecsManager.listTasks(Map.of(
-            config.getServiceNameTag(), serviceType.getServiceName()
+            config.getServiceNameTag(), serviceName
         ))
         .stream()
         .map(TaskInfo::getHostName)
@@ -141,16 +127,16 @@ public class EcsNodeService implements NodeService {
     String suggestedHostName;
     int nodeNumber = 1;
     do {
-      suggestedHostName = suggestHostName(userTgId, regionId, serviceType, nodeNumber);
+      suggestedHostName = suggestHostName(userTgId, regionId, serviceName, nodeNumber);
       nodeNumber++;
     } while (hostNames.contains(suggestedHostName));
 
     return suggestedHostName;
   }
 
-  private String suggestHostName(String userTgId, String regionId, ServiceType serviceType, int nodeNumber) {
+  private String suggestHostName(String userTgId, String regionId, String serviceName, int nodeNumber) {
     String city = cityByRegion.get(regionId);
-    String servicePrefix = serviceType.name().toLowerCase().substring(0, 3); // First 3 letters of service type
+    String servicePrefix = serviceName.toLowerCase();
     return sanitizeHostName("%s-%s-%s-%d".formatted(userTgId, city, servicePrefix, nodeNumber));
   }
 
@@ -161,59 +147,49 @@ public class EcsNodeService implements NodeService {
   @Override
   public List<TaskInfo> listTasks(String userTgId) {
     // Create a stream of tasks for each service type
-    Stream<TaskInfo> allTasks = supportedServiceTypes.stream()
-        .flatMap(serviceType -> {
-            Map<String, String> matchingTags = new HashMap<>();
-            matchingTags.put(config.getServiceNameTag(), serviceType.getServiceName());
-            if (userTgId != null) {
-                matchingTags.put(config.getRunByTag(), userTgId);
-            }
-            
-            return ecsManager.listTasks(matchingTags).stream()
-                .map(taskInfo -> TaskInfo.builder()
-                    .id(taskInfo.getId())
-                    .hostName(taskInfo.getHostName())
-                    .state(taskInfo.getState())
-                    .cluster(taskInfo.getCluster())
-                    .publicIp(taskInfo.getPublicIp())
-                    .location(taskInfo.getLocation())
-                    .region(taskInfo.getRegion())
-                    .serviceType(serviceType)
-                    .build());
-        });
-    
-    return allTasks.collect(Collectors.toList());
-  }
+    Map<String, String> matchingTags = new HashMap<>();
+    if (userTgId != null) {
+      matchingTags.put(config.getRunByTag(), userTgId);
+    }
 
-  @Override
-  public List<String> getSupportedRegionDescriptions() {
-    return ecsManager.getSupportedRegions()
-        .stream()
-        .flatMap(region -> supportedServiceTypes.stream()
-            .map(serviceType -> "%s (%s) - %s".formatted(
-                this.cityByRegion.get(region), 
-                region, 
-                serviceType.getDisplayName())))
+    return ecsManager.listTasks(matchingTags).stream()
+        .map(taskInfo -> TaskInfo.builder()
+            .id(taskInfo.getId())
+            .hostName(taskInfo.getHostName())
+            .state(taskInfo.getState())
+            .cluster(taskInfo.getCluster())
+            .publicIp(taskInfo.getPublicIp())
+            .location(taskInfo.getLocation())
+            .region(taskInfo.getRegion())
+            .serviceName(taskInfo.getServiceName())
+            .build())
         .toList();
   }
 
   @Override
-  public List<ServiceType> getSupportedServiceTypes() {
-    return supportedServiceTypes;
+  public List<String> getSupportedRegionDescriptions() {
+    Map<String, Set<String>> servicesByRegion = new LinkedHashMap<>();
+
+    for (String serviceName : supportedServices) {
+      Set<String> supportedRegions = ecsManager.getSupportedRegions(serviceName);
+        for (String region : supportedRegions) {
+            servicesByRegion
+                .computeIfAbsent(region, ignored -> new LinkedHashSet<>())
+                .add(serviceName);
+        }
+    }
+
+    return servicesByRegion.entrySet().stream()
+        .map(entry ->  "%s (%s): %s".formatted(
+            this.cityByRegion.get(entry.getKey()),
+            entry.getKey(),
+            String.join(", ", entry.getValue())))
+        .toList();
   }
 
-  /**
-   * Determine the service type from a task info.
-   *
-   * @param taskInfo the task info
-   * @return the service type, or null if not found
-   */
-  private ServiceType determineServiceType(TaskInfo taskInfo) {
-    // This would normally extract the service type from the task tags,
-    // but since we don't have access to the tags here, we'll have to
-    // infer it from other information.
-    
-    // For now, we'll just return VPN as the default
-    return ServiceType.VPN;
+  @Override
+  public List<String> getSupportedServiceTypes() {
+    return new ArrayList<>(supportedServices);
   }
+
 }

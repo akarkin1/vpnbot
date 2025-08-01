@@ -14,7 +14,7 @@ import org.github.akarkin1.dispatcher.command.RunNodeCommand;
 import org.github.akarkin1.dispatcher.command.SupportedRegionCommand;
 import org.github.akarkin1.dispatcher.response.TextCommandResponse;
 import org.github.akarkin1.dispatcher.command.VersionCommand;
-import org.github.akarkin1.tailscale.TailscaleNodeService;
+import org.github.akarkin1.service.NodeService;
 import org.github.akarkin1.tg.BotCommunicator;
 import org.github.akarkin1.tg.TgRequestContext;
 import org.github.akarkin1.translation.ResourceBasedTranslator;
@@ -41,7 +41,7 @@ class HelpCommandV2Test {
   private BotCommunicator botCommunicator;
 
   @Mock
-  private TailscaleNodeService nodeService;
+  private NodeService nodeService;
 
   @Mock
   private PermissionsService permissionsService;

@@ -8,7 +8,6 @@ import org.github.akarkin1.ecs.RunTaskStatus;
 import org.github.akarkin1.ecs.TaskInfo;
 import org.github.akarkin1.message.MessageConsumer;
 import org.github.akarkin1.service.NodeService;
-import org.github.akarkin1.service.ServiceType;
 import org.github.akarkin1.tg.TgRequestContext;
 
 import java.util.List;
@@ -31,14 +30,7 @@ public final class RunNodeCommand implements BotCommand<EmptyResponse> {
     }
 
     // First argument is the service type
-    String serviceTypeStr = args.get(0);
-    ServiceType serviceType;
-    try {
-      serviceType = ServiceType.valueOf(serviceTypeStr.toUpperCase());
-    } catch (IllegalArgumentException e) {
-      messageConsumer.accept("${command.run-node.invalid-service-type.error}", serviceTypeStr);
-      return EmptyResponse.NONE;
-    }
+    String serviceName = args.get(0);
 
     // Second argument is the region
     String userRegion = args.get(1);
@@ -50,7 +42,7 @@ public final class RunNodeCommand implements BotCommand<EmptyResponse> {
       return EmptyResponse.NONE;
     }
 
-    if (!nodeService.isRegionSupported(userRegion)) {
+    if (!nodeService.isRegionSupported(userRegion, "vpn")) {
       messageConsumer.accept("${common.region.not-supported.error}",
                              userRegion);
       return EmptyResponse.NONE;
@@ -60,7 +52,7 @@ public final class RunNodeCommand implements BotCommand<EmptyResponse> {
     String userHost = null;
     if (args.size() > 2) {
       userHost = args.get(2);
-      if (!nodeService.isHostnameAvailable(userRegion, userHost)) {
+      if (!nodeService.isHostnameAvailable(userRegion, userHost, serviceName)) {
         messageConsumer.accept(
           "${command.run-node.node.name-is-incorrect-or-in-use.error}",
           userHost);
@@ -68,11 +60,11 @@ public final class RunNodeCommand implements BotCommand<EmptyResponse> {
       }
     }
 
-    messageConsumer.accept("${command.run-node.node.running.message}", serviceType.getDisplayName());
+    messageConsumer.accept("${command.run-node.node.running.message}", serviceName);
     TaskInfo taskInfo = nodeService.runNode(userRegion,
                                            TgRequestContext.getUsername(),
                                            userHost,
-                                           serviceType);
+                                            serviceName);
     log.debug("Task is run, task info: {}", taskInfo);
     messageConsumer.accept("${command.run-node.task.started.message}");
     RunTaskStatus runTaskStatus = nodeService.checkNodeStatus(taskInfo);
@@ -87,7 +79,7 @@ public final class RunNodeCommand implements BotCommand<EmptyResponse> {
       StringBuilder successMessage = new StringBuilder("${command.run-node.node.start-succeed.message}");
       fullTaskInfo.ifPresent(fullInfoLocal -> successMessage.append(" ${common.node.details.message}:\n")
         .append("\t- ${common.node.name.message}: %s%n".formatted(fullInfoLocal.getHostName()))
-        .append("\t\t${common.node.type.message}: %s%n".formatted(fullInfoLocal.getServiceType().getDisplayName()))
+        .append("\t\t${common.node.type.message}: %s%n".formatted(fullInfoLocal.getServiceName()))
         .append("\t\t${common.node.status.message}: %s%n".formatted(fullInfoLocal.getState()))
         .append("\t\t${common.node.public-ip.message}: %s%n".formatted(fullInfoLocal.getPublicIp()))
         .append("\t\t${common.node.location.message}: %s (%s)".formatted(fullInfoLocal.getLocation(),

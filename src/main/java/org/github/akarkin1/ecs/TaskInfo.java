@@ -3,7 +3,6 @@ package org.github.akarkin1.ecs;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.ToString;
-import org.github.akarkin1.service.ServiceType;
 import software.amazon.awssdk.regions.Region;
 
 
@@ -12,13 +11,13 @@ import software.amazon.awssdk.regions.Region;
 @ToString
 public class TaskInfo {
 
-  private String id;
-  private String hostName;
-  private String state;
-  private String cluster;
-  private String publicIp;
-  private String location;
+  private java.lang.String id;
+  private java.lang.String hostName;
+  private java.lang.String state;
+  private java.lang.String cluster;
+  private java.lang.String publicIp;
+  private java.lang.String location;
   private Region region;
-  private ServiceType serviceType;
+  private String serviceName;
 
 }

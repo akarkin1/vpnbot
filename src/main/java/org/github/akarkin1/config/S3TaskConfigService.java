@@ -6,15 +6,18 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import lombok.val;
 import org.github.akarkin1.config.YamlApplicationConfiguration.S3Configuration;
+import org.github.akarkin1.config.YamlApplicationConfiguration.ServiceConfig;
 import org.github.akarkin1.config.exception.S3DownloadFailureException;
 import org.github.akarkin1.config.model.CfnStackOutputParameter;
 import org.github.akarkin1.config.model.StackOutputParameters;
+import org.github.akarkin1.exception.CommandExecutionFailedException;
 import org.github.akarkin1.s3.S3ConfigManager;
 import software.amazon.awssdk.regions.Region;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -44,17 +47,23 @@ public class S3TaskConfigService implements TaskConfigService {
   }
 
   @Override
-  public List<Region> getSupportedRegions() throws S3DownloadFailureException {
-    String serviceName = "vpn";
-
-    String regionsContent = s3ConfigManager.downloadConfigFromS3(config.getSupportedRegions().get(serviceName));
-    return parseRegions(regionsContent);
+  public Set<String> getSupportedServices() {
+    return config.getServiceConfigs().keySet();
   }
 
   @Override
-  public TaskRuntimeParameters getTaskRuntimeParameters(Region region) throws S3DownloadFailureException {
-    // Default to VPN service type for backward compatibility
-    return getTaskRuntimeParameters(region, "vpn");
+  public List<Region> getSupportedRegions(String serviceName) throws S3DownloadFailureException {
+    validateServiceName(serviceName);
+
+    ServiceConfig serviceConfig = config.getServiceConfigs().get(serviceName);
+    String regionsContent = s3ConfigManager.downloadConfigFromS3(serviceConfig.getSupportedRegions());
+    return parseRegions(regionsContent);
+  }
+
+  private void validateServiceName(String serviceName) {
+    if (!config.getServiceConfigs().containsKey(serviceName)) {
+      throw new CommandExecutionFailedException("${error.unsupported.service}: " + serviceName);
+    }
   }
 
   private static List<Region> parseRegions(String content) {
@@ -73,19 +82,14 @@ public class S3TaskConfigService implements TaskConfigService {
   }
 
   @Override
-  public TaskRuntimeParameters getTaskRuntimeParameters(Region region, String serviceType)
+  public TaskRuntimeParameters getTaskRuntimeParameters(Region region, String serviceName)
       throws S3DownloadFailureException {
 
-    String parametersKey;
-    if (config.getServiceStackOutputParameters() != null && config.getServiceStackOutputParameters().containsKey(serviceType)) {
-      parametersKey = config.getServiceStackOutputParameters().get(serviceType);
-    } else {
-      // Fallback to the old property for backward compatibility
-      parametersKey = config.getStackOutputParametersKey();
-    }
+    validateServiceName(serviceName);
+    ServiceConfig serviceConfig = config.getServiceConfigs().get(serviceName);
 
     String jsonContent = s3ConfigManager.downloadConfigFromS3(
-        joinPath(region.id(), parametersKey));
+        joinPath(region.id(), serviceConfig.getStackOutputParameters()));
     List<CfnStackOutputParameter> outputParameters = parseJson(jsonContent,
                                                              new TypeReference<>() {});
 

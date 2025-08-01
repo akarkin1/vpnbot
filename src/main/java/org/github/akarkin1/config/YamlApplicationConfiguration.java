@@ -29,14 +29,18 @@ public class YamlApplicationConfiguration {
 
     private String configBucket;
     private String configRootDir;
-    private String regionsKey; // Kept for backward compatibility
-    private String stackOutputParametersKey; // Kept for backward compatibility
-    private Map<String, String> supportedRegions;
-    private Map<String, String> serviceStackOutputParameters;
+    private Map<String, ServiceConfig> serviceConfigs;
     private String userPermissionsKey;
     private Boolean cacheSupportedRegions;
     private Boolean cacheTaskRuntimeParameters;
 
+  }
+
+  @Getter
+  @Setter
+  public static class ServiceConfig {
+    private String supportedRegions;
+    private String stackOutputParameters;
   }
 
   @Getter

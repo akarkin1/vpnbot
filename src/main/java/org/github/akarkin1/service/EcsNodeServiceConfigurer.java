@@ -33,6 +33,6 @@ public class EcsNodeServiceConfigurer {
                                              ec2ClientPool, appConfig.getEcs(),
                                              appConfig.getAws().getRegionCities());
 
-    return new EcsNodeService(ecsManager, appConfig.getEcs(), appConfig.getAws());
+    return new EcsNodeService(ecsManager, appConfig.getEcs(), appConfig.getAws(), s3Config);
   }
 }
