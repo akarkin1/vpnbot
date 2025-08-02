@@ -3,8 +3,8 @@ package org.github.akarkin1.config;
 import lombok.experimental.UtilityClass;
 import lombok.extern.log4j.Log4j2;
 
-import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
@@ -46,6 +46,10 @@ public class ConfigManager {
 
   public static String getS3ConfigBucket() {
     return envOrDefault(S3_CONFIG_BUCKET, System.getProperty(S3_CONFIG_BUCKET));
+  }
+
+  public static Set<String> getSupportedServices() {
+    return APP_CONFIG.getS3().getServiceConfigs().keySet();
   }
 
   public static String getAppVersion() {

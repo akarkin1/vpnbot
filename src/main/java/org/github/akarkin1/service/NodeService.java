@@ -41,13 +41,12 @@ public interface NodeService {
   /**
    * Run a node.
    *
-   * @param userRegion the region to run the node in
-   * @param userTgId the Telegram user ID
-   * @param userHostName the hostname for the node
+   * @param userRegion  the region to run the node in
+   * @param userTgId    the Telegram user ID
    * @param serviceName the type of service to run
    * @return information about the task
    */
-  TaskInfo runNode(String userRegion, String userTgId, String userHostName, String serviceName,
+  TaskInfo runNode(String userRegion, String userTgId, String serviceName,
                    List<String> additionalArgs);
 
   /**
@@ -81,7 +80,7 @@ public interface NodeService {
    *
    * @return a list of region descriptions
    */
-  List<String> getSupportedRegionDescriptions();
+  List<SupportedRegionDescription> getSupportedRegionDescriptions();
 
   /**
    * Get the supported service types.

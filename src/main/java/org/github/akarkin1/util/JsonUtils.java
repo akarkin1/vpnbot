@@ -26,4 +26,12 @@ public class JsonUtils {
     }
   }
 
+  public static <T> T parseJson(String json, Class<T> returnType) {
+    try {
+      return MAPPER.readValue(json, returnType);
+    } catch (JsonProcessingException e) {
+      throw new RuntimeException("Failed to parse json: %s".formatted(json), e);
+    }
+  }
+
 }

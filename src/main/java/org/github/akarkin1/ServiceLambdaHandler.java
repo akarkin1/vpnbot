@@ -11,8 +11,8 @@ import org.github.akarkin1.auth.Authorizer;
 import org.github.akarkin1.auth.AuthorizerConfigurer;
 import org.github.akarkin1.auth.RequestAuthenticator;
 import org.github.akarkin1.auth.RequestAuthenticatorConfigurer;
-import org.github.akarkin1.auth.s3.PermissionsService;
-import org.github.akarkin1.auth.s3.PermissionsServiceConfigurer;
+import org.github.akarkin1.auth.s3.EntitlementsService;
+import org.github.akarkin1.auth.s3.EntitlementsServiceConfigurer;
 import org.github.akarkin1.deduplication.FSUpdateEventsRegistry;
 import org.github.akarkin1.deduplication.UpdateEventsRegistry;
 import org.github.akarkin1.dispatcher.command.AssignRolesCommand;
@@ -62,8 +62,8 @@ public class ServiceLambdaHandler implements
 
     final AbsSender sender = sender(getBotToken(), getBotUsernameEnv());
     final NodeService nodeService = new EcsNodeServiceConfigurer().configure();
-    final PermissionsService permissionsService = new PermissionsServiceConfigurer().configure();
-    final Authorizer authorizer = new AuthorizerConfigurer().configure(permissionsService);
+    final EntitlementsService entitlementsService = new EntitlementsServiceConfigurer().configure();
+    final Authorizer authorizer = new AuthorizerConfigurer().configure(entitlementsService);
 
     COMMUNICATOR = new BotCommunicator(sender, new ResourceBasedTranslator());
     COMMAND_DISPATCHER = new CommandDispatcher(COMMUNICATOR, authorizer);
@@ -73,20 +73,21 @@ public class ServiceLambdaHandler implements
         nodeService, authorizer));
     COMMAND_DISPATCHER.registerCommand("/runNode",
                                        new RunNodeCommand(nodeService,
+                                                          authorizer,
                                                           COMMUNICATOR::sendMessageToTheBot));
     COMMAND_DISPATCHER.registerCommand("/supportedRegions",
-                                       new SupportedRegionCommand(nodeService));
+                                       new SupportedRegionCommand(nodeService, authorizer));
     COMMAND_DISPATCHER.registerCommand("/listServices",
-                                       new ListServicesCommand(nodeService));
+                                       new ListServicesCommand(authorizer));
     COMMAND_DISPATCHER.registerCommand("/assignRoles",
-                                       new AssignRolesCommand(permissionsService));
+                                       new AssignRolesCommand(entitlementsService));
     COMMAND_DISPATCHER.registerCommand("/describeRoles",
-                                       new DescribeRolesCommand(permissionsService));
+                                       new DescribeRolesCommand(entitlementsService));
     COMMAND_DISPATCHER.registerCommand("/deleteUsers",
-                                       new DeleteUsersCommand(permissionsService,
+                                       new DeleteUsersCommand(entitlementsService,
                                                               COMMUNICATOR::sendMessageToTheBot));
     COMMAND_DISPATCHER.registerCommand("/listRegisteredUsers",
-                                       new ListUsersCommand(permissionsService));
+                                       new ListUsersCommand(entitlementsService));
   }
 
   @Override

@@ -9,6 +9,7 @@ import org.github.akarkin1.service.NodeService;
 import org.github.akarkin1.tg.TgRequestContext;
 
 import java.util.List;
+import java.util.Set;
 
 @RequiredArgsConstructor
 public final class ListNodesCommand implements BotCommand<TextCommandResponse> {
@@ -29,16 +30,21 @@ public final class ListNodesCommand implements BotCommand<TextCommandResponse> {
       username = null;
     }
 
-    List<TaskInfo> taskInfos = nodeService.listTasks(username);
+    Set<String> allowedServices = authorizer.getAllowedServices(username, Permission.ROOT_ACCESS);
 
-    if (taskInfos.isEmpty()) {
+    List<TaskInfo> outputTasks = nodeService.listTasks(username)
+        .stream()
+        .filter(task -> allowedServices.contains(task.getServiceName()))
+        .toList();
+
+    if (outputTasks.isEmpty()) {
       return new TextCommandResponse("${command.list-nodes.no-nodes-run.message}");
     }
 
     StringBuilder responseBuilder = new StringBuilder();
     responseBuilder.append("${command.list-nodes.running-nodes.message}: ").append("\n");
 
-    taskInfos.forEach(taskInfo ->
+    outputTasks.forEach(taskInfo ->
                           responseBuilder.append("\t– ${common.node.name.message}: %s%n".formatted(taskInfo.getHostName()))
                               .append("\t\t${common.node.type.message}: %s%n".formatted(taskInfo.getServiceName()))
                               .append("\t\t${common.node.status.message}: %s%n".formatted(taskInfo.getState()))

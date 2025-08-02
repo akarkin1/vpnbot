@@ -2,7 +2,7 @@ package org.github.akarkin1.dispatcher.command.ecs;
 
 import org.github.akarkin1.auth.Authorizer;
 import org.github.akarkin1.auth.Permission;
-import org.github.akarkin1.auth.s3.PermissionsService;
+import org.github.akarkin1.auth.s3.EntitlementsService;
 import org.github.akarkin1.dispatcher.command.AssignRolesCommand;
 import org.github.akarkin1.dispatcher.CommandDispatcher;
 import org.github.akarkin1.dispatcher.command.DeleteUsersCommand;
@@ -44,7 +44,7 @@ class HelpCommandV2Test {
   private NodeService nodeService;
 
   @Mock
-  private PermissionsService permissionsService;
+  private EntitlementsService entitlementsService;
 
   @Mock
   private Authorizer authorizer;
@@ -61,18 +61,19 @@ class HelpCommandV2Test {
       nodeService, authorizer));
     commandDispatcher.registerCommand("/runNodeIn",
                                       new RunNodeCommand(nodeService,
+                                                           authorizer,
                                                            botCommunicator::sendMessageToTheBot));
     commandDispatcher.registerCommand("/supportedRegions",
-                                      new SupportedRegionCommand(nodeService));
+                                      new SupportedRegionCommand(nodeService, authorizer));
     commandDispatcher.registerCommand("/assignRoles",
-                                      new AssignRolesCommand(permissionsService));
+                                      new AssignRolesCommand(entitlementsService));
     commandDispatcher.registerCommand("/describeRoles",
-                                      new DescribeRolesCommand(permissionsService));
+                                      new DescribeRolesCommand(entitlementsService));
     commandDispatcher.registerCommand("/deleteUsers",
-                                      new DeleteUsersCommand(permissionsService,
+                                      new DeleteUsersCommand(entitlementsService,
                                                                botCommunicator::sendMessageToTheBot));
     commandDispatcher.registerCommand("/listRegisteredUsers",
-                                      new ListUsersCommand(permissionsService));
+                                      new ListUsersCommand(entitlementsService));
 
     helpCommandV2 = new HelpCommand(commandDispatcher);
   }

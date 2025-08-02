@@ -5,9 +5,9 @@ import org.github.akarkin1.config.YamlApplicationConfiguration.AuthConfiguration
 
 public class AuthorizerConfigurer {
 
-  public Authorizer configure(UserPermissionsProvider userPermissionsProvider) {
+  public Authorizer configure(UserEntitlementsProvider userEntitlementsProvider) {
     AuthConfiguration authConfig = ConfigManager.getApplicationYaml().getAuth();
-    return new WhiteListAuthorizer(authConfig, userPermissionsProvider);
+    return new WhiteListAuthorizer(authConfig, userEntitlementsProvider);
   }
 
 }

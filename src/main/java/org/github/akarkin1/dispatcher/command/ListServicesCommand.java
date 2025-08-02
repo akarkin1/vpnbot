@@ -1,11 +1,14 @@
 package org.github.akarkin1.dispatcher.command;
 
 import lombok.RequiredArgsConstructor;
+import org.github.akarkin1.auth.Authorizer;
 import org.github.akarkin1.auth.Permission;
+import org.github.akarkin1.config.ConfigManager;
 import org.github.akarkin1.dispatcher.response.TextCommandResponse;
-import org.github.akarkin1.service.NodeService;
+import org.github.akarkin1.tg.TgRequestContext;
 
 import java.util.List;
+import java.util.Set;
 
 /**
  * Command to list supported service types.
@@ -13,11 +16,16 @@ import java.util.List;
 @RequiredArgsConstructor
 public final class ListServicesCommand implements BotCommand<TextCommandResponse> {
 
-  private final NodeService nodeService;
+  private final Authorizer authorizer;
 
   @Override
   public TextCommandResponse run(List<java.lang.String> args) {
-    List<String> supportedServices = nodeService.getSupportedServices();
+    String username = TgRequestContext.getUsername();
+    if (username == null) {
+      return new TextCommandResponse("${command.list-nodes.no-permission}");
+    }
+
+    Set<String> supportedServices = authorizer.getAllowedServices(username);
 
     if (supportedServices.isEmpty()) {
       return new TextCommandResponse("${command.list-services.no-services.message}");

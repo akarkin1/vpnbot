@@ -1,39 +1,39 @@
 package org.github.akarkin1.auth;
 
-import java.util.EnumSet;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
+
+import static org.github.akarkin1.auth.ServiceRole.*;
+import static org.github.akarkin1.auth.UserEntitlements.*;
 
 public interface UserSignupService {
 
-  void updateUserPermissions(String tgUsername, Set<Permission> actions);
+  void updateUserEntitlements(String tgUsername, Collection<Entitlement> newEntitlements);
 
   default void deleteUser(String tgUsername) {
-    this.updateUserPermissions(tgUsername, null);
+    this.updateUserEntitlements(tgUsername, null);
   }
 
-  default void assignRolesToUser(String tgUsername, Set<UserRole> roles) {
-    Set<Permission> allPermissions = new HashSet<>();
-    for (UserRole role : roles) {
-      EnumSet<Permission> rolePermissions = switch (role) {
+  default void assignRolesToUser(String tgUsername, Set<ServiceRole> serviceRoles) {
+    List<Entitlement> entitlements = new ArrayList<>();
+    for (ServiceRole serviceRole : serviceRoles) {
+      EnumSet<Permission> rolePermissions = switch (serviceRole.getRole()) {
         case READ_ONLY -> EnumSet.of(Permission.SUPPORTED_REGIONS, Permission.LIST_NODES);
         case USER_ADMIN -> EnumSet.of(Permission.USER_MANAGEMENT);
         case NODE_ADMIN -> EnumSet.of(Permission.SUPPORTED_REGIONS, Permission.LIST_NODES,
                                       Permission.RUN_NODES);
       };
-      allPermissions.addAll(rolePermissions);
+      rolePermissions.forEach(perm ->
+        entitlements.add(new Entitlement(serviceRole.getServiceName(), perm)));
     }
 
-    this.updateUserPermissions(tgUsername, allPermissions);
+    this.updateUserEntitlements(tgUsername, entitlements);
   }
 
-  default Map<UserRole, List<Permission>> describeRoles() {
+  default Map<Role, List<Permission>> describeRoles() {
     return Map.of(
-        UserRole.READ_ONLY, List.of(Permission.SUPPORTED_REGIONS, Permission.LIST_NODES),
-        UserRole.USER_ADMIN, List.of(Permission.USER_MANAGEMENT),
-        UserRole.NODE_ADMIN, List.of(Permission.SUPPORTED_REGIONS, Permission.LIST_NODES,
+            Role.READ_ONLY, List.of(Permission.SUPPORTED_REGIONS, Permission.LIST_NODES),
+            Role.USER_ADMIN, List.of(Permission.USER_MANAGEMENT),
+            Role.NODE_ADMIN, List.of(Permission.SUPPORTED_REGIONS, Permission.LIST_NODES,
                                      Permission.RUN_NODES)
     );
   }

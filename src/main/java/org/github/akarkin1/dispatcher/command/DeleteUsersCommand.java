@@ -2,8 +2,10 @@ package org.github.akarkin1.dispatcher.command;
 
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
+import org.github.akarkin1.auth.EntitlementUtil;
 import org.github.akarkin1.auth.Permission;
-import org.github.akarkin1.auth.s3.PermissionsService;
+import org.github.akarkin1.auth.UserEntitlements;
+import org.github.akarkin1.auth.s3.EntitlementsService;
 import org.github.akarkin1.dispatcher.response.EmptyResponse;
 import org.github.akarkin1.message.MessageConsumer;
 import org.github.akarkin1.util.UserNameUtil;
@@ -15,7 +17,7 @@ import java.util.function.Predicate;
 @RequiredArgsConstructor
 public class DeleteUsersCommand implements BotCommand<EmptyResponse> {
 
-  private final PermissionsService permissionsService;
+  private final EntitlementsService entitlementsService;
   private final MessageConsumer messageConsumer;
 
   @Override
@@ -30,9 +32,9 @@ public class DeleteUsersCommand implements BotCommand<EmptyResponse> {
       return EmptyResponse.NONE;
     }
 
-    Map<String, List<Permission>> userPermissions = permissionsService.getUserPermissions();
+    Map<String, List<UserEntitlements.Entitlement>> userEntitlements = entitlementsService.getUserEntitlements();
     List<String> notFoundUsers = usersNames.stream()
-        .filter(Predicate.not(userPermissions::containsKey))
+        .filter(Predicate.not(userEntitlements::containsKey))
         .toList();
 
     boolean atLeastOneDeleted = false;
@@ -42,13 +44,13 @@ public class DeleteUsersCommand implements BotCommand<EmptyResponse> {
         continue;
       }
 
-      // do not allow to delete the root user
-      if (userPermissions.get(userName).contains(Permission.ROOT_ACCESS)) {
+      // do not allow deleting the root user
+      if (EntitlementUtil.hasUserPermission(userName, userEntitlements, Permission.ROOT_ACCESS)) {
         messageConsumer.accept("${command.delete-users.root-cannot-be-deleted.error} %s.".formatted(userName));
         continue;
       }
 
-      permissionsService.deleteUser(userName);
+      entitlementsService.deleteUser(userName);
       messageConsumer.accept("${command.delete-users.user-is-deleted.message}", userName);
       atLeastOneDeleted = true;
     }
