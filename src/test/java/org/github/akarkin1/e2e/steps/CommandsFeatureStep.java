@@ -157,10 +157,20 @@ public class CommandsFeatureStep extends BaseFeatureStep {
       .map(WireMock::containing)
       .toArray(StringValuePattern[]::new);
 
+    StringValuePattern textMatcher;
+
+    if (matchingPatterns.length == 0) {
+      textMatcher = WireMock.containing("");
+    } else if (matchingPatterns.length == 1) {
+      textMatcher = matchingPatterns[0];
+    } else {
+      textMatcher = and(matchingPatterns);
+    }
+
     verify(postRequestedFor(urlMatching("/bot.*/sendmessage"))
              .withRequestBody(
                and(
-                 matchingJsonPath("$.text", and(matchingPatterns)),
+                 matchingJsonPath("$.text", textMatcher),
                  matchingJsonPath("$.chat_id", equalTo(WireMockInitializer.TG_TEST_CHAT_ID)
                  )
                )));
