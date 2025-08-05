@@ -10,12 +10,11 @@ Feature: Bot commands
       """
     When user is authorized with role "READ_ONLY"
     When "/supportedRegions" command is sent to the bot
-    Then the lambda should return valid response
-#    Then the bot should reply with:
-#      """
-#      Supported regions:
-#        - N. Virginia (us-east-2): vpn
-#        - Frankfurt (eu-central-1): vpn
-#      """
-    And the lambda environment is cleaned up
+    Then the bot should reply with response:
+      """
+      Supported regions:
+      	– Frankfurt (eu-central-1): vpn
+      	– N. Virginia (us-east-1): vpn
+      """
+    And the lambda should return valid response
 

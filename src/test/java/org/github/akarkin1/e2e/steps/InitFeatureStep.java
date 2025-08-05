@@ -6,14 +6,13 @@ import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
 import org.github.akarkin1.EcsConfigurerLambdaHandler;
-import org.github.akarkin1.e2e.BaseFeatureStep;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Assertions;
 
 import java.util.Map;
 
-import static org.github.akarkin1.e2e.S3Initializer.TEST_CONFIG_BUCKET;
-import static org.github.akarkin1.e2e.SMInitializer.TEST_TG_SECRET_TOKEN;
+import static org.github.akarkin1.e2e.init.S3Initializer.TEST_CONFIG_BUCKET;
+import static org.github.akarkin1.e2e.init.SMInitializer.TEST_TG_SECRET_TOKEN;
 
 public class InitFeatureStep extends BaseFeatureStep {
     private APIGatewayProxyResponseEvent response;
@@ -43,7 +42,7 @@ public class InitFeatureStep extends BaseFeatureStep {
     @Then("the response is successful")
     public void the_response_is_successful() {
         Assertions.assertNotNull(response);
-        Assertions.assertEquals(200, response.getStatusCode());
+        Assertions.assertEquals(201, response.getStatusCode());
     }
 }
 

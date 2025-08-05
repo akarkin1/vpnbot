@@ -34,7 +34,7 @@ public class EcsConfigurerLambdaHandler implements
     // always return successful response to Telegram Bot API
     return new APIGatewayProxyResponseEvent()
       .withBody("{}")
-      .withStatusCode(200);
+      .withStatusCode(201);
   }
 
 }

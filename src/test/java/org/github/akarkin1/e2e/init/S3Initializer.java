@@ -1,4 +1,4 @@
-package org.github.akarkin1.e2e;
+package org.github.akarkin1.e2e.init;
 
 import org.testcontainers.containers.localstack.LocalStackContainer.Service;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;

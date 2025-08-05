@@ -38,7 +38,7 @@ public class LocalConfigManager implements ConfigManager {
 
     @Override
     public URI getLocalStackSMEndpoint() {
-        return Optional.ofNullable(System.getProperty("localstack.secretmanager.endpoint")).map(URI::create).orElse(null);
+        return Optional.ofNullable(System.getProperty("localstack.secretsmanager.endpoint")).map(URI::create).orElse(null);
     }
 
     @Override
