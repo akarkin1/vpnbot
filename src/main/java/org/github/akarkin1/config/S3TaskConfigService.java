@@ -13,6 +13,7 @@ import org.github.akarkin1.config.model.StackOutputParameters;
 import org.github.akarkin1.exception.CommandExecutionFailedException;
 import org.github.akarkin1.s3.S3ConfigManager;
 import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.S3Client;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -41,8 +42,8 @@ public class S3TaskConfigService implements TaskConfigService {
   private final S3ConfigManager s3ConfigManager;
   private final S3Configuration config;
 
-  public static S3TaskConfigService create(S3Configuration config) {
-    S3ConfigManager s3ConfigManager = S3ConfigManager.create(config);
+  public static S3TaskConfigService create(S3Configuration config, S3Client createdClient) {
+    S3ConfigManager s3ConfigManager = S3ConfigManager.create(config, createdClient);
     return new S3TaskConfigService(s3ConfigManager, config);
   }
 

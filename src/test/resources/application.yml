@@ -4,7 +4,7 @@ auth:
   enabled: true
 
 s3:
-  config-root-dir: config/
+  config-root-dir: config
   service-configs:
     vpn:
       supported-regions: vpn/supported-regions.txt

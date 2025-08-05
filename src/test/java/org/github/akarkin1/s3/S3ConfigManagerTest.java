@@ -36,7 +36,7 @@ class S3ConfigManagerTest {
         S3Configuration configuration = mock(S3Configuration.class);
 
         // When
-        S3ConfigManager manager = S3ConfigManager.create(configuration);
+        S3ConfigManager manager = S3ConfigManager.create(configuration, S3Client.create());
 
         // Then
         assertNotNull(manager);

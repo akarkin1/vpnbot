@@ -11,12 +11,7 @@ import java.util.function.Function;
 public class TelegramBotFactory {
 
   public static AbsSender sender(String token, String username) {
-    String baseUrl = null;
-    if (ConfigManager.isTestEnvironment()) {
-      baseUrl = "http://localhost:8081";
-    }
-
-    return webhookBot(token, username, x -> null, baseUrl);
+    return webhookBot(token, username, x -> null, ConfigManager.getBotApiBaseUrl());
   }
 
   private static TelegramWebhookBot webhookBot(

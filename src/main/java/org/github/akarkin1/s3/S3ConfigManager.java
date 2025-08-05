@@ -21,22 +21,22 @@ public final class S3ConfigManager {
   private final S3Client s3Client;
   private final S3Configuration config;
 
-  public static S3ConfigManager create(S3Configuration config) {
-    S3Client createdClient = S3Client.create();
+  public static S3ConfigManager create(S3Configuration config, S3Client createdClient) {
     return new S3ConfigManager(createdClient, config);
   }
 
   public String downloadConfigFromS3(String fileName) throws S3DownloadFailureException {
     String bucket = ConfigManager.getS3ConfigBucket();
+    String fullFilePath = joinPath(config.getConfigRootDir(), fileName);
     GetObjectRequest request = GetObjectRequest.builder()
         .bucket(bucket)
-        .key(joinPath(config.getConfigRootDir(), fileName))
+        .key(fullFilePath)
         .build();
     try {
       ResponseInputStream<GetObjectResponse> resp = s3Client.getObject(request);
       return IOUtils.toString(resp, StandardCharsets.UTF_8);
     } catch (Exception e) {
-      throw new S3DownloadFailureException(bucket, fileName, e);
+      throw new S3DownloadFailureException(bucket, fullFilePath, e);
     }
   }
 

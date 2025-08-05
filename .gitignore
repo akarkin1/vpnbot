@@ -5,6 +5,7 @@ target/
 
 ### IntelliJ IDEA ###
 .idea
+test-eventIds
 .idea/modules.xml
 .idea/jarRepositories.xml
 .idea/compiler.xml

@@ -3,6 +3,7 @@ package org.github.akarkin1.config;
 import lombok.experimental.UtilityClass;
 import lombok.extern.log4j.Log4j2;
 
+import java.net.URI;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -18,6 +19,7 @@ public class ConfigManager {
 
   private static final String EVENT_ROOT_DIR = "/mnt/efs/eventIds";
   private static final String BOT_TOKEN_ENV = "BOT_TOKEN";
+  private static final String BOT_TOKEN_PROP = "tg.bot.token";
   private static final String BOT_USERNAME_ENV = "BOT_USERNAME";
   private static final String BOT_SECRET_TOKEN_ID_ENV = "BOT_SECRET_TOKEN_ID";
   private static final String BOT_SECRET_TOKEN_ID_PROP = "bot.secret.token.id";
@@ -27,9 +29,10 @@ public class ConfigManager {
 
   private static final YamlApplicationConfiguration APP_CONFIG = YamlApplicationConfiguration
       .load(APP_CONFIG_YAML);
+  private static final String BOT_API_BASE_URL_PROP = "tg.bot.api.base.url";
 
   public static String getBotToken() {
-    return getenv(BOT_TOKEN_ENV);
+    return envOrDefault(BOT_TOKEN_ENV, System.getProperty(BOT_TOKEN_PROP));
   }
 
   public static String getBotUsernameEnv() {
@@ -37,11 +40,23 @@ public class ConfigManager {
   }
 
   public static String getEventRootDir() {
-    return EVENT_ROOT_DIR;
+    return isTestEnvironment() ? "test-eventIds" : EVENT_ROOT_DIR;
   }
 
   public static boolean isTestEnvironment() {
     return System.getProperty("env", "").equals("test");
+  }
+
+  public static URI getLocalStackS3Endpoint() {
+    return Optional.ofNullable(System.getProperty("localstack.s3.endpoint"))
+      .map(URI::create)
+      .orElse(null);
+  }
+
+  public static URI getLocalStackSMEndpoint() {
+    return Optional.ofNullable(System.getProperty("localstack.secretmanager.endpoint"))
+      .map(URI::create)
+      .orElse(null);
   }
 
   public static Long getEventTtlSec() {
@@ -80,4 +95,7 @@ public class ConfigManager {
         .orElseThrow(exceptionSupplier);
   }
 
+  public static String getBotApiBaseUrl() {
+    return System.getProperty(BOT_API_BASE_URL_PROP);
+  }
 }

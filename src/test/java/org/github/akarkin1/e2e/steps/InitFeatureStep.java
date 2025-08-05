@@ -7,10 +7,10 @@ import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
 import org.github.akarkin1.ServiceLambdaHandler;
-import org.github.akarkin1.e2e.LocalstackS3TestBase;
+import org.github.akarkin1.e2e.BaseFeatureStep;
 import org.junit.jupiter.api.Assertions;
 
-public class InitFeatureStep extends LocalstackS3TestBase {
+public class InitFeatureStep extends BaseFeatureStep {
     private APIGatewayProxyResponseEvent response;
 
     @Given("the S3 bucket is available")
@@ -30,7 +30,7 @@ public class InitFeatureStep extends LocalstackS3TestBase {
     }
 
     @Then("the response should contain status 200")
-    public void the_response_should_contain_status_200() {
+    public void the_response_should_contain_status_201() {
         Assertions.assertNotNull(response);
         Assertions.assertEquals(201, response.getStatusCode());
     }
