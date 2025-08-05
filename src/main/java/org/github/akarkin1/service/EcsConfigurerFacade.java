@@ -1,0 +1,107 @@
+package org.github.akarkin1.service;
+
+import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.inject.Inject;
+import lombok.extern.log4j.Log4j2;
+import org.apache.commons.lang3.StringUtils;
+import org.github.akarkin1.auth.RequestAuthenticator;
+import org.github.akarkin1.deduplication.UpdateEventsRegistry;
+import org.github.akarkin1.dispatcher.CommandDispatcher;
+import org.github.akarkin1.tg.BotCommunicator;
+import org.github.akarkin1.tg.TgRequestContext;
+import org.telegram.telegrambots.meta.api.objects.Message;
+import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.api.objects.User;
+
+import java.util.Optional;
+
+@Log4j2
+public class EcsConfigurerFacade {
+
+  private final ObjectMapper mapper;
+  private final CommandDispatcher commandDispatcher;
+  private final BotCommunicator communicator;
+  private final UpdateEventsRegistry eventsRegistry;
+  private final RequestAuthenticator requestAuthenticator;
+  private final String botServerError;
+
+
+  @Inject
+  public EcsConfigurerFacade(ObjectMapper mapper, CommandDispatcher commandDispatcher,
+                             BotCommunicator communicator, UpdateEventsRegistry eventsRegistry,
+                             RequestAuthenticator requestAuthenticator, String botServerError) {
+    this.mapper = mapper;
+    this.commandDispatcher = commandDispatcher;
+    this.communicator = communicator;
+    this.eventsRegistry = eventsRegistry;
+    this.requestAuthenticator = requestAuthenticator;
+    this.botServerError = botServerError;
+  }
+
+  public void processGatewayEvent(APIGatewayProxyRequestEvent gwEvent) {
+
+    Update update;
+    try {
+      log.debug("Got request: {}", serializeObject(gwEvent));
+      requestAuthenticator.authenticate(gwEvent);
+      String receivedPayload = gwEvent.getBody();
+      log.debug("Received payload: {}", receivedPayload);
+      if (StringUtils.isBlank(receivedPayload)) {
+        log.warn("Received empty payload");
+        return;
+      }
+
+      update = mapper.readValue(receivedPayload, Update.class);
+    } catch (Exception e) {
+      log.error("Failed to process request: ", e);
+      communicator.sendMessageToTheBot(botServerError);
+      return;
+    }
+
+    try {
+      handleUpdate(update);
+    } catch (Exception e) {
+      log.error("Failed to handle update: ", e);
+      communicator.sendMessageToTheBot(botServerError);
+    }
+  }
+
+  private String serializeObject(APIGatewayProxyRequestEvent gwEvent) {
+    try {
+      return mapper.writeValueAsString(gwEvent);
+    } catch (Exception e) {
+      return gwEvent.toString();
+    }
+  }
+
+  private void handleUpdate(Update update) {
+    if (eventsRegistry.hasAlreadyProcessed(update)) {
+      log.info("Skipping duplicated event: {}", update);
+      return;
+    }
+
+    TgRequestContext.initContext(update);
+    log.info("Saving event to the registry (deduplication logic). Update: {}", update);
+    eventsRegistry.registerEvent(update);
+
+    Message message = update.getMessage();
+    if (message == null) {
+      log.warn("Empty message received from a user. Update Event: {}", update);
+      return;
+    }
+
+    if (message.getChatId() == null) {
+      log.warn("Chat ID is missing. The bot cannot sent response back to user. Update Event: {}",
+               update);
+      return;
+    }
+
+    String userName = Optional.ofNullable(message.getFrom())
+      .map(User::getUserName)
+      .orElse("<Unknown>");
+    log.info("User {} has started communication with the bot", userName);
+    commandDispatcher.handle(update);
+  }
+
+}

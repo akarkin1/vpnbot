@@ -9,14 +9,13 @@ import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
 import org.apache.commons.io.FileUtils;
-import org.github.akarkin1.ServiceLambdaHandler;
+import org.github.akarkin1.EcsConfigurerLambdaHandler;
 import org.github.akarkin1.auth.Permission;
 import org.github.akarkin1.auth.ServiceRole;
 import org.github.akarkin1.auth.UserEntitlements;
 import org.github.akarkin1.e2e.BaseFeatureStep;
 import org.github.akarkin1.util.JsonUtils;
 import org.jetbrains.annotations.NotNull;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.telegram.telegrambots.meta.api.objects.Chat;
 import org.telegram.telegrambots.meta.api.objects.Message;
@@ -27,8 +26,6 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
@@ -57,7 +54,7 @@ public class CommandsFeatureStep extends BaseFeatureStep {
 
   @When("{string} command is sent to the bot")
   public void i_send_supported_regions_command_to_the_bot(String command) {
-    ServiceLambdaHandler handler = new ServiceLambdaHandler();
+    EcsConfigurerLambdaHandler handler = new EcsConfigurerLambdaHandler();
     APIGatewayProxyRequestEvent event = createUpdateEvent(command);
     Context context = null;
     lambdaResponse = handler.handleRequest(event, context);
