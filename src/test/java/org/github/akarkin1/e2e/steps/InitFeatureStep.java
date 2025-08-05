@@ -12,6 +12,9 @@ import org.junit.jupiter.api.Assertions;
 
 import java.util.Map;
 
+import static org.github.akarkin1.e2e.S3Initializer.TEST_CONFIG_BUCKET;
+import static org.github.akarkin1.e2e.SMInitializer.TEST_TG_SECRET_TOKEN;
+
 public class InitFeatureStep extends BaseFeatureStep {
     private APIGatewayProxyResponseEvent response;
 
@@ -19,7 +22,7 @@ public class InitFeatureStep extends BaseFeatureStep {
     public void the_s3_bucket_is_available() {
         // Bucket is created in LocalstackS3TestBase
         Assertions.assertTrue(s3Client.listBuckets().buckets().stream()
-                .anyMatch(b -> b.name().equals(BUCKET_NAME)));
+                                .anyMatch(bucket -> bucket.name().equals(TEST_CONFIG_BUCKET)));
     }
 
     @When("I invoke the lambda with a basic request")
@@ -32,7 +35,7 @@ public class InitFeatureStep extends BaseFeatureStep {
     private static @NotNull APIGatewayProxyRequestEvent createEmptyEvent() {
         APIGatewayProxyRequestEvent gwEvent = new APIGatewayProxyRequestEvent();
 
-        gwEvent.setHeaders(Map.of("x-telegram-bot-api-secret-token", TEST_SECRET_TOKEN_VALUE));
+        gwEvent.setHeaders(Map.of("x-telegram-bot-api-secret-token", TEST_TG_SECRET_TOKEN));
 
         return gwEvent;
     }

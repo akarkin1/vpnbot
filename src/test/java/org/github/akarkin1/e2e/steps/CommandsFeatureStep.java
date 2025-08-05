@@ -36,6 +36,8 @@ import static org.github.akarkin1.auth.Permission.LIST_NODES;
 import static org.github.akarkin1.auth.Permission.RUN_NODES;
 import static org.github.akarkin1.auth.Permission.SUPPORTED_REGIONS;
 import static org.github.akarkin1.auth.Permission.USER_MANAGEMENT;
+import static org.github.akarkin1.e2e.S3Initializer.TEST_CONFIG_BUCKET;
+import static org.github.akarkin1.e2e.SMInitializer.TEST_TG_SECRET_TOKEN;
 import static software.amazon.awssdk.core.sync.RequestBody.fromString;
 
 public class CommandsFeatureStep extends BaseFeatureStep {
@@ -45,7 +47,7 @@ public class CommandsFeatureStep extends BaseFeatureStep {
   @Given("the config bucket contains file {string} with content:")
   public void the_config_bucket_contains_file_with_content(String key, String content) {
     s3Client.putObject(PutObjectRequest.builder()
-                         .bucket(BUCKET_NAME)
+                         .bucket(TEST_CONFIG_BUCKET)
                          .key(key)
                          .build(),
                        fromString(content,
@@ -84,7 +86,7 @@ public class CommandsFeatureStep extends BaseFeatureStep {
     ObjectMapper mapper = new ObjectMapper();
     String json = mapper.writeValueAsString(ue);
     s3Client.putObject(PutObjectRequest.builder()
-            .bucket(BUCKET_NAME)
+            .bucket(TEST_CONFIG_BUCKET)
             .key("config/user-permissions.json")
             .build(),
         fromString(json, StandardCharsets.UTF_8));
@@ -93,7 +95,7 @@ public class CommandsFeatureStep extends BaseFeatureStep {
   private static @NotNull APIGatewayProxyRequestEvent createUpdateEvent(String command) {
     APIGatewayProxyRequestEvent gwEvent = new APIGatewayProxyRequestEvent();
 
-    gwEvent.setHeaders(Map.of("x-telegram-bot-api-secret-token", TEST_SECRET_TOKEN_VALUE));
+    gwEvent.setHeaders(Map.of("x-telegram-bot-api-secret-token", TEST_TG_SECRET_TOKEN));
 
     Update update = new Update();
     update.setUpdateId(123);
