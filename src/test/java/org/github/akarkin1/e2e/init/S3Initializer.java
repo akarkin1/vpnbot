@@ -1,5 +1,6 @@
 package org.github.akarkin1.e2e.init;
 
+import org.testcontainers.containers.localstack.LocalStackContainer.EnabledService;
 import org.testcontainers.containers.localstack.LocalStackContainer.Service;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
@@ -24,7 +25,7 @@ public final class S3Initializer extends LocalStackInitializer<S3Client> {
   }
 
   @Override
-  protected Service getService() {
+  protected EnabledService getService() {
     return Service.S3;
   }
 

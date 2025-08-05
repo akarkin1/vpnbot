@@ -2,7 +2,7 @@ package org.github.akarkin1.e2e.init;
 
 import lombok.RequiredArgsConstructor;
 import org.testcontainers.containers.localstack.LocalStackContainer;
-import org.testcontainers.containers.localstack.LocalStackContainer.Service;
+import org.testcontainers.containers.localstack.LocalStackContainer.EnabledService;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 
 import java.net.URI;
@@ -27,7 +27,7 @@ public abstract class LocalStackInitializer<C> implements TestContainerInitializ
   protected abstract C buildAwsClient(URI endpointOverride, AwsBasicCredentials awsCreds,
                                       String region);
 
-  protected abstract Service getService();
+  protected abstract EnabledService getService();
 
   protected abstract void createResources(C awsClient);
 

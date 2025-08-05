@@ -1,5 +1,6 @@
 package org.github.akarkin1.e2e.init;
 
+import org.testcontainers.containers.localstack.LocalStackContainer.EnabledService;
 import org.testcontainers.containers.localstack.LocalStackContainer.Service;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
@@ -25,7 +26,7 @@ public final class SMInitializer extends LocalStackInitializer<SecretsManagerCli
   }
 
   @Override
-  protected Service getService() {
+  protected EnabledService getService() {
     return Service.SECRETSMANAGER;
   }
 
