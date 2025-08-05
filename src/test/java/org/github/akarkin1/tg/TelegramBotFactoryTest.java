@@ -1,18 +1,13 @@
 package org.github.akarkin1.tg;
 
+import org.github.akarkin1.config.ConfigManager;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.telegram.telegrambots.bots.TelegramWebhookBot;
-import org.telegram.telegrambots.meta.api.methods.BotApiMethod;
-import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.bots.AbsSender;
 
-import java.util.function.Function;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.mockito.Mockito.mock;
 
 @ExtendWith(MockitoExtension.class)
 class TelegramBotFactoryTest {
@@ -22,9 +17,10 @@ class TelegramBotFactoryTest {
         // Given
         String token = "test-token";
         String username = "test-bot";
+        ConfigManager configManager = mock(ConfigManager.class);
 
         // When
-        AbsSender sender = TelegramBotFactory.sender(token, username);
+        AbsSender sender = TelegramBotFactory.sender(token, username, configManager);
 
         // Then
         assertNotNull(sender);

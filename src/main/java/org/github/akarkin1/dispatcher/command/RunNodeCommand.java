@@ -1,6 +1,5 @@
 package org.github.akarkin1.dispatcher.command;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang3.StringUtils;
 import org.github.akarkin1.auth.Authorizer;
@@ -19,12 +18,17 @@ import java.util.Optional;
 import java.util.Set;
 
 @Log4j2
-@RequiredArgsConstructor
 public final class RunNodeCommand implements BotCommand<EmptyResponse> {
 
   private final NodeService nodeService;
   private final Authorizer authorizer;
   private final MessageConsumer messageConsumer;
+
+  public RunNodeCommand(NodeService nodeService, Authorizer authorizer, MessageConsumer messageConsumer) {
+    this.nodeService = nodeService;
+    this.authorizer = authorizer;
+    this.messageConsumer = messageConsumer;
+  }
 
   @Override
   public EmptyResponse run(List<String> args) {

@@ -5,113 +5,103 @@ import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.extern.log4j.Log4j2;
+import com.google.inject.Guice;
+import com.google.inject.Inject;
+import com.google.inject.Injector;
+import com.google.inject.Singleton;
 import org.apache.commons.lang3.StringUtils;
-import org.github.akarkin1.auth.Authorizer;
-import org.github.akarkin1.auth.AuthorizerConfigurer;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.github.akarkin1.auth.RequestAuthenticator;
-import org.github.akarkin1.auth.RequestAuthenticatorConfigurer;
-import org.github.akarkin1.auth.s3.EntitlementsService;
-import org.github.akarkin1.auth.s3.EntitlementsServiceConfigurer;
-import org.github.akarkin1.deduplication.FSUpdateEventsRegistry;
+import org.github.akarkin1.config.LocalConfigModule;
+import org.github.akarkin1.config.ProdConfigModule;
 import org.github.akarkin1.deduplication.UpdateEventsRegistry;
-import org.github.akarkin1.dispatcher.command.AssignRolesCommand;
 import org.github.akarkin1.dispatcher.CommandDispatcher;
-import org.github.akarkin1.dispatcher.command.DeleteUsersCommand;
-import org.github.akarkin1.dispatcher.command.DescribeRolesCommand;
-import org.github.akarkin1.dispatcher.command.ListNodesCommand;
-import org.github.akarkin1.dispatcher.command.ListServicesCommand;
-import org.github.akarkin1.dispatcher.command.ListUsersCommand;
-import org.github.akarkin1.dispatcher.command.RunNodeCommand;
-import org.github.akarkin1.dispatcher.command.SupportedRegionCommand;
-import org.github.akarkin1.dispatcher.command.VersionCommand;
-import org.github.akarkin1.service.EcsNodeServiceConfigurer;
-import org.github.akarkin1.service.NodeService;
 import org.github.akarkin1.tg.BotCommunicator;
 import org.github.akarkin1.tg.TgRequestContext;
-import org.github.akarkin1.translation.ResourceBasedTranslator;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.User;
-import org.telegram.telegrambots.meta.bots.AbsSender;
 
 import java.util.Optional;
 
-import static org.github.akarkin1.config.ConfigManager.getAppVersion;
-import static org.github.akarkin1.config.ConfigManager.getBotToken;
-import static org.github.akarkin1.config.ConfigManager.getBotUsernameEnv;
-import static org.github.akarkin1.config.ConfigManager.getEventRootDir;
-import static org.github.akarkin1.config.ConfigManager.getEventTtlSec;
-import static org.github.akarkin1.tg.TelegramBotFactory.sender;
-
-@Log4j2
+@Singleton
 public class ServiceLambdaHandler implements
     RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
 
-  private static final ObjectMapper MAPPER = new ObjectMapper();
-  private static final CommandDispatcher COMMAND_DISPATCHER;
-  private static final BotCommunicator COMMUNICATOR;
-  private static final UpdateEventsRegistry EVENTS_REGISTRY;
-  private static final String BOT_SERVER_ERROR = "${bot.internal.error}";
-  private static final RequestAuthenticator REQUEST_AUTHENTICATOR;
+  private static final Logger log = LogManager.getLogger(ServiceLambdaHandler.class);
+
+  private static final ServiceLambdaHandler INSTANCE;
 
   static {
-    REQUEST_AUTHENTICATOR = new RequestAuthenticatorConfigurer().configure();
+    String profile = System.getProperty("lambda.profile", "prod");
+    Injector injector = "local".equalsIgnoreCase(profile)
+        ? Guice.createInjector(new LocalConfigModule())
+        : Guice.createInjector(new ProdConfigModule());
+    INSTANCE = injector.getInstance(ServiceLambdaHandler.class);
+  }
 
-    EVENTS_REGISTRY = new FSUpdateEventsRegistry(getEventTtlSec(), getEventRootDir());
+  // Default constructor required by AWS Lambda
+  public ServiceLambdaHandler() {
+    // No-op: all logic is handled by static INSTANCE
+    this.mapper = null;
+    this.commandDispatcher = null;
+    this.communicator = null;
+    this.eventsRegistry = null;
+    this.requestAuthenticator = null;
+    this.botServerError = null;
+  }
 
-    final AbsSender sender = sender(getBotToken(), getBotUsernameEnv());
-    final NodeService nodeService = new EcsNodeServiceConfigurer().configure();
-    final EntitlementsService entitlementsService = new EntitlementsServiceConfigurer().configure();
-    final Authorizer authorizer = new AuthorizerConfigurer().configure(entitlementsService);
+  private final ObjectMapper mapper;
+  private final CommandDispatcher commandDispatcher;
+  private final BotCommunicator communicator;
+  private final UpdateEventsRegistry eventsRegistry;
+  private final RequestAuthenticator requestAuthenticator;
+  private final String botServerError;
 
-    COMMUNICATOR = new BotCommunicator(sender, new ResourceBasedTranslator());
-    COMMAND_DISPATCHER = new CommandDispatcher(COMMUNICATOR, authorizer);
-
-    COMMAND_DISPATCHER.registerCommand("/version", new VersionCommand());
-    COMMAND_DISPATCHER.registerCommand("/listRunningNodes", new ListNodesCommand(
-        nodeService, authorizer));
-    COMMAND_DISPATCHER.registerCommand("/runNode",
-                                       new RunNodeCommand(nodeService,
-                                                          authorizer,
-                                                          COMMUNICATOR::sendMessageToTheBot));
-    COMMAND_DISPATCHER.registerCommand("/supportedRegions",
-                                       new SupportedRegionCommand(nodeService, authorizer));
-    COMMAND_DISPATCHER.registerCommand("/listServices",
-                                       new ListServicesCommand(authorizer));
-    COMMAND_DISPATCHER.registerCommand("/assignRoles",
-                                       new AssignRolesCommand(entitlementsService));
-    COMMAND_DISPATCHER.registerCommand("/describeRoles",
-                                       new DescribeRolesCommand(entitlementsService));
-    COMMAND_DISPATCHER.registerCommand("/deleteUsers",
-                                       new DeleteUsersCommand(entitlementsService,
-                                                              COMMUNICATOR::sendMessageToTheBot));
-    COMMAND_DISPATCHER.registerCommand("/listRegisteredUsers",
-                                       new ListUsersCommand(entitlementsService));
+  @Inject
+  public ServiceLambdaHandler(
+      ObjectMapper mapper,
+      CommandDispatcher commandDispatcher,
+      BotCommunicator communicator,
+      UpdateEventsRegistry eventsRegistry,
+      RequestAuthenticator requestAuthenticator) {
+    this.mapper = mapper;
+    this.commandDispatcher = commandDispatcher;
+    this.communicator = communicator;
+    this.eventsRegistry = eventsRegistry;
+    this.requestAuthenticator = requestAuthenticator;
+    this.botServerError = "${bot.internal.error}";
   }
 
   @Override
   public APIGatewayProxyResponseEvent handleRequest(
       APIGatewayProxyRequestEvent gwEvent,
       Context context) {
+    return INSTANCE.handleRequestInternal(gwEvent, context);
+  }
+
+  private APIGatewayProxyResponseEvent handleRequestInternal(
+      APIGatewayProxyRequestEvent gwEvent,
+      Context context) {
 
     Update update;
     try {
       log.debug("Got request: {}", serializeObject(gwEvent));
-      REQUEST_AUTHENTICATOR.authenticate(gwEvent);
+      requestAuthenticator.authenticate(gwEvent);
       String receivedPayload = gwEvent.getBody();
       log.debug("Received payload: {}", receivedPayload);
       if (StringUtils.isBlank(receivedPayload)) {
         return new APIGatewayProxyResponseEvent()
             .withBody("ECS Bot Lambda performs normally. Application version: %s "
-                          .formatted(getAppVersion()))
+                          .formatted(getAppVersionSafe()))
             .withStatusCode(200);
       }
 
-      update = MAPPER.readValue(receivedPayload, Update.class);
+      update = mapper.readValue(receivedPayload, Update.class);
     } catch (Exception e) {
       log.error("Failed to process request: ", e);
-      COMMUNICATOR.sendMessageToTheBot(BOT_SERVER_ERROR);
+      communicator.sendMessageToTheBot(botServerError);
       return new APIGatewayProxyResponseEvent()
           .withBody("{}")
           .withStatusCode(201);
@@ -121,7 +111,7 @@ public class ServiceLambdaHandler implements
       handleUpdate(update);
     } catch (Exception e) {
       log.error("Failed to handle update: ", e);
-      COMMUNICATOR.sendMessageToTheBot(BOT_SERVER_ERROR);
+      communicator.sendMessageToTheBot(botServerError);
       return new APIGatewayProxyResponseEvent()
           .withBody("{}")
           .withStatusCode(201);
@@ -132,23 +122,33 @@ public class ServiceLambdaHandler implements
         .withStatusCode(201);
   }
 
-  private static String serializeObject(APIGatewayProxyRequestEvent gwEvent) {
+  private String serializeObject(APIGatewayProxyRequestEvent gwEvent) {
     try {
-      return MAPPER.writeValueAsString(gwEvent);
+      return mapper.writeValueAsString(gwEvent);
     } catch (Exception e) {
       return gwEvent.toString();
     }
   }
 
+  private String getAppVersionSafe() {
+    try {
+      // Try to get version from injected commandDispatcher or another injected bean
+      // (assuming VersionCommand or similar is registered)
+      return commandDispatcher != null ? commandDispatcher.getClass().getPackage().getImplementationVersion() : "unknown";
+    } catch (Exception e) {
+      return "unknown";
+    }
+  }
+
   private void handleUpdate(Update update) {
-    if (EVENTS_REGISTRY.hasAlreadyProcessed(update)) {
+    if (eventsRegistry.hasAlreadyProcessed(update)) {
       log.info("Skipping duplicated event: {}", update);
       return;
     }
 
     TgRequestContext.initContext(update);
     log.info("Saving event to the registry (deduplication logic). Update: {}", update);
-    EVENTS_REGISTRY.registerEvent(update);
+    eventsRegistry.registerEvent(update);
 
     Message message = update.getMessage();
     if (message == null) {
@@ -166,7 +166,7 @@ public class ServiceLambdaHandler implements
         .map(User::getUserName)
         .orElse("<Unknown>");
     log.info("User {} has started communication with the bot", userName);
-    COMMAND_DISPATCHER.handle(update);
+    commandDispatcher.handle(update);
   }
 
 }

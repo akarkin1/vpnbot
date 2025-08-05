@@ -1,6 +1,5 @@
 package org.github.akarkin1.dispatcher.command;
 
-import lombok.RequiredArgsConstructor;
 import org.github.akarkin1.auth.Permission;
 import org.github.akarkin1.auth.UserEntitlements;
 import org.github.akarkin1.auth.UserEntitlementsProvider;
@@ -9,10 +8,13 @@ import org.github.akarkin1.dispatcher.response.TextCommandResponse;
 import java.util.List;
 import java.util.Map;
 
-@RequiredArgsConstructor
 public class ListUsersCommand implements BotCommand<TextCommandResponse> {
 
   private final UserEntitlementsProvider userEntitlementsProvider;
+
+  public ListUsersCommand(UserEntitlementsProvider userEntitlementsProvider) {
+    this.userEntitlementsProvider = userEntitlementsProvider;
+  }
 
   @Override
   public TextCommandResponse run(List<String> args) {

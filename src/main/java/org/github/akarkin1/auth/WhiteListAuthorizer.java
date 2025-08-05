@@ -14,11 +14,17 @@ import static org.github.akarkin1.auth.EntitlementUtil.*;
 // secured with SSL, and no other connections are allowed by a SecurityGroup,
 // apart from TG API Servers.
 @Log4j2
-@RequiredArgsConstructor
 public class WhiteListAuthorizer implements Authorizer {
 
   private final AuthConfiguration config;
   private final UserEntitlementsProvider permissionsProvider;
+  private final ConfigManager configManager;
+
+  public WhiteListAuthorizer(AuthConfiguration config, UserEntitlementsProvider permissionsProvider, ConfigManager configManager) {
+    this.config = config;
+    this.permissionsProvider = permissionsProvider;
+    this.configManager = configManager;
+  }
 
   @Override
   public boolean hasPermission(String tgUsername, Permission permission) {
@@ -43,7 +49,7 @@ public class WhiteListAuthorizer implements Authorizer {
   @Override
   public Set<String> getAllowedServices(String tgUsername, Permission permission) {
     if (!Boolean.TRUE.equals(config.isEnabled())) {
-      return ConfigManager.getSupportedServices();
+      return configManager.getSupportedServices();
     }
 
     if (tgUsername == null) {
@@ -51,7 +57,7 @@ public class WhiteListAuthorizer implements Authorizer {
     }
 
     if (permission == Permission.ROOT_ACCESS) {
-      return ConfigManager.getSupportedServices();
+      return configManager.getSupportedServices();
     }
 
     Map<String, List<UserEntitlements.Entitlement>> userEntitlements = permissionsProvider.getUserEntitlements();
@@ -68,14 +74,14 @@ public class WhiteListAuthorizer implements Authorizer {
   @Override
   public Set<String> getAllowedServices(String username) {
     if (!Boolean.TRUE.equals(config.isEnabled())) {
-      return ConfigManager.getSupportedServices();
+      return configManager.getSupportedServices();
     }
 
     if (username == null) {
       return Collections.emptySet();
     }
 
-    Set<String> allServices = ConfigManager.getSupportedServices();
+    Set<String> allServices = configManager.getSupportedServices();
     if (hasPermission(username, Permission.ROOT_ACCESS)) {
       return allServices;
     }

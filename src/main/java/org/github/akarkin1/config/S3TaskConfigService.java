@@ -42,8 +42,8 @@ public class S3TaskConfigService implements TaskConfigService {
   private final S3ConfigManager s3ConfigManager;
   private final S3Configuration config;
 
-  public static S3TaskConfigService create(S3Configuration config, S3Client createdClient) {
-    S3ConfigManager s3ConfigManager = S3ConfigManager.create(config, createdClient);
+  public static S3TaskConfigService create(S3Configuration config, S3Client createdClient, ConfigManager configManager) {
+    S3ConfigManager s3ConfigManager = S3ConfigManager.create(config, createdClient, configManager);
     return new S3TaskConfigService(s3ConfigManager, config);
   }
 

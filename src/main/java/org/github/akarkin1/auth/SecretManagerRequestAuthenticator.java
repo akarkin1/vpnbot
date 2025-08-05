@@ -1,7 +1,6 @@
 package org.github.akarkin1.auth;
 
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient;
@@ -11,13 +10,17 @@ import software.amazon.awssdk.services.secretsmanager.model.GetSecretValueRespon
 import java.util.Map;
 
 @Slf4j
-@RequiredArgsConstructor
 public class SecretManagerRequestAuthenticator implements RequestAuthenticator {
 
   private final static String SECRET_TOKEN_HEADER = "x-telegram-bot-api-secret-token";
 
   private final SecretsManagerClient client;
   private final String secretTokenId;
+
+  public SecretManagerRequestAuthenticator(SecretsManagerClient client, String secretTokenId) {
+    this.client = client;
+    this.secretTokenId = secretTokenId;
+  }
 
   @Override
   public void authenticate(APIGatewayProxyRequestEvent request)

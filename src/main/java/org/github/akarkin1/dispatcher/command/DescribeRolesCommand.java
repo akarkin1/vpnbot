@@ -1,16 +1,18 @@
 package org.github.akarkin1.dispatcher.command;
 
-import lombok.RequiredArgsConstructor;
 import org.github.akarkin1.auth.Permission;
 import org.github.akarkin1.auth.UserSignupService;
 import org.github.akarkin1.dispatcher.response.TextCommandResponse;
 
 import java.util.List;
 
-@RequiredArgsConstructor
 public class DescribeRolesCommand implements BotCommand<TextCommandResponse> {
 
   private final UserSignupService signupService;
+
+  public DescribeRolesCommand(UserSignupService signupService) {
+    this.signupService = signupService;
+  }
 
   @Override
   public TextCommandResponse run(List<String> args) {

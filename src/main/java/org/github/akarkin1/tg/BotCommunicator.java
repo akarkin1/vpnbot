@@ -1,5 +1,6 @@
 package org.github.akarkin1.tg;
 
+import com.google.inject.Inject;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
@@ -10,11 +11,16 @@ import org.telegram.telegrambots.meta.bots.AbsSender;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 @Log4j2
-@RequiredArgsConstructor
 public class BotCommunicator {
 
   private final AbsSender sender;
   private final Translator translator;
+
+  @Inject
+  public BotCommunicator(AbsSender sender, Translator translator) {
+    this.sender = sender;
+    this.translator = translator;
+  }
 
   @SneakyThrows(TelegramApiException.class)
   public void sendMessageToTheBot(String message, Object ...params) {

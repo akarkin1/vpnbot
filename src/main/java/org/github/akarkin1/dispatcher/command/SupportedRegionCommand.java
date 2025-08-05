@@ -1,6 +1,5 @@
 package org.github.akarkin1.dispatcher.command;
 
-import lombok.RequiredArgsConstructor;
 import org.github.akarkin1.auth.Authorizer;
 import org.github.akarkin1.auth.Permission;
 import org.github.akarkin1.dispatcher.response.TextCommandResponse;
@@ -11,11 +10,15 @@ import org.github.akarkin1.tg.TgRequestContext;
 import java.util.List;
 import java.util.Set;
 
-@RequiredArgsConstructor
 public final class SupportedRegionCommand implements BotCommand<TextCommandResponse> {
 
   private final NodeService nodeService;
   private final Authorizer authorizer;
+
+  public SupportedRegionCommand(NodeService nodeService, Authorizer authorizer) {
+    this.nodeService = nodeService;
+    this.authorizer = authorizer;
+  }
 
   @Override
   public TextCommandResponse run(List<String> args) {

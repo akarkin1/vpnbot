@@ -72,7 +72,7 @@ public abstract class BaseFeatureStep {
       // ignore if already exists
     }
 
-    System.setProperty("env", "test");
+    System.setProperty("lambda.profile", "local");
     System.setProperty("bot.secret.token.id", TEST_SECRET_TOKEN_ID);
     System.setProperty("tg.bot.token", TG_BOT_TOKEN);
     System.setProperty("tg.bot.api.base.url", String.format("http://%s:%s/bot%s/", telegramApi.getHost(), telegramApi.getMappedPort(8081), TG_BOT_TOKEN));

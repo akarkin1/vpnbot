@@ -2,9 +2,10 @@ package org.github.akarkin1.ecs;
 
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
-import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.text.StringSubstitutor;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.github.akarkin1.config.TaskConfigService;
 import org.github.akarkin1.config.TaskRuntimeParameters;
 import org.github.akarkin1.config.YamlApplicationConfiguration.EcsConfiguration;
@@ -48,9 +49,10 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-@Log4j2
 @RequiredArgsConstructor
 public class EcsManagerImpl implements EcsManager {
+
+  private static final Logger log = LogManager.getLogger(EcsManagerImpl.class);
 
   private static final String ELASTIC_NETWORK_INTERFACE_FIELD = "ElasticNetworkInterface";
   private static final String NETWORK_INTERFACE_ID = "networkInterfaceId";

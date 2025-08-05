@@ -3,6 +3,7 @@ package org.github.akarkin1.s3;
 import org.github.akarkin1.config.YamlApplicationConfiguration.S3Configuration;
 import org.github.akarkin1.config.exception.S3DownloadFailureException;
 import org.github.akarkin1.ju5ext.LambdaTestEnvironment;
+import org.github.akarkin1.config.ConfigManager;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -34,9 +35,10 @@ class S3ConfigManagerTest {
     void testCreate_shouldReturnS3ConfigManager() {
         // Given
         S3Configuration configuration = mock(S3Configuration.class);
+        ConfigManager configManager = mock(ConfigManager.class);
 
         // When
-        S3ConfigManager manager = S3ConfigManager.create(configuration, S3Client.create());
+        S3ConfigManager manager = S3ConfigManager.create(configuration, S3Client.create(), configManager);
 
         // Then
         assertNotNull(manager);
@@ -135,14 +137,8 @@ class S3ConfigManagerTest {
     }
 
     private S3ConfigManager createS3ConfigManager() {
-        try {
-            // Use reflection to create S3ConfigManager with mocked dependencies
-            var constructor = S3ConfigManager.class.getDeclaredConstructor(S3Client.class, S3Configuration.class);
-            constructor.setAccessible(true);
-            return constructor.newInstance(s3Client, config);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        ConfigManager configManager = mock(ConfigManager.class);
+        return S3ConfigManager.create(config, s3Client, configManager);
     }
 
     private ResponseInputStream<GetObjectResponse> createResponseInputStream(String content) {

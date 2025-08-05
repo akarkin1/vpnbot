@@ -1,6 +1,5 @@
 package org.github.akarkin1.dispatcher.command;
 
-import lombok.RequiredArgsConstructor;
 import org.github.akarkin1.auth.Authorizer;
 import org.github.akarkin1.auth.Permission;
 import org.github.akarkin1.config.ConfigManager;
@@ -13,10 +12,13 @@ import java.util.Set;
 /**
  * Command to list supported service types.
  */
-@RequiredArgsConstructor
 public final class ListServicesCommand implements BotCommand<TextCommandResponse> {
 
   private final Authorizer authorizer;
+
+  public ListServicesCommand(Authorizer authorizer) {
+    this.authorizer = authorizer;
+  }
 
   @Override
   public TextCommandResponse run(List<java.lang.String> args) {
@@ -51,3 +53,4 @@ public final class ListServicesCommand implements BotCommand<TextCommandResponse
     return List.of(Permission.LIST_NODES);
   }
 }
+

@@ -19,6 +19,7 @@ import org.github.akarkin1.tg.BotCommunicator;
 import org.github.akarkin1.tg.TgRequestContext;
 import org.github.akarkin1.translation.ResourceBasedTranslator;
 import org.github.akarkin1.translation.Translator;
+import org.github.akarkin1.config.ConfigManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -49,6 +50,9 @@ class HelpCommandV2Test {
   @Mock
   private Authorizer authorizer;
 
+  @Mock
+  private ConfigManager configManager;
+
   private CommandDispatcher commandDispatcher;
   private HelpCommand helpCommandV2;
 
@@ -56,7 +60,7 @@ class HelpCommandV2Test {
   void setUpHelpCommand() {
     commandDispatcher = new CommandDispatcher(botCommunicator, authorizer);
 
-    commandDispatcher.registerCommand("/version", new VersionCommand());
+    commandDispatcher.registerCommand("/version", new VersionCommand(configManager));
     commandDispatcher.registerCommand("/listRunningNodes", new ListNodesCommand(
       nodeService, authorizer));
     commandDispatcher.registerCommand("/runNodeIn",
@@ -118,3 +122,4 @@ class HelpCommandV2Test {
   }
 
 }
+

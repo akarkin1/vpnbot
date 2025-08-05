@@ -10,8 +10,8 @@ import java.util.function.Function;
 
 public class TelegramBotFactory {
 
-  public static AbsSender sender(String token, String username) {
-    return webhookBot(token, username, x -> null, ConfigManager.getBotApiBaseUrl());
+  public static AbsSender sender(String token, String username, ConfigManager configManager) {
+    return webhookBot(token, username, x -> null, configManager.getBotApiBaseUrl());
   }
 
   private static TelegramWebhookBot webhookBot(

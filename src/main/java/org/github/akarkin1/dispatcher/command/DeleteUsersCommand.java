@@ -1,6 +1,5 @@
 package org.github.akarkin1.dispatcher.command;
 
-import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.github.akarkin1.auth.EntitlementUtil;
 import org.github.akarkin1.auth.Permission;
@@ -14,11 +13,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Predicate;
 
-@RequiredArgsConstructor
 public class DeleteUsersCommand implements BotCommand<EmptyResponse> {
 
   private final EntitlementsService entitlementsService;
   private final MessageConsumer messageConsumer;
+
+  public DeleteUsersCommand(EntitlementsService entitlementsService, MessageConsumer messageConsumer) {
+    this.entitlementsService = entitlementsService;
+    this.messageConsumer = messageConsumer;
+  }
 
   @Override
   public EmptyResponse run(List<String> args) {

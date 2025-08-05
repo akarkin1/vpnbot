@@ -1,6 +1,5 @@
 package org.github.akarkin1.dispatcher.command;
 
-import lombok.RequiredArgsConstructor;
 import org.github.akarkin1.auth.Permission;
 import org.github.akarkin1.auth.ServiceRole;
 import org.github.akarkin1.auth.ServiceRole.Role;
@@ -16,10 +15,13 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-@RequiredArgsConstructor
 public class AssignRolesCommand implements BotCommand<TextCommandResponse> {
 
   private final UserSignupService signupService;
+
+  public AssignRolesCommand(UserSignupService signupService) {
+    this.signupService = signupService;
+  }
 
   @Override
   public TextCommandResponse run(List<String> args) {
