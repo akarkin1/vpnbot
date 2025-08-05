@@ -13,8 +13,9 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.github.akarkin1.auth.RequestAuthenticator;
-import org.github.akarkin1.config.LocalConfigModule;
-import org.github.akarkin1.config.ProdConfigModule;
+import org.github.akarkin1.config.guice.CommonConfigModule;
+import org.github.akarkin1.config.guice.LocalConfigModule;
+import org.github.akarkin1.config.guice.ProdConfigModule;
 import org.github.akarkin1.deduplication.UpdateEventsRegistry;
 import org.github.akarkin1.dispatcher.CommandDispatcher;
 import org.github.akarkin1.tg.BotCommunicator;
@@ -36,8 +37,8 @@ public class ServiceLambdaHandler implements
   static {
     String profile = System.getProperty("lambda.profile", "prod");
     Injector injector = "local".equalsIgnoreCase(profile)
-        ? Guice.createInjector(new LocalConfigModule())
-        : Guice.createInjector(new ProdConfigModule());
+        ? Guice.createInjector(new CommonConfigModule(), new LocalConfigModule())
+        : Guice.createInjector(new CommonConfigModule(), new ProdConfigModule());
     INSTANCE = injector.getInstance(ServiceLambdaHandler.class);
   }
 

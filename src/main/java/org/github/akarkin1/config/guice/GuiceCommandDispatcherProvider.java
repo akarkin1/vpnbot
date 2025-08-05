@@ -1,9 +1,10 @@
-package org.github.akarkin1.dispatcher;
+package org.github.akarkin1.config.guice;
 
 import com.google.inject.Inject;
 import com.google.inject.Provider;
 import org.github.akarkin1.auth.Authorizer;
 import org.github.akarkin1.auth.s3.EntitlementsService;
+import org.github.akarkin1.dispatcher.CommandDispatcher;
 import org.github.akarkin1.dispatcher.command.*;
 import org.github.akarkin1.service.NodeService;
 import org.github.akarkin1.tg.BotCommunicator;

@@ -1,10 +1,9 @@
-package org.github.akarkin1.config;
+package org.github.akarkin1.config.guice;
 
 import com.google.inject.Inject;
 import com.google.inject.Provider;
-import org.yaml.snakeyaml.Yaml;
-
-import java.io.InputStream;
+import org.github.akarkin1.config.ConfigConstants;
+import org.github.akarkin1.config.YamlApplicationConfiguration;
 
 public class YamlApplicationConfigurationProvider implements Provider<YamlApplicationConfiguration> {
     private final ConfigConstants constants;
