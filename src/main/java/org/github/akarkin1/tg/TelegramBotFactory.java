@@ -1,5 +1,6 @@
 package org.github.akarkin1.tg;
 
+import org.github.akarkin1.config.ConfigManager;
 import org.telegram.telegrambots.bots.TelegramWebhookBot;
 import org.telegram.telegrambots.meta.api.methods.BotApiMethod;
 import org.telegram.telegrambots.meta.api.objects.Update;
@@ -10,16 +11,21 @@ import java.util.function.Function;
 public class TelegramBotFactory {
 
   public static AbsSender sender(String token, String username) {
-    return webhookBot(token, username, x -> null);
+    String baseUrl = null;
+    if (ConfigManager.isTestEnvironment()) {
+      baseUrl = "http://localhost:8081";
+    }
+
+    return webhookBot(token, username, x -> null, baseUrl);
   }
 
-  public static TelegramWebhookBot webhookBot(
-      String token, String username, Function<Update, BotApiMethod> onUpdate) {
-    return webhookBot(token, username, username, onUpdate);
+  private static TelegramWebhookBot webhookBot(
+    String token, String username, Function<Update, BotApiMethod> onUpdate, String baseUrl) {
+    return webhookBot(token, username, username, onUpdate, baseUrl);
   }
 
-  public static TelegramWebhookBot webhookBot(
-      String token, String username, String path, Function<Update, BotApiMethod> onUpdate) {
+  private static TelegramWebhookBot webhookBot(
+      String token, String username, String path, Function<Update, BotApiMethod> onUpdate, String baseUrl) {
     return new TelegramWebhookBot() {
       @Override
       public String getBotToken() {
@@ -39,6 +45,15 @@ public class TelegramBotFactory {
       @Override
       public String getBotPath() {
         return path;
+      }
+
+      @Override
+      public String getBaseUrl() {
+        if (baseUrl != null) {
+          return baseUrl;
+        }
+
+        return super.getBaseUrl();
       }
     };
   }

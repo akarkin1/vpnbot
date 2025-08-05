@@ -30,40 +30,4 @@ class TelegramBotFactoryTest {
         assertNotNull(sender);
     }
 
-    @Test
-    void testWebhookBot_withThreeParameters_shouldReturnTelegramWebhookBot() {
-        // Given
-        String token = "test-token";
-        String username = "test-bot";
-        Function<Update, BotApiMethod> onUpdate = update -> null;
-
-        // When
-        TelegramWebhookBot bot = TelegramBotFactory.webhookBot(token, username, onUpdate);
-
-        // Then
-        assertNotNull(bot);
-        assertEquals(token, bot.getBotToken());
-        assertEquals(username, bot.getBotUsername());
-        assertEquals(username, bot.getBotPath());
-        assertNull(bot.onWebhookUpdateReceived(new Update()));
-    }
-
-    @Test
-    void testWebhookBot_withFourParameters_shouldReturnTelegramWebhookBot() {
-        // Given
-        String token = "test-token";
-        String username = "test-bot";
-        String path = "custom-path";
-        Function<Update, BotApiMethod> onUpdate = update -> null;
-
-        // When
-        TelegramWebhookBot bot = TelegramBotFactory.webhookBot(token, username, path, onUpdate);
-
-        // Then
-        assertNotNull(bot);
-        assertEquals(token, bot.getBotToken());
-        assertEquals(username, bot.getBotUsername());
-        assertEquals(path, bot.getBotPath());
-        assertNull(bot.onWebhookUpdateReceived(new Update()));
-    }
 }

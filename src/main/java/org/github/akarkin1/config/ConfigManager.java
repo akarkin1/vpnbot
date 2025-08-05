@@ -20,8 +20,10 @@ public class ConfigManager {
   private static final String BOT_TOKEN_ENV = "BOT_TOKEN";
   private static final String BOT_USERNAME_ENV = "BOT_USERNAME";
   private static final String BOT_SECRET_TOKEN_ID_ENV = "BOT_SECRET_TOKEN_ID";
+  private static final String BOT_SECRET_TOKEN_ID_PROP = "bot.secret.token.id";
   private static final String REGISTERED_EVENT_EXPIRATION_TIME_SEC_ENV = "REGISTERED_EVENT_EXPIRATION_TIME_SEC";
-  private static final String S3_CONFIG_BUCKET = "S3_CONFIG_BUCKET";
+  private static final String S3_CONFIG_BUCKET_ENV = "S3_CONFIG_BUCKET";
+  private static final String S3_CONFIG_BUCKET_PROP = "s3.config.bucket";
 
   private static final YamlApplicationConfiguration APP_CONFIG = YamlApplicationConfiguration
       .load(APP_CONFIG_YAML);
@@ -38,6 +40,10 @@ public class ConfigManager {
     return EVENT_ROOT_DIR;
   }
 
+  public static boolean isTestEnvironment() {
+    return System.getProperty("env", "").equals("test");
+  }
+
   public static Long getEventTtlSec() {
     String envVarVal = envOrDefault(REGISTERED_EVENT_EXPIRATION_TIME_SEC_ENV, "360");
     long longValSec = Long.parseLong(envVarVal);
@@ -45,7 +51,7 @@ public class ConfigManager {
   }
 
   public static String getS3ConfigBucket() {
-    return envOrDefault(S3_CONFIG_BUCKET, System.getProperty(S3_CONFIG_BUCKET));
+    return envOrDefault(S3_CONFIG_BUCKET_ENV, System.getProperty(S3_CONFIG_BUCKET_PROP));
   }
 
   public static Set<String> getSupportedServices() {
@@ -57,8 +63,7 @@ public class ConfigManager {
   }
 
   public static String getSecretTokenId() {
-    return envOrThrow(BOT_SECRET_TOKEN_ID_ENV, () -> new IllegalStateException(
-        "Environment variable 'BOT_SECRET_TOKEN_ID_ENV' is not set"));
+    return envOrDefault(BOT_SECRET_TOKEN_ID_ENV, System.getProperty(BOT_SECRET_TOKEN_ID_PROP));
   }
 
   public static YamlApplicationConfiguration getApplicationYaml() {
