@@ -28,7 +28,7 @@ public class LocalConfigManager implements ConfigManager {
 
     @Override
     public String getEventRootDir() {
-        return "test-eventIds";
+        return ".test-data/test-eventIds";
     }
 
     @Override

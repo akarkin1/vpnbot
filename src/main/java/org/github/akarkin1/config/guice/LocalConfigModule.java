@@ -4,10 +4,9 @@ import com.google.inject.AbstractModule;
 import com.google.inject.Provides;
 import org.github.akarkin1.config.ConfigManager;
 import org.github.akarkin1.config.LocalConfigManager;
+import org.github.akarkin1.ec2.Ec2ClientProvider;
 import org.github.akarkin1.ec2.MockEc2ClientProvider;
 import org.github.akarkin1.ecs.EcsClientProvider;
-import org.github.akarkin1.ec2.Ec2ClientProvider;
-import org.github.akarkin1.ecs.EcsTaskTestHarness;
 import org.github.akarkin1.ecs.MockEcsClientProvider;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
@@ -56,12 +55,8 @@ public class LocalConfigModule extends AbstractModule {
 
     @Provides
     @Singleton
-    EcsClientProvider ecsClientProvider(Ec2ClientProvider ec2ClientProvider) {
-        MockEcsClientProvider ecsClientProvider = new MockEcsClientProvider();
-        EcsTaskTestHarness ecsTaskTestHarness = new EcsTaskTestHarness(ecsClientProvider, ec2ClientProvider);
-        ecsTaskTestHarness.setupEcsClientMocks();
-        ecsTaskTestHarness.setupEc2ClientMocks();
-        return ecsClientProvider;
+    EcsClientProvider ecsClientProvider() {
+      return new MockEcsClientProvider();
     }
 
 }

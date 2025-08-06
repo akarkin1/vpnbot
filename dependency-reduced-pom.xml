@@ -167,22 +167,6 @@
       </exclusions>
     </dependency>
     <dependency>
-      <groupId>io.cucumber</groupId>
-      <artifactId>cucumber-guice</artifactId>
-      <version>7.15.0</version>
-      <scope>test</scope>
-      <exclusions>
-        <exclusion>
-          <artifactId>cucumber-core</artifactId>
-          <groupId>io.cucumber</groupId>
-        </exclusion>
-        <exclusion>
-          <artifactId>apiguardian-api</artifactId>
-          <groupId>org.apiguardian</groupId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-    <dependency>
       <groupId>org.junit.platform</groupId>
       <artifactId>junit-platform-suite</artifactId>
       <version>1.13.4</version>

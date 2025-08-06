@@ -19,13 +19,13 @@ import java.util.Optional;
 @Log4j2
 public class EcsConfigurerFacade {
 
+  private static final String BOT_INTERNAL_ERROR = "${bot.internal.error}";
+
   private final ObjectMapper mapper;
   private final CommandDispatcher commandDispatcher;
   private final BotCommunicator communicator;
   private final UpdateEventsRegistry eventsRegistry;
   private final RequestAuthenticator requestAuthenticator;
-  private final String botServerError;
-
 
   @Inject
   public EcsConfigurerFacade(ObjectMapper mapper, CommandDispatcher commandDispatcher,
@@ -36,7 +36,6 @@ public class EcsConfigurerFacade {
     this.communicator = communicator;
     this.eventsRegistry = eventsRegistry;
     this.requestAuthenticator = requestAuthenticator;
-    this.botServerError = "${bot.internal.error}";
   }
 
   public void processGatewayEvent(APIGatewayProxyRequestEvent gwEvent) {
@@ -55,7 +54,7 @@ public class EcsConfigurerFacade {
       update = mapper.readValue(receivedPayload, Update.class);
     } catch (Exception e) {
       log.error("Failed to process request: ", e);
-      communicator.sendMessageToTheBot(botServerError);
+      communicator.sendMessageToTheBot(BOT_INTERNAL_ERROR);
       return;
     }
 
@@ -63,7 +62,7 @@ public class EcsConfigurerFacade {
       handleUpdate(update);
     } catch (Exception e) {
       log.error("Failed to handle update: ", e);
-      communicator.sendMessageToTheBot(botServerError);
+      communicator.sendMessageToTheBot(BOT_INTERNAL_ERROR);
     }
   }
 

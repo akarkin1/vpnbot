@@ -1,6 +1,5 @@
 package org.github.akarkin1.ecs;
 
-import org.mockito.Mockito;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.ecs.EcsClient;
 
@@ -13,7 +12,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class MockEcsClientProvider implements EcsClientProvider {
 
     private final Map<Region, EcsClient> clientsByRegion = new ConcurrentHashMap<>();
-    private final EcsClient defaultClient = Mockito.mock(EcsClient.class);
+    private final EcsClient defaultClient = new EcsClientMock();
 
     @Override
     public EcsClient get() {
@@ -22,18 +21,7 @@ public class MockEcsClientProvider implements EcsClientProvider {
 
     @Override
     public EcsClient get(Region region) {
-        return clientsByRegion.computeIfAbsent(region, r -> Mockito.mock(EcsClient.class));
+        return clientsByRegion.computeIfAbsent(region, ignored -> new EcsClientMock(region.id()));
     }
 
-    public EcsClient getDefaultClient() {
-        return defaultClient;
-    }
-
-    public EcsClient getClientForRegion(Region region) {
-        return clientsByRegion.computeIfAbsent(region, r -> Mockito.mock(EcsClient.class));
-    }
-
-    public Map<Region, EcsClient> getAllClients() {
-        return new ConcurrentHashMap<>(clientsByRegion);
-    }
 }

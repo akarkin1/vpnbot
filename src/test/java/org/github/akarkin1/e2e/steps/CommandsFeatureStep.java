@@ -67,8 +67,7 @@ public class CommandsFeatureStep extends BaseFeatureStep {
   public void iSendSupportedRegionsCommandToTheBot(String command) {
     EcsConfigurerLambdaHandler handler = new EcsConfigurerLambdaHandler();
     APIGatewayProxyRequestEvent event = createUpdateEvent(command);
-    Context context = null;
-    lambdaResponse = handler.handleRequest(event, context);
+    lambdaResponse = handler.handleRequest(event, null);
   }
 
   private static @NotNull APIGatewayProxyRequestEvent createUpdateEvent(String command) {
