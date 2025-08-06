@@ -41,6 +41,10 @@ public class CachedS3TaskConfigService implements TaskConfigService {
 
   @Override
   public TaskRuntimeParameters getTaskRuntimeParameters(Region region, String serviceName) {
+    if (!Boolean.TRUE.equals(config.getCacheTaskRuntimeParameters())) {
+      return delegate.getTaskRuntimeParameters(region, serviceName);
+    }
+
     val key = new ParametersCacheKey(region, serviceName);
 
     if (runtimeParameters.containsKey(key)) {

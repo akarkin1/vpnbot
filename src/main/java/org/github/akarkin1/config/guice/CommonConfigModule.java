@@ -14,14 +14,15 @@ import org.github.akarkin1.config.CachedS3TaskConfigService;
 import org.github.akarkin1.config.ConfigConstants;
 import org.github.akarkin1.config.ConfigManager;
 import org.github.akarkin1.config.S3TaskConfigService;
+import org.github.akarkin1.config.TaskConfigService;
 import org.github.akarkin1.config.YamlApplicationConfiguration;
 import org.github.akarkin1.config.YamlApplicationConfiguration.AuthConfiguration;
 import org.github.akarkin1.config.YamlApplicationConfiguration.S3Configuration;
 import org.github.akarkin1.deduplication.FSUpdateEventsRegistry;
 import org.github.akarkin1.deduplication.UpdateEventsRegistry;
 import org.github.akarkin1.dispatcher.CommandDispatcher;
-import org.github.akarkin1.ec2.Ec2ClientPool;
-import org.github.akarkin1.ecs.EcsClientPool;
+import org.github.akarkin1.ec2.Ec2ClientProvider;
+import org.github.akarkin1.ecs.EcsClientProvider;
 import org.github.akarkin1.ecs.EcsManager;
 import org.github.akarkin1.ecs.EcsManagerImpl;
 import org.github.akarkin1.s3.S3ConfigManager;
@@ -102,16 +103,17 @@ public class CommonConfigModule extends AbstractModule {
 
   @Provides
   @Singleton
-  NodeService provideNodeService(YamlApplicationConfiguration yamlConfig, S3Client s3Client,
-                                 ConfigManager configManager) {
+  NodeService provideNodeService(YamlApplicationConfiguration yamlConfig,
+                                 S3Client s3Client,
+                                 ConfigManager configManager,
+                                 EcsClientProvider ecsClientProvider,
+                                 Ec2ClientProvider ec2ClientProvider) {
     var s3Config = yamlConfig.getS3();
     S3TaskConfigService s3TaskConfigService = S3TaskConfigService.create(s3Config, s3Client,
                                                                          configManager);
-    org.github.akarkin1.config.TaskConfigService cachedConfigService = new CachedS3TaskConfigService(
+    TaskConfigService cachedConfigService = new CachedS3TaskConfigService(
       s3TaskConfigService, s3Config);
-    EcsClientPool ecsClientPool = new EcsClientPool();
-    Ec2ClientPool ec2ClientPool = new Ec2ClientPool();
-    EcsManager ecsManager = new EcsManagerImpl(cachedConfigService, ecsClientPool, ec2ClientPool,
+    EcsManager ecsManager = new EcsManagerImpl(cachedConfigService, ecsClientProvider, ec2ClientProvider,
                                                yamlConfig.getEcs(),
                                                yamlConfig.getAws().getRegionCities());
     return new EcsNodeService(ecsManager, yamlConfig.getEcs(), yamlConfig.getAws(), s3Config);

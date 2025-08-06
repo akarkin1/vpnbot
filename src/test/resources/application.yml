@@ -21,9 +21,10 @@ ecs:
   health:
     interval-ms: 1000
     timeout-sec: 300
-#  service-env:
-#    vpn:
-#      TEST_ENV: TestValue
+  service-env:
+    vpn:
+      env-vars:
+        TEST_ENV: TestValue
 
 aws:
   region-cities:

@@ -10,7 +10,7 @@ import org.github.akarkin1.config.TaskConfigService;
 import org.github.akarkin1.config.TaskRuntimeParameters;
 import org.github.akarkin1.config.YamlApplicationConfiguration.EcsConfiguration;
 import org.github.akarkin1.config.YamlApplicationConfiguration.EcsContainerHealth;
-import org.github.akarkin1.ec2.Ec2ClientPool;
+import org.github.akarkin1.ec2.Ec2ClientProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.ec2.Ec2Client;
 import software.amazon.awssdk.services.ec2.model.DescribeNetworkInterfacesRequest;
@@ -36,7 +36,6 @@ import software.amazon.awssdk.services.ecs.model.Tag;
 import software.amazon.awssdk.services.ecs.model.Task;
 import software.amazon.awssdk.services.ecs.model.TaskField;
 import software.amazon.awssdk.utils.CollectionUtils;
-import software.amazon.awssdk.utils.MapUtils;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -58,8 +57,8 @@ public class EcsManagerImpl implements EcsManager {
   private static final String NETWORK_INTERFACE_ID = "networkInterfaceId";
 
   private final TaskConfigService taskConfigService;
-  private final EcsClientPool ecsClientPool;
-  private final Ec2ClientPool ec2ClientPool;
+  private final EcsClientProvider ecsClientProvider;
+  private final Ec2ClientProvider ec2ClientProvider;
   private final EcsConfiguration config;
   private final Map<String, String> regionToCitiesMap;
 
@@ -94,7 +93,7 @@ public class EcsManagerImpl implements EcsManager {
         .networkConfiguration(networkConfig)
         .build();
 
-    EcsClient client = ecsClientPool.get(region);
+    EcsClient client = ecsClientProvider.get(region);
 
     RunTaskResponse resp = client.runTask(runTaskRequest);
     if (!resp.hasTasks() || resp.tasks().isEmpty()) {
@@ -148,7 +147,7 @@ public class EcsManagerImpl implements EcsManager {
         .cluster(clusterName)
         .tasks(taskId)
         .build();
-    EcsClient client = ecsClientPool.get(region);
+    EcsClient client = ecsClientProvider.get(region);
     long startedAt = System.currentTimeMillis();
     RunTaskStatus lastStatus = RunTaskStatus.UNKNOWN;
 
@@ -222,7 +221,7 @@ public class EcsManagerImpl implements EcsManager {
       for (Region region : taskConfigService.getSupportedRegions(supportedService)) {
         TaskRuntimeParameters runtimeParams = taskConfigService.getTaskRuntimeParameters(region, supportedService);
         String clusterName = runtimeParams.getEcsClusterName();
-        EcsClient client = ecsClientPool.get(region);
+        EcsClient client = ecsClientProvider.get(region);
         ListTasksRequest listTasksRequest = ListTasksRequest.builder()
             .cluster(clusterName)
             .build();
@@ -290,7 +289,7 @@ public class EcsManagerImpl implements EcsManager {
   }
 
   private String fetchPublicIp(Region region, String networkInterfaceId) {
-    Ec2Client ec2Client = ec2ClientPool.getForRegion(region.id());
+    Ec2Client ec2Client = ec2ClientProvider.getForRegion(region.id());
     DescribeNetworkInterfacesRequest request = DescribeNetworkInterfacesRequest.builder()
         .networkInterfaceIds(networkInterfaceId)
         .build();
@@ -317,7 +316,7 @@ public class EcsManagerImpl implements EcsManager {
 
   @Override
   public Optional<TaskInfo> getFullTaskInfo(Region region, String clusterName, String taskId) {
-    EcsClient client = ecsClientPool.get(region);
+    EcsClient client = ecsClientProvider.get(region);
 
     DescribeTasksRequest describeTasksRequest = DescribeTasksRequest.builder()
         .cluster(clusterName)

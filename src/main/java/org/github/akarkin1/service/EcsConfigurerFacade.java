@@ -30,13 +30,13 @@ public class EcsConfigurerFacade {
   @Inject
   public EcsConfigurerFacade(ObjectMapper mapper, CommandDispatcher commandDispatcher,
                              BotCommunicator communicator, UpdateEventsRegistry eventsRegistry,
-                             RequestAuthenticator requestAuthenticator, String botServerError) {
+                             RequestAuthenticator requestAuthenticator) {
     this.mapper = mapper;
     this.commandDispatcher = commandDispatcher;
     this.communicator = communicator;
     this.eventsRegistry = eventsRegistry;
     this.requestAuthenticator = requestAuthenticator;
-    this.botServerError = botServerError;
+    this.botServerError = "${bot.internal.error}";
   }
 
   public void processGatewayEvent(APIGatewayProxyRequestEvent gwEvent) {
