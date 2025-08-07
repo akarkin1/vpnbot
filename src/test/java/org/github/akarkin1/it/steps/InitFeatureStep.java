@@ -1,4 +1,4 @@
-package org.github.akarkin1.e2e.steps;
+package org.github.akarkin1.it.steps;
 
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
@@ -11,8 +11,8 @@ import org.junit.jupiter.api.Assertions;
 
 import java.util.Map;
 
-import static org.github.akarkin1.e2e.init.S3Initializer.TEST_CONFIG_BUCKET;
-import static org.github.akarkin1.e2e.init.SMInitializer.TEST_TG_SECRET_TOKEN;
+import static org.github.akarkin1.it.init.S3Initializer.TEST_CONFIG_BUCKET;
+import static org.github.akarkin1.it.init.SMInitializer.TEST_TG_SECRET_TOKEN;
 
 public class InitFeatureStep extends BaseFeatureStep {
     private APIGatewayProxyResponseEvent response;

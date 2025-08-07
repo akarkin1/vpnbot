@@ -1,4 +1,4 @@
-package org.github.akarkin1.e2e;
+package org.github.akarkin1.it;
 
 import org.junit.platform.suite.api.ConfigurationParameter;
 import org.junit.platform.suite.api.IncludeEngines;
@@ -10,7 +10,7 @@ import static io.cucumber.junit.platform.engine.Constants.GLUE_PROPERTY_NAME;
 @Suite
 @IncludeEngines("cucumber")
 @SelectClasspathResource("features")
-@ConfigurationParameter(key = GLUE_PROPERTY_NAME, value = "org.github.akarkin1.e2e.steps")
+@ConfigurationParameter(key = GLUE_PROPERTY_NAME, value = "org.github.akarkin1.it.steps")
 public class CucumberTestRunner {
 }
 

@@ -35,7 +35,7 @@ public final class ListNodesCommand implements BotCommand<TextCommandResponse> {
 
     Set<String> allowedServices = authorizer.getAllowedServices(username, Permission.ROOT_ACCESS);
 
-    List<TaskInfo> outputTasks = nodeService.listTasks(username)
+    List<TaskInfo> outputTasks = nodeService.listTasks(null)
         .stream()
         .filter(task -> allowedServices.contains(task.getServiceName()))
         .toList();

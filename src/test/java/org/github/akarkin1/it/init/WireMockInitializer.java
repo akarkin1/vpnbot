@@ -1,4 +1,4 @@
-package org.github.akarkin1.e2e.init;
+package org.github.akarkin1.it.init;
 
 import com.github.tomakehurst.wiremock.client.WireMock;
 import org.wiremock.integrations.testcontainers.WireMockContainer;

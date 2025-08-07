@@ -1,4 +1,4 @@
-package org.github.akarkin1.e2e.init;
+package org.github.akarkin1.it.init;
 
 import org.testcontainers.containers.localstack.LocalStackContainer.EnabledService;
 import org.testcontainers.containers.localstack.LocalStackContainer.Service;

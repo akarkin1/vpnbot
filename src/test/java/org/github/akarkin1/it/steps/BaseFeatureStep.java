@@ -1,9 +1,9 @@
-package org.github.akarkin1.e2e.steps;
+package org.github.akarkin1.it.steps;
 
-import org.github.akarkin1.e2e.init.LocalStackInitializer;
-import org.github.akarkin1.e2e.init.S3Initializer;
-import org.github.akarkin1.e2e.init.SMInitializer;
-import org.github.akarkin1.e2e.init.WireMockInitializer;
+import org.github.akarkin1.it.init.LocalStackInitializer;
+import org.github.akarkin1.it.init.S3Initializer;
+import org.github.akarkin1.it.init.SMInitializer;
+import org.github.akarkin1.it.init.WireMockInitializer;
 import org.testcontainers.containers.localstack.LocalStackContainer;
 import org.testcontainers.containers.localstack.LocalStackContainer.Service;
 import org.testcontainers.junit.jupiter.Container;
@@ -15,7 +15,7 @@ import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient;
 
 import java.util.stream.Stream;
 
-import static org.github.akarkin1.e2e.init.WireMockInitializer.WIRE_MOCK_PORT;
+import static org.github.akarkin1.it.init.WireMockInitializer.WIRE_MOCK_PORT;
 
 @Testcontainers
 public abstract class BaseFeatureStep {

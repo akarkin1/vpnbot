@@ -1,4 +1,4 @@
-package org.github.akarkin1.e2e.init;
+package org.github.akarkin1.it.init;
 
 import lombok.RequiredArgsConstructor;
 import org.testcontainers.containers.localstack.LocalStackContainer;

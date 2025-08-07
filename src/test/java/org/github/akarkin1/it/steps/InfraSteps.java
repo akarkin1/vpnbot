@@ -1,4 +1,4 @@
-package org.github.akarkin1.e2e.steps;
+package org.github.akarkin1.it.steps;
 
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
@@ -13,7 +13,7 @@ import org.github.akarkin1.EcsConfigurerLambdaHandler;
 import org.github.akarkin1.auth.Permission;
 import org.github.akarkin1.auth.ServiceRole;
 import org.github.akarkin1.auth.UserEntitlements;
-import org.github.akarkin1.e2e.init.WireMockInitializer;
+import org.github.akarkin1.it.init.WireMockInitializer;
 import org.github.akarkin1.util.JsonUtils;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Assertions;
@@ -44,11 +44,11 @@ import static org.github.akarkin1.auth.Permission.LIST_NODES;
 import static org.github.akarkin1.auth.Permission.RUN_NODES;
 import static org.github.akarkin1.auth.Permission.SUPPORTED_REGIONS;
 import static org.github.akarkin1.auth.Permission.USER_MANAGEMENT;
-import static org.github.akarkin1.e2e.init.S3Initializer.TEST_CONFIG_BUCKET;
-import static org.github.akarkin1.e2e.init.SMInitializer.TEST_TG_SECRET_TOKEN;
+import static org.github.akarkin1.it.init.S3Initializer.TEST_CONFIG_BUCKET;
+import static org.github.akarkin1.it.init.SMInitializer.TEST_TG_SECRET_TOKEN;
 import static software.amazon.awssdk.core.sync.RequestBody.fromString;
 
-public class CommandsFeatureStep extends BaseFeatureStep {
+public class InfraSteps extends BaseFeatureStep {
 
   private APIGatewayProxyResponseEvent lambdaResponse;
 

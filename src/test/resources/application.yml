@@ -10,6 +10,9 @@ s3:
     vpn:
       supported-regions: vpn/supported-regions.txt
       stack-output-parameters: vpn/stack-output-parameters.json
+    other:
+      supported-regions: other/supported-regions.txt
+      stack-output-parameters: other/stack-output-parameters.json
   user-permissions-key: user-permissions.json
   cache-supported-regions: false
   cache-task-runtime-parameters: false
@@ -24,6 +27,9 @@ ecs:
     timeout-sec: 300
   service-env:
     vpn:
+      env-vars:
+        HOST_NAME: ${Hostname}
+    other:
       env-vars:
         TEST_ENV: TestValue
 
