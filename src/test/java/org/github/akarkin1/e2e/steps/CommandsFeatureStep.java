@@ -1,12 +1,10 @@
 package org.github.akarkin1.e2e.steps;
 
-import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.github.tomakehurst.wiremock.matching.StringValuePattern;
-import io.cucumber.java.en.And;
 import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
@@ -32,6 +30,7 @@ import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -76,7 +75,7 @@ public class CommandsFeatureStep extends BaseFeatureStep {
     gwEvent.setHeaders(Map.of("x-telegram-bot-api-secret-token", TEST_TG_SECRET_TOKEN));
 
     Update update = new Update();
-    update.setUpdateId(123);
+    update.setUpdateId(Math.abs(new Random().nextInt() / 2 - 1));
     Message userMsg = new Message();
     userMsg.setMessageId(111);
     Chat chat = new Chat();
@@ -134,14 +133,19 @@ public class CommandsFeatureStep extends BaseFeatureStep {
     Assertions.assertEquals(201, lambdaResponse.getStatusCode());
   }
 
-  @And("the lambda environment is cleaned up")
-  public void lambdaEnvironmentIsCleanedUp() {
-    cleanupLambdaEnv();
+  @Given("no events sent to lambda")
+  public void noEventsSentToLambda() {
+    cleanUpDirectory(".test-data/ecs/");
   }
 
-  public static void cleanupLambdaEnv() {
+  @Given("no ecs task run")
+  public void noEcsTaskRun() {
+    cleanUpDirectory(".test-data/test-eventIds/");
+  }
+
+  public static void cleanUpDirectory(String directoryName) {
     try {
-      FileUtils.deleteDirectory(new File("test-eventIds"));
+      FileUtils.deleteDirectory(new File(directoryName));
     } catch (IOException e) {
       System.out.println("Failed to delete test-eventIds directory: " + e.getMessage());
     }

@@ -2,6 +2,7 @@ version: 1.0
 
 auth:
   enabled: true
+  cache-user-permissions: false
 
 s3:
   config-root-dir: config

@@ -7,7 +7,19 @@ import org.github.akarkin1.util.JsonUtils;
 import software.amazon.awssdk.awscore.exception.AwsServiceException;
 import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.services.ecs.EcsClient;
-import software.amazon.awssdk.services.ecs.model.*;
+import software.amazon.awssdk.services.ecs.model.Attachment;
+import software.amazon.awssdk.services.ecs.model.Container;
+import software.amazon.awssdk.services.ecs.model.DescribeTasksRequest;
+import software.amazon.awssdk.services.ecs.model.DescribeTasksResponse;
+import software.amazon.awssdk.services.ecs.model.KeyValuePair;
+import software.amazon.awssdk.services.ecs.model.ListTasksRequest;
+import software.amazon.awssdk.services.ecs.model.ListTasksResponse;
+import software.amazon.awssdk.services.ecs.model.RunTaskRequest;
+import software.amazon.awssdk.services.ecs.model.RunTaskResponse;
+import software.amazon.awssdk.services.ecs.model.StopTaskRequest;
+import software.amazon.awssdk.services.ecs.model.StopTaskResponse;
+import software.amazon.awssdk.services.ecs.model.Tag;
+import software.amazon.awssdk.services.ecs.model.Task;
 import software.amazon.awssdk.services.secretsmanager.model.InternalServiceErrorException;
 
 import java.io.File;
@@ -16,7 +28,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Instant;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
@@ -66,20 +80,17 @@ public class EcsClientMock implements EcsClient {
     String taskArn = generateTaskArn(runTaskRequest.cluster(), taskId);
 
     try {
-      // Store the request payload
-      String requestPayload = JsonUtils.toJson(runTaskRequest);
-      Files.writeString(Path.of(TASKS_DIR, taskId + "-request.json"), requestPayload);
-
       // Create task metadata
       TaskData taskData = TaskData.builder()
         .taskId(taskId)
         .taskArn(taskArn)
         .cluster(runTaskRequest.cluster())
+        .region(region)
         .taskDefinition(runTaskRequest.taskDefinition())
         .lastStatus("RUNNING")
         .desiredStatus("RUNNING")
         .createdAt(Instant.now().toString())
-        .tags(runTaskRequest.tags())
+        .tags(mapToMockTags(runTaskRequest.tags()))
         .assignedIp(generateRandomIp())
         .build();
 
@@ -102,6 +113,11 @@ public class EcsClientMock implements EcsClient {
     }
   }
 
+  private static List<TaskData.Tag> mapToMockTags(List<Tag> tags) {
+    return tags.stream()
+      .map(awsTag -> new TaskData.Tag(awsTag.key(), awsTag.value())).toList();
+  }
+
   private String generateRandomIp() {
     Random rand = new Random();
     return String.format("%d.%d.%d.%d",
@@ -116,7 +132,7 @@ public class EcsClientMock implements EcsClient {
     throws AwsServiceException, SdkClientException {
 
     try {
-      String taskId = extractTaskIdFromArn(stopTaskRequest.task());
+      String taskId = extractTaskId(stopTaskRequest.task());
       Path taskMetadataPath = Path.of(TASKS_DIR, taskId + "-metadata.json");
 
       if (!Files.exists(taskMetadataPath)) {
@@ -183,13 +199,9 @@ public class EcsClientMock implements EcsClient {
     try {
       List<Task> tasks = new ArrayList<>();
 
-      for (String taskArn : describeTasksRequest.tasks()) {
-        // Only process tasks from this client's region
-        if (!isGlobal && !taskArn.contains(":" + region + ":")) {
-          continue;
-        }
+      for (String taskPointer : describeTasksRequest.tasks()) {
 
-        String taskId = extractTaskIdFromArn(taskArn);
+        String taskId = extractTaskId(taskPointer);
         Path taskMetadataPath = Path.of(TASKS_DIR, taskId + "-metadata.json");
 
         if (Files.exists(taskMetadataPath)) {
@@ -197,7 +209,7 @@ public class EcsClientMock implements EcsClient {
           TaskData taskData = JsonUtils.parseJson(metadataJson, TaskData.class);
 
           // Double-check that the task's stored region matches this client's region
-          if (isGlobal || taskData.getTaskArn().contains(":" + region + ":")) {
+          if (isGlobal || taskData.getRegion().equals(region)) {
             Task task = createTaskFromData(taskData);
             tasks.add(task);
           }
@@ -233,6 +245,15 @@ public class EcsClientMock implements EcsClient {
       .map(tag -> Tag.builder().key(tag.key()).value(tag.value()).build())
       .collect(Collectors.toList());
 
+    // Create main container with HEALTHY status
+    Container mainContainer = Container.builder()
+      .name("main-container")
+      .lastStatus("RUNNING")
+      .healthStatus("HEALTHY")
+      .taskArn(taskData.getTaskArn())
+      .containerArn(taskData.getTaskArn().replace(":task/", ":container/") + "/main-container")
+      .build();
+
     return Task.builder()
       .taskArn(taskData.getTaskArn())
       .taskDefinitionArn(taskData.getTaskDefinition())
@@ -243,6 +264,8 @@ public class EcsClientMock implements EcsClient {
       .stoppedAt(taskData.getStoppedAt() != null ? Instant.parse(taskData.getStoppedAt()) : null)
       .tags(tags)
       .attachments(networkAttachment)
+      .containers(mainContainer)
+      .healthStatus(mainContainer.healthStatus())
       .build();
   }
 
@@ -250,8 +273,12 @@ public class EcsClientMock implements EcsClient {
     return String.format("arn:aws:ecs:%s:123456789012:task/%s/%s", region, cluster, taskId);
   }
 
-  private String extractTaskIdFromArn(String taskArn) {
-    return taskArn.substring(taskArn.lastIndexOf('/') + 1);
+  private String extractTaskId(String taskPointer) {
+    if (!taskPointer.contains("/")) {
+      return taskPointer;
+    }
+
+    return taskPointer.substring(taskPointer.lastIndexOf('/') + 1);
   }
 
   private void addToRunningTasks(String taskArn) throws IOException {

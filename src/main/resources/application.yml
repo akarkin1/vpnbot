@@ -2,6 +2,7 @@ version: ${project.version}
 
 auth:
   enabled: true
+  cache-user-permissions: true
 
 s3:
   config-root-dir: config/

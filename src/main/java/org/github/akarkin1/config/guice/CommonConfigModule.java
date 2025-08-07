@@ -67,8 +67,9 @@ public class CommonConfigModule extends AbstractModule {
   @Provides
   @Singleton
   EntitlementsService provideEntitlementsService(S3ConfigManager s3ConfigManager,
-                                                 S3Configuration s3Config) {
-    return new CachingEntitlementsService(new S3EntitlementsService(s3ConfigManager, s3Config));
+                                                 S3Configuration s3Config,
+                                                 AuthConfiguration authConfiguration) {
+    return new CachingEntitlementsService(authConfiguration, new S3EntitlementsService(s3ConfigManager, s3Config));
   }
 
   @Provides

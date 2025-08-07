@@ -89,14 +89,14 @@ public class Ec2ClientMock implements Ec2Client {
       TaskData taskData = JsonUtils.parseJson(metadataJson, TaskData.class);
 
       // Only return IP if the task belongs to the current region
-      if (isGlobal || taskData.getTaskArn().contains(":" + region + ":")) {
+      if (isGlobal || taskData.getRegion().equals(region)) {
         return taskData.getAssignedIp();
       }
 
       return null;
 
     } catch (IOException e) {
-      log.error("Failed to read task metadata for network interface: " + networkInterfaceId, e);
+      log.error("Failed to read task metadata for network interface: {}", networkInterfaceId, e);
       return null;
     }
   }

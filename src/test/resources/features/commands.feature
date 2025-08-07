@@ -1,6 +1,7 @@
 Feature: Bot commands
   Background:
-    Given the lambda environment is cleaned up
+    Given no events sent to lambda
+    And no ecs task run
 
   Scenario: /supportedRegions command returns supported regions from config
     Given the config bucket contains file "config/vpn/supported-regions.txt" with content:
@@ -76,14 +77,24 @@ Feature: Bot commands
       ]
       """
     When user is authorized with role "NODE_ADMIN"
-    When "/runNode vpn us-east-1" command is sent to the bot
+    And "/runNode vpn us-east-1" command is sent to the bot
     Then the bot should reply with response:
       """
-      Starting VPN node in N. Virginia (us-east-1)...
+      The node has been started successfully. Node details:
+      - Node Name: vpn-test-user-nvirginia-1
+      Service Type: vpn
+      Node Status: HEALTHY
+      Location: N. Virginia (us-east-1)
+      Public IP:
       """
     When "/listRunningNodes" command is sent to the bot
     Then the bot should reply with response:
       """
       Running nodes:
+	  – Node Name: vpn-test-user-nvirginia-1
+	  Service Type: vpn
+	  Node Status: HEALTHY
+	  Region: N. Virginia (us-east-1)
+	  Public IP:
       """
 

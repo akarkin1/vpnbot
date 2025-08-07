@@ -84,6 +84,7 @@ public class YamlApplicationConfiguration {
   public static class AuthConfiguration {
 
     private boolean enabled;
+    private boolean cacheUserPermissions;
 
   }
 

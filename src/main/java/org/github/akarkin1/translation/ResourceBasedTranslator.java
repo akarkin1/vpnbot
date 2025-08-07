@@ -32,19 +32,20 @@ public class ResourceBasedTranslator implements Translator {
         String translatedMessage = StringUtils.EMPTY + message;
 
         for (String translationKey : translationKeys) {
-            String translatedValue = translateValue(langCode, message, translationKey);
-            translatedMessage = translatedMessage.replace("${%s}".formatted(translationKey), translatedValue);
+            String placeholder = "${%s}".formatted(translationKey);
+            String translatedValue = translateValue(langCode, translationKey, placeholder);
+            translatedMessage = translatedMessage.replace(placeholder, translatedValue);
         }
 
         return translatedMessage.formatted(params);
     }
 
-    private String translateValue(String langCode, String message, String translationKey) {
-        Properties translation = getCachedOrLoadTranslation(message, langCode);
+    private String translateValue(String langCode, String translationKey, String placeholder) {
+        Properties translation = getCachedOrLoadTranslation(placeholder, langCode);
         // fallback to the default file – the best we can do
         if (!translation.containsKey(translationKey)) {
-            return getCachedOrLoadTranslation(message, StringUtils.EMPTY)
-                .getProperty(translationKey, message);
+            return getCachedOrLoadTranslation(placeholder, StringUtils.EMPTY)
+                .getProperty(translationKey, placeholder);
         }
 
         return translation.getProperty(translationKey);

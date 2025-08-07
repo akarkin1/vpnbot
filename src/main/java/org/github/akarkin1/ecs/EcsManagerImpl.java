@@ -264,6 +264,7 @@ public class EcsManagerImpl implements EcsManager {
               .cluster(clusterName)
               .region(region)
               .location(regionToCitiesMap.get(region.id()))
+              .serviceName(serviceNameFromTask(task))
               .publicIp(publicIp)
               .build();
 
@@ -273,6 +274,15 @@ public class EcsManagerImpl implements EcsManager {
     }
 
     return foundTasks;
+  }
+
+  private String serviceNameFromTask(Task task) {
+    return task.tags()
+      .stream()
+      .filter(tag -> tag.key().equals(config.getServiceNameTag()))
+      .map(Tag::value)
+      .findFirst()
+      .orElse(null);
   }
 
   private String getTaskPublicIp(Region region, Task task) {
