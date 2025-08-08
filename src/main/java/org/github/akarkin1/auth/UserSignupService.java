@@ -1,6 +1,7 @@
 package org.github.akarkin1.auth;
 
 import java.util.*;
+import java.util.stream.Stream;
 
 import static org.github.akarkin1.auth.ServiceRole.*;
 import static org.github.akarkin1.auth.UserEntitlements.*;
@@ -16,10 +17,10 @@ public interface UserSignupService {
   default void assignRolesToUser(String tgUsername, Set<ServiceRole> serviceRoles) {
     List<Entitlement> entitlements = new ArrayList<>();
     for (ServiceRole serviceRole : serviceRoles) {
-      EnumSet<Permission> rolePermissions = switch (serviceRole.getRole()) {
-        case READ_ONLY -> EnumSet.of(Permission.SUPPORTED_REGIONS, Permission.LIST_NODES);
-        case USER_ADMIN -> EnumSet.of(Permission.USER_MANAGEMENT);
-        case NODE_ADMIN -> EnumSet.of(Permission.SUPPORTED_REGIONS, Permission.LIST_NODES,
+      Stream<Permission> rolePermissions = switch (serviceRole.getRole()) {
+        case READ_ONLY -> Stream.of(Permission.SUPPORTED_REGIONS, Permission.LIST_NODES);
+        case USER_ADMIN -> Stream.of(Permission.USER_MANAGEMENT);
+        case NODE_ADMIN -> Stream.of(Permission.SUPPORTED_REGIONS, Permission.LIST_NODES,
                                       Permission.RUN_NODES);
       };
       rolePermissions.forEach(perm ->

@@ -82,19 +82,19 @@ Feature: Bot commands
       """
       The node has been started successfully. Node details:
       - Node Name: vpn-test-user-nvirginia-1
-      Service Type: vpn
-      Node Status: HEALTHY
-      Location: N. Virginia (us-east-1)
-      Public IP:
+        Service Type: vpn
+        Node Status: HEALTHY
+        Public IP: *
+        Location: N. Virginia (us-east-1)
       """
     When "/listRunningNodes" command is sent to the bot
     Then the bot should reply with response:
       """
       Running nodes:
 	  – Node Name: vpn-test-user-nvirginia-1
-	  Service Type: vpn
-	  Node Status: HEALTHY
-	  Region: N. Virginia (us-east-1)
-	  Public IP:
+	    Service Type: vpn
+	    Node Status: HEALTHY
+	    Public IP: *
+	    Region: N. Virginia (us-east-1)
       """
 

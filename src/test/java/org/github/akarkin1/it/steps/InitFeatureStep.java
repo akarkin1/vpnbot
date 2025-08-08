@@ -14,7 +14,7 @@ import java.util.Map;
 import static org.github.akarkin1.it.init.S3Initializer.TEST_CONFIG_BUCKET;
 import static org.github.akarkin1.it.init.SMInitializer.TEST_TG_SECRET_TOKEN;
 
-public class InitFeatureStep extends BaseFeatureStep {
+public class InitFeatureStep extends InitTestContainers {
     private APIGatewayProxyResponseEvent response;
 
     @Given("the S3 bucket is available")

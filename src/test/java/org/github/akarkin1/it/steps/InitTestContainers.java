@@ -18,7 +18,7 @@ import java.util.stream.Stream;
 import static org.github.akarkin1.it.init.WireMockInitializer.WIRE_MOCK_PORT;
 
 @Testcontainers
-public abstract class BaseFeatureStep {
+public abstract class InitTestContainers {
 
   private static final WireMockInitializer WM_INITIALIZER = new WireMockInitializer();
 
@@ -57,7 +57,7 @@ public abstract class BaseFeatureStep {
   protected final S3Client s3Client;
   protected final SecretsManagerClient secretsManagerClient;
 
-  public BaseFeatureStep() {
+  public InitTestContainers() {
     s3Client = S3_INITIALIZER.getClient();
     secretsManagerClient = SM_INITIALIZER.getClient();
   }

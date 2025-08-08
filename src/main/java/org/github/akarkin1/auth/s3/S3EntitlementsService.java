@@ -36,7 +36,10 @@ public class S3EntitlementsService implements EntitlementsService {
       curUserPermissions.put(tgUsername, new ArrayList<>(newEntitlements));
     }
 
-    s3ConfigManager.uploadConfigToS3(s3Config.getUserPermissionsKey(), toJson(curUserPermissions));
+    UserEntitlements userEntitlements = new UserEntitlements();
+    userEntitlements.setUserEntitlements(curUserPermissions);
+
+    s3ConfigManager.uploadConfigToS3(s3Config.getUserPermissionsKey(), toJson(userEntitlements));
   }
 
 }
