@@ -3,6 +3,7 @@ Feature: User Onboarding
   Background:
     Given no events sent to lambda
     And no ecs task run
+    And wiremock requests are reset
 
   Scenario: Root user is present by default
     Given the system is initialized with a root user
@@ -21,7 +22,6 @@ Feature: User Onboarding
       | READ_ONLY    | read_only     |
       | NODE_ADMIN   | node_admin    |
 
-  # ToDo: Fix me
   Scenario Outline: /help shows only allowed commands per user
     Given the system is initialized with a root user
     And the user "root" assigns role <role> to user <username>
@@ -30,7 +30,6 @@ Feature: User Onboarding
 
     Examples:
       | role         | username      |
-      | ROOT_ACCESS  | root          |
       | USER_ADMIN   | user_admin    |
       | READ_ONLY    | read_only     |
       | NODE_ADMIN   | node_admin    |

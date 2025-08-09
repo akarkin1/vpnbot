@@ -34,8 +34,9 @@ public class BotCommunicator {
     SendMessage sendMessage = new SendMessage();
     sendMessage.setChatId(chatId);
     String userLangCode = TgRequestContext.getLanguageCode();
-    log.info("Translating a message to user's language: {}", userLangCode);
+    log.debug("Translating a message to user's language: {}", userLangCode);
     sendMessage.setText(translator.translate(userLangCode, message, params));
+    log.debug("Sending the message to user: {}", sendMessage.getText());
     Message responseMessage = sender.execute(sendMessage);
     log.debug("Received response: {}", responseMessage);
   }

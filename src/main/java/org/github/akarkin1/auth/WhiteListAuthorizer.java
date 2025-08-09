@@ -30,7 +30,7 @@ public class WhiteListAuthorizer implements Authorizer {
   public boolean hasPermission(String tgUsername, Permission permission) {
     log.debug("auth debug: username='{}', action={}, isWhiteListEnabled={}",
               tgUsername, permission, config.isEnabled());
-    if (!Boolean.TRUE.equals(config.isEnabled())) {
+    if (!config.isEnabled()) {
       return true;
     }
 
@@ -48,7 +48,7 @@ public class WhiteListAuthorizer implements Authorizer {
 
   @Override
   public Set<String> getAllowedServices(String tgUsername, Permission permission) {
-    if (!Boolean.TRUE.equals(config.isEnabled())) {
+    if (!config.isEnabled()) {
       return configManager.getSupportedServices();
     }
 
@@ -73,7 +73,7 @@ public class WhiteListAuthorizer implements Authorizer {
 
   @Override
   public Set<String> getAllowedServices(String username) {
-    if (!Boolean.TRUE.equals(config.isEnabled())) {
+    if (!config.isEnabled()) {
       return configManager.getSupportedServices();
     }
 

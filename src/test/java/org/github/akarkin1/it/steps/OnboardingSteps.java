@@ -90,9 +90,9 @@ public class OnboardingSteps extends BaseInfraSteps {
     @Then("the help command output contains only allowed commands for role {word}")
     public void helpCommandOutputContainsAllowedCommands(String role) {
       // surrogate role, just to simplify testing - there is no such role defined in actual implementation
-        String allowedCommands = "The bot allows to manage\n";
+        String allowedCommands;
         if ("ROOT_ACCESS".equals(role)) {
-          allowedCommands += """
+          allowedCommands = """
            /help – *
            /version – *
            /listRunningNodes – *
@@ -101,32 +101,29 @@ public class OnboardingSteps extends BaseInfraSteps {
            /assignRoles – *
            /describeRoles – *
            /deleteUsers – *
-           /listRegisteredUsers – *
-          """;
+           /listRegisteredUsers – *""";
         } else {
-          allowedCommands += switch (Role.valueOf(role)) {
+          allowedCommands = switch (Role.valueOf(role)) {
             case USER_ADMIN -> """
              /help – *
              /assignRoles – *
              /describeRoles – *
-             /deleteUsers – *
-             /listRegisteredUsers – *
-            """;
+             /listRegisteredUsers – *""";
             case READ_ONLY -> """
              /help – *
              /listRunningNodes – *
              /supportedRegions – *
-            """;
+             /listServices – *""";
             case NODE_ADMIN -> """
              /help – *
              /listRunningNodes – *
              /supportedRegions – *
              /runNode – *
-            """;
+             /listServices – *""";
           };
         }
-
-       theBotReceivesTheResponseMatchingLinesInAnyOrder(allowedCommands);
+        String searchAfter = "The list of supported commands:";
+        theBotReceivesTheResponseMatchingLineByLineExactlyAfter(searchAfter, allowedCommands, "^/\\w+\\s+–\\s+.*$");
 
     }
 

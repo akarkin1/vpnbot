@@ -2,6 +2,7 @@ Feature: Bot commands
   Background:
     Given no events sent to lambda
     And no ecs task run
+    And wiremock requests are reset
 
   Scenario: /supportedRegions command returns supported regions from config
     Given the config bucket contains file "config/vpn/supported-regions.txt" with content:
@@ -31,7 +32,7 @@ Feature: Bot commands
       """
     And the lambda should return valid response
 
-  Scenario: /runNodeIn command starts ECS task, shows in /listRunningNodes, and stops at scenario end
+  Scenario: /runNode command starts ECS task, shows in /listRunningNodes, and stops at scenario end
     Given the config bucket contains file "config/vpn/supported-regions.txt" with content:
       """
       us-east-1

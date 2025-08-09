@@ -2,6 +2,7 @@ package org.github.akarkin1.it.steps;
 
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.tomakehurst.wiremock.client.WireMock;
 import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
@@ -92,6 +93,11 @@ public class CommandsFeatureStep extends BaseInfraSteps {
   @Given("no ecs task run")
   public void noEcsTaskRun() {
     cleanUpDirectory(".test-data/test-eventIds/");
+  }
+
+  @Given("wiremock requests are reset")
+  public void resetWireMockRequests() {
+    WireMock.resetAllRequests();
   }
 
   public static void cleanUpDirectory(String directoryName) {

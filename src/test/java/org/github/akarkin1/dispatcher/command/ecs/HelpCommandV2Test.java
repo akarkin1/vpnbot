@@ -63,7 +63,7 @@ class HelpCommandV2Test {
     commandDispatcher.registerCommand("/version", new VersionCommand(configManager));
     commandDispatcher.registerCommand("/listRunningNodes", new ListNodesCommand(
       nodeService, authorizer));
-    commandDispatcher.registerCommand("/runNodeIn",
+    commandDispatcher.registerCommand("/runNode",
                                       new RunNodeCommand(nodeService,
                                                            authorizer,
                                                            botCommunicator::sendMessageToTheBot));
@@ -102,8 +102,8 @@ class HelpCommandV2Test {
           /help – Выводит описание бота.
           /version – Возвращает версию серверного приложения.
           /listRunningNodes – Показывает список нод Tailscale, запущенных пользователем.
-          /runNodeIn – Запускает нод Tailscale VPN в указанном регионе.
-        ИСПОЛЬЗОВАНИЕ: /runNodeIn RegionName [NodeName],
+          /runNode – Запускает нод Tailscale VPN в указанном регионе.
+        ИСПОЛЬЗОВАНИЕ: /runNode RegionName [NodeName],
         где
          - RegionName – это либо идентификатор региона в AWS (напр. eu-north-1), либо название города (на англ.), где будет запущена нода.
          - NodeName (опционально) – имя хоста ноды Tailscale (должно быть уникальным среди всех запущенных нод).
