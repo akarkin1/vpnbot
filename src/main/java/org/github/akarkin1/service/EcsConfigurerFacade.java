@@ -6,6 +6,7 @@ import com.google.inject.Inject;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang3.StringUtils;
 import org.github.akarkin1.auth.RequestAuthenticator;
+import org.github.akarkin1.auth.UnauthenticatedRequestException;
 import org.github.akarkin1.deduplication.UpdateEventsRegistry;
 import org.github.akarkin1.dispatcher.CommandDispatcher;
 import org.github.akarkin1.tg.BotCommunicator;
@@ -43,7 +44,6 @@ public class EcsConfigurerFacade {
     Update update;
     try {
       log.debug("Got request: {}", serializeObject(gwEvent));
-      requestAuthenticator.authenticate(gwEvent);
       String receivedPayload = gwEvent.getBody();
       log.debug("Received payload: {}", receivedPayload);
       if (StringUtils.isBlank(receivedPayload)) {
@@ -51,7 +51,18 @@ public class EcsConfigurerFacade {
         return;
       }
 
+      // Parse update first to initialize context, so we can respond even if unauthorized
       update = mapper.readValue(receivedPayload, Update.class);
+      TgRequestContext.initContext(update);
+
+      // Authenticate request after we have a chat context for responses
+      requestAuthenticator.authenticate(gwEvent);
+
+    } catch (UnauthenticatedRequestException e) {
+      log.warn("Unauthenticated request: {}", e.getMessage());
+      // Inform the user explicitly that the request is not authorized
+      communicator.sendMessageToTheBot("The request is not authorized");
+      return;
     } catch (Exception e) {
       log.error("Failed to process request: ", e);
       communicator.sendMessageToTheBot(BOT_INTERNAL_ERROR);
