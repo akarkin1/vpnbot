@@ -1,16 +1,26 @@
 package org.github.akarkin1.ui.screen;
 
+import org.apache.commons.lang3.StringUtils;
+
 final class NodeFormat {
+
+  private static final String DASH = "—";
 
   private NodeFormat() {
   }
 
   static String statusEmoji(String state) {
-    throw new UnsupportedOperationException("Not implemented yet");
+    if ("HEALTHY".equals(state)) {
+      return "🟢";
+    }
+    if ("UNHEALTHY".equals(state)) {
+      return "🔴";
+    }
+    return "🟡";
   }
 
   static String orDash(String value) {
-    throw new UnsupportedOperationException("Not implemented yet");
+    return StringUtils.isBlank(value) ? DASH : value;
   }
 
 }
