@@ -117,7 +117,7 @@ at the end under a `# UI (phase 1)` comment. Files stay ASCII: escape every non-
 | ui.button.exit-node-guide | Exit node guide | Инструкция |
 | ui.button.get-tailscale | Get Tailscale | Скачать Tailscale |
 | ui.launch.starting | Starting a node in | Запускаем VPN-сервер в регионе |
-| ui.launch.step.submitting | Submitting the task | Отправляем задачу |
+| ui.launch.step.submitting | Submitting the task | Запускаем задачу на сервере |
 | ui.launch.step.submitted | Task started | Задача запущена |
 | ui.launch.step.waiting | Waiting for Tailscale to come up (this may take a few minutes) | Ждём запуска Tailscale (это может занять несколько минут) |
 | ui.launch.still-starting | The node is taking longer than usual to start. Check its status in the menu in a minute. | VPN-сервер запускается дольше обычного. Проверьте его статус в меню через минуту. |
@@ -390,4 +390,4 @@ T2–T4 run in parallel after T1. The tech lead merges, runs the suite, reviews 
 - D-9 (review) AC-7 also checks that every template formats with its params (guards against a stray `%`).
 - D-10 (review) Known limitation, accepted: the UI targets private chats. In a group, text-less
   service messages would open the menu and `/menu@BotName` would reach `CommandDispatcher`.
-- D-11 (feedback) Russian texts call a node "VPN-сервер" instead of "узел".
+- D-11 (feedback) Russian texts call a node "VPN-сервер" instead of "узел"; `ui.launch.step.submitting` reads "Запускаем задачу на сервере".
