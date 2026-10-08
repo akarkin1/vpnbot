@@ -177,14 +177,14 @@ Model: if `context.username()` is null → no permissions, no service calls. Oth
 ### 5.3 Launch (`LaunchController.launch(ctx, messageId, regionId)`)
 
 1. Username null or no `RUN_NODES` → edit `notAllowed()`; stop.
-2. `regionId` not in `nodeService.getSupportedRegionIds()` → edit `regionUnavailable()`; stop.
-3. Edit `starting(regionId)`.
+2. Edit `starting(regionId)` (removes the keyboard as early as possible, see D-7).
+3. `regionId` not in `nodeService.getSupportedRegionIds()` → edit `regionUnavailable()`; stop.
 4. `task = nodeService.runNode(regionId, username, null)`; a `RuntimeException` → log, edit
    `failed(regionId)`; stop.
 5. Edit `waiting(regionId)`.
 6. `status = nodeService.checkNodeStatus(task)`; a `RuntimeException` → log, edit `failed(regionId)`; stop.
 7. `HEALTHY` → `nodeService.getFullTaskInfo(task.getRegion(), task.getCluster(), task.getId())`:
-   present → edit `ready(info)`, empty → edit `stillStarting(regionId)`.
+   present → edit `ready(info)`, empty or a `RuntimeException` (logged) → edit `stillStarting(regionId)`.
    `UNKNOWN` → edit `stillStarting(regionId)`. `UNHEALTHY` → edit `failed(regionId)`.
 
 ### 5.4 Messenger (`TelegramUiMessenger`)
@@ -317,14 +317,16 @@ public class LaunchController { // (TailscaleNodeService, Authorizer, UiMessenge
   `ui.home.no-nodes` when empty; uses `ui.home.all-nodes` when `allNodes`.
 - AC-6 Home region buttons: sorted by city, 3 per row, callback `RUN:<id>`; absent without
   RUN_NODES; `ui.home.no-regions` when the list is empty.
-- AC-7 Every screen's number of `%s` in the template equals the number of params, and no param is null.
+- AC-7 Every screen's number of `%s` in the template equals the number of params, no param is null,
+  and the template (with `${…}` keys removed) formats with its params without throwing.
 - AC-8 Launch/help/error screens match §4.2–4.3 (keys, params, buttons, links).
 - AC-9 `HomeController`: non-root lists own nodes; root lists all (`listTasks(null)`); null
   username → no service calls; no LIST/RUN → no `listTasks`/`getSupportedRegionIds` calls;
   `showHome` sends, `refreshHome`/`showHelp` edit.
 - AC-10 `LaunchController` follows §5.3 for each branch: not allowed, region unavailable,
-  runNode throws, HEALTHY+info, HEALTHY+no info, UNKNOWN, UNHEALTHY, checkNodeStatus throws;
-  it edits `starting` before `runNode` and `waiting` before `checkNodeStatus`.
+  runNode throws, HEALTHY+info, HEALTHY+no info, getFullTaskInfo throws, UNKNOWN, UNHEALTHY,
+  checkNodeStatus throws; it edits `starting` before the region check and `runNode`, and `waiting`
+  before `checkNodeStatus`.
 - AC-11 `UiRouter.canHandle`: true for callback, `/start`, `/start xyz`, `/menu`, plain text,
   null text; false for `/help`, `/runNodeIn Frankfurt`, `/listRunningNodes`.
 - AC-12 `UiRouter.handle`: answers callback before dispatching; routes HOME/HELP/RUN/undecodable;
@@ -380,3 +382,11 @@ T2–T4 run in parallel after T1. The tech lead merges, runs the suite, reviews 
   (unreachable through `canHandle`).
 - D-5 A valid country code is exactly two letters `A`–`Z`; anything else renders `🌐`.
 - D-6 No unit test for `UiConfigurer` (pure wiring; the test classpath `application.yml` has no `aws` section).
+- D-7 (review) `LaunchController` edits `starting` right after the permission check, before the
+  region lookup, so the region keyboard disappears sooner and a double tap is less likely to start
+  two nodes. The race is not fully eliminated (same as `/runNodeIn` today); a real fix belongs to Phase 2.
+- D-8 (review) A failing `getFullTaskInfo` after a healthy start shows `stillStarting` instead of a
+  generic error, so the launch message never stays stuck on "waiting".
+- D-9 (review) AC-7 also checks that every template formats with its params (guards against a stray `%`).
+- D-10 (review) Known limitation, accepted: the UI targets private chats. In a group, text-less
+  service messages would open the menu and `/menu@BotName` would reach `CommandDispatcher`.
