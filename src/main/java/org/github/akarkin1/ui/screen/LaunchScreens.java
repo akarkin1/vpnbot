@@ -6,13 +6,11 @@ import org.github.akarkin1.ui.UiAction;
 
 import java.util.List;
 
+import static org.github.akarkin1.ui.screen.CommonButtons.LINKS;
+import static org.github.akarkin1.ui.screen.CommonButtons.MENU;
+
 @RequiredArgsConstructor
 public class LaunchScreens {
-
-  private static final Button MENU = Button.action("🏠 ${ui.button.menu}", UiAction.home());
-  private static final List<Button> LINKS = List.of(
-      Button.link("📖 ${ui.button.exit-node-guide}", Links.EXIT_NODE_GUIDE),
-      Button.link("⬇️ ${ui.button.get-tailscale}", Links.DOWNLOAD));
 
   private final RegionLabels regionLabels;
 
@@ -29,12 +27,8 @@ public class LaunchScreens {
   }
 
   public Screen ready(TaskInfo node) {
-    String regionLabel = node.getRegion() == null ? null : regionLabels.label(node.getRegion().id());
     return new Screen("%s <b>%s</b> · %s\n🌐 <code>%s</code>\n⏱ ${ui.node.auto-stop}\n\n${ui.node.connect-hint}",
-                      List.of(NodeFormat.statusEmoji(node.getState()),
-                              NodeFormat.orDash(node.getHostName()),
-                              NodeFormat.orDash(regionLabel),
-                              NodeFormat.orDash(node.getPublicIp())),
+                      NodeFormat.nodeParams(node, regionLabels),
                       List.of(LINKS, List.of(MENU)));
   }
 

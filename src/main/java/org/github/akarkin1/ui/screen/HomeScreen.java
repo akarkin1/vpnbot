@@ -63,10 +63,7 @@ public class HomeScreen {
     }
     for (TaskInfo node : model.nodes()) {
       template.append("\n%s <b>%s</b> · %s · <code>%s</code>");
-      params.add(NodeFormat.statusEmoji(node.getState()));
-      params.add(NodeFormat.orDash(node.getHostName()));
-      params.add(NodeFormat.orDash(node.getRegion() == null ? null : regionLabels.label(node.getRegion().id())));
-      params.add(NodeFormat.orDash(node.getPublicIp()));
+      params.addAll(NodeFormat.nodeParams(node, regionLabels));
     }
   }
 

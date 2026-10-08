@@ -1,12 +1,10 @@
 package org.github.akarkin1.ui.screen;
 
-import org.github.akarkin1.ui.UiAction;
-
 import java.util.List;
 
-public class ErrorScreen {
+import static org.github.akarkin1.ui.screen.CommonButtons.MENU;
 
-  private static final Button MENU = Button.action("🏠 ${ui.button.menu}", UiAction.home());
+public class ErrorScreen {
 
   public Screen generic() {
     return new Screen("⚠️ ${ui.error.generic}", List.of(), List.of(List.of(MENU)));
