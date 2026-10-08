@@ -65,6 +65,7 @@ public class YamlApplicationConfiguration {
   public static class AWSConfiguration {
 
     private Map<String, String> regionCities;
+    private Map<String, String> regionCountries;
 
   }
 
