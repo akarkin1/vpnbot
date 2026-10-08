@@ -105,10 +105,10 @@ at the end under a `# UI (phase 1)` comment. Files stay ASCII: escape every non-
 |---|---|---|
 | ui.home.greeting | Hi | Привет |
 | ui.home.no-access | You don't have access to this bot yet. Please ask @karkin_ai to grant it. | У вас пока нет доступа к этому боту. Попросите @karkin_ai его выдать. |
-| ui.home.your-nodes | Your nodes | Ваши узлы |
-| ui.home.all-nodes | Running nodes | Запущенные узлы |
-| ui.home.no-nodes | No running nodes. | Нет запущенных узлов. |
-| ui.home.start-node | Start a VPN node | Запустить VPN-узел |
+| ui.home.your-nodes | Your nodes | Ваши VPN-серверы |
+| ui.home.all-nodes | Running nodes | Запущенные VPN-серверы |
+| ui.home.no-nodes | No running nodes. | Нет запущенных VPN-серверов. |
+| ui.home.start-node | Start a VPN node | Запустить VPN-сервер |
 | ui.home.no-regions | No regions are available right now. | Сейчас нет доступных регионов. |
 | ui.button.refresh | Refresh | Обновить |
 | ui.button.help | Help | Помощь |
@@ -116,16 +116,16 @@ at the end under a `# UI (phase 1)` comment. Files stay ASCII: escape every non-
 | ui.button.try-again | Try again | Повторить |
 | ui.button.exit-node-guide | Exit node guide | Инструкция |
 | ui.button.get-tailscale | Get Tailscale | Скачать Tailscale |
-| ui.launch.starting | Starting a node in | Запускаем узел в регионе |
+| ui.launch.starting | Starting a node in | Запускаем VPN-сервер в регионе |
 | ui.launch.step.submitting | Submitting the task | Отправляем задачу |
 | ui.launch.step.submitted | Task started | Задача запущена |
 | ui.launch.step.waiting | Waiting for Tailscale to come up (this may take a few minutes) | Ждём запуска Tailscale (это может занять несколько минут) |
-| ui.launch.still-starting | The node is taking longer than usual to start. Check its status in the menu in a minute. | Узел запускается дольше обычного. Проверьте его статус в меню через минуту. |
-| ui.launch.failed | Couldn't start the node. Please try again or contact @karkin_ai. | Не удалось запустить узел. Попробуйте ещё раз или напишите @karkin_ai. |
+| ui.launch.still-starting | The node is taking longer than usual to start. Check its status in the menu in a minute. | VPN-сервер запускается дольше обычного. Проверьте его статус в меню через минуту. |
+| ui.launch.failed | Couldn't start the node. Please try again or contact @karkin_ai. | Не удалось запустить VPN-сервер. Попробуйте ещё раз или напишите @karkin_ai. |
 | ui.launch.region-unavailable | This region is not available anymore. | Этот регион больше недоступен. |
-| ui.launch.not-allowed | You are not allowed to start nodes. | У вас нет прав на запуск узлов. |
+| ui.launch.not-allowed | You are not allowed to start nodes. | У вас нет прав на запуск VPN-серверов. |
 | ui.node.auto-stop | Stops automatically after 10 minutes with no devices connected | Остановится автоматически через 10 минут без подключённых устройств |
-| ui.node.connect-hint | In the Tailscale app, select this node as your exit node. | В приложении Tailscale выберите этот узел в качестве exit node. |
+| ui.node.connect-hint | In the Tailscale app, select this node as your exit node. | В приложении Tailscale выберите этот VPN-сервер в качестве exit node. |
 | ui.error.generic | Something went wrong. Please try again later or contact @karkin_ai. | Что-то пошло не так. Попробуйте позже или напишите @karkin_ai. |
 | ui.help.title | How it works | Как это работает |
 | ui.help.body | (see below) | (see below) |
@@ -136,7 +136,7 @@ This bot starts your personal Tailscale VPN node in the AWS region of your choic
 ```
 `ui.help.body` RU:
 ```
-Бот запускает ваш личный VPN-узел Tailscale в выбранном регионе AWS.\n\n• Нажмите на город в меню, чтобы запустить узел. Это займёт пару минут.\n• В приложении Tailscale выберите узел в качестве exit node.\n• Узел останавливается сам через 10 минут без подключённых устройств, выключать его не нужно.\n\nЧтобы подключиться, ваш аккаунт Tailscale должен быть приглашён в нашу сеть – напишите @karkin_ai.\nВсе текстовые команды: /help
+Бот запускает ваш личный VPN-сервер Tailscale в выбранном регионе AWS.\n\n• Нажмите на город в меню, чтобы запустить VPN-сервер. Это займёт пару минут.\n• В приложении Tailscale выберите VPN-сервер в качестве exit node.\n• VPN-сервер останавливается сам через 10 минут без подключённых устройств, выключать его не нужно.\n\nЧтобы подключиться, ваш аккаунт Tailscale должен быть приглашён в нашу сеть – напишите @karkin_ai.\nВсе текстовые команды: /help
 ```
 
 ## 5. Behaviour
@@ -390,3 +390,4 @@ T2–T4 run in parallel after T1. The tech lead merges, runs the suite, reviews 
 - D-9 (review) AC-7 also checks that every template formats with its params (guards against a stray `%`).
 - D-10 (review) Known limitation, accepted: the UI targets private chats. In a group, text-less
   service messages would open the menu and `/menu@BotName` would reach `CommandDispatcher`.
+- D-11 (feedback) Russian texts call a node "VPN-сервер" instead of "узел".
