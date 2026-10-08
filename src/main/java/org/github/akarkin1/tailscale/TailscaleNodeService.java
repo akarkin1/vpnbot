@@ -7,6 +7,7 @@ import software.amazon.awssdk.regions.Region;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 public interface TailscaleNodeService {
 
@@ -25,5 +26,7 @@ public interface TailscaleNodeService {
   List<TaskInfo> listTasks(String userTgId);
 
   List<String> getSupportedRegionDescriptions();
+
+  Set<String> getSupportedRegionIds();
 
 }

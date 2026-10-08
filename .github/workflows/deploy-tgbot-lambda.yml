@@ -73,3 +73,14 @@ jobs:
             rm ./supported-regions.txt
           fi
       
+      - name: Register Telegram bot commands
+        id: register-bot-commands
+        env:
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+        run: |
+          curl -sS --fail -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/setMyCommands" \
+            -H 'Content-Type: application/json' \
+            -d '{"commands":[{"command":"menu","description":"Open the menu"},{"command":"help","description":"List all text commands"}]}'
+          curl -sS --fail -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/setMyCommands" \
+            -H 'Content-Type: application/json' \
+            -d '{"commands":[{"command":"menu","description":"Открыть меню"},{"command":"help","description":"Список текстовых команд"}],"language_code":"ru"}'

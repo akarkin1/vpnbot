@@ -58,3 +58,43 @@ aws:
     'sa-east-1': São Paulo
     'us-gov-east-1': US-East
     'us-gov-west-1': US-West
+    'mx-central-1': Mexico
+    'ap-east-2': Taipei
+    'ap-southeast-6': Auckland
+  region-countries:
+    'us-east-2': US
+    'us-east-1': US
+    'us-west-1': US
+    'us-west-2': US
+    'af-south-1': ZA
+    'ap-east-1': HK
+    'ap-south-2': IN
+    'ap-southeast-3': ID
+    'ap-southeast-5': MY
+    'ap-southeast-4': AU
+    'ap-southeast-7': TH
+    'ap-south-1': IN
+    'ap-northeast-3': JP
+    'ap-northeast-2': KR
+    'ap-southeast-1': SG
+    'ap-southeast-2': AU
+    'ap-northeast-1': JP
+    'ca-central-1': CA
+    'ca-west-1': CA
+    'eu-central-1': DE
+    'eu-west-1': IE
+    'eu-west-2': GB
+    'eu-south-1': IT
+    'eu-west-3': FR
+    'eu-south-2': ES
+    'eu-north-1': SE
+    'eu-central-2': CH
+    'il-central-1': IL
+    'me-south-1': BH
+    'me-central-1': AE
+    'sa-east-1': BR
+    'us-gov-east-1': US
+    'us-gov-west-1': US
+    'mx-central-1': MX
+    'ap-east-2': TW
+    'ap-southeast-6': NZ

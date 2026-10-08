@@ -175,6 +175,14 @@
       </plugin>
 
       <plugin>
+        <!-- Pinned: newer Surefire versions (e.g. 3.6.0 picked by recent Maven) break Mockito's
+             inline mock maker and log4j initialization in tests -->
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.2.5</version>
+      </plugin>
+
+      <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
         <version>3.8.1</version>

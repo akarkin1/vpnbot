@@ -140,4 +140,9 @@ public class TailscaleEcsNodeService implements TailscaleNodeService {
         .map(region -> "%s (%s)".formatted(this.cityByRegion.get(region), region))
         .toList();
   }
+
+  @Override
+  public Set<String> getSupportedRegionIds() {
+    return ecsManager.getSupportedRegions();
+  }
 }
