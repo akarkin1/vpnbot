@@ -29,6 +29,9 @@ import org.github.akarkin1.tailscale.TailscaleNodeService;
 import org.github.akarkin1.tg.BotCommunicator;
 import org.github.akarkin1.tg.TgRequestContext;
 import org.github.akarkin1.translation.ResourceBasedTranslator;
+import org.github.akarkin1.translation.Translator;
+import org.github.akarkin1.ui.UiConfigurer;
+import org.github.akarkin1.ui.UiRouter;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.User;
@@ -53,6 +56,7 @@ public class TailscaleVpnLambdaHandler implements
   private static final UpdateEventsRegistry EVENTS_REGISTRY;
   private static final String BOT_SERVER_ERROR = "${bot.internal.error}";
   private static final RequestAuthenticator REQUEST_AUTHENTICATOR;
+  private static final UiRouter UI_ROUTER;
 
   static {
     REQUEST_AUTHENTICATOR = new RequestAuthenticatorConfigurer().configure();
@@ -64,7 +68,9 @@ public class TailscaleVpnLambdaHandler implements
     final PermissionsService permissionsService = new PermissionsServiceConfigurer().configure();
     final Authorizer authorizer = new AuthorizerConfigurer().configure(permissionsService);
 
-    COMMUNICATOR = new BotCommunicator(sender, new ResourceBasedTranslator());
+    final Translator translator = new ResourceBasedTranslator();
+
+    COMMUNICATOR = new BotCommunicator(sender, translator);
     COMMAND_DISPATCHER = new CommandDispatcher(COMMUNICATOR, authorizer);
 
     COMMAND_DISPATCHER.registerCommand("/version", new VersionCommand());
@@ -84,6 +90,8 @@ public class TailscaleVpnLambdaHandler implements
                                                               COMMUNICATOR::sendMessageToTheBot));
     COMMAND_DISPATCHER.registerCommand("/listRegisteredUsers",
                                        new ListUsersCommand(permissionsService));
+
+    UI_ROUTER = new UiConfigurer().configure(sender, translator, nodeService, authorizer);
   }
 
   @Override
@@ -145,6 +153,11 @@ public class TailscaleVpnLambdaHandler implements
     TgRequestContext.initContext(update);
     log.info("Saving event to the registry (deduplication logic). Update: {}", update);
     EVENTS_REGISTRY.registerEvent(update);
+
+    if (UI_ROUTER.canHandle(update)) {
+      UI_ROUTER.handle(update);
+      return;
+    }
 
     Message message = update.getMessage();
     if (message == null) {
