@@ -6,7 +6,14 @@ public final class Html {
   }
 
   public static String escape(String value) {
-    throw new UnsupportedOperationException("Not implemented yet");
+    if (value == null) {
+      return "";
+    }
+
+    return value.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace("\"", "&quot;");
   }
 
 }
