@@ -103,16 +103,33 @@ class LaunchControllerTest {
   }
 
   @Test
-  @DisplayName("AC-10: unsupported region shows regionUnavailable and nothing is started")
+  @DisplayName("AC-10: unsupported region shows starting, then regionUnavailable, and nothing is started")
   void regionUnavailable() {
     allowRun();
     when(nodeService.getSupportedRegionIds()).thenReturn(Set.of("us-east-1"));
 
     controller.launch(CONTEXT, MESSAGE_ID, REGION);
 
-    verify(messenger).edit(CONTEXT, MESSAGE_ID, REGION_UNAVAILABLE);
+    InOrder inOrder = inOrder(messenger);
+    inOrder.verify(messenger).edit(CONTEXT, MESSAGE_ID, STARTING);
+    inOrder.verify(messenger).edit(CONTEXT, MESSAGE_ID, REGION_UNAVAILABLE);
     verify(nodeService, never()).runNode(any(), any(), any());
-    verify(messenger, never()).edit(CONTEXT, MESSAGE_ID, STARTING);
+  }
+
+  @Test
+  @DisplayName("AC-10: starting is edited before the region check and before runNode")
+  void startingBeforeRegionCheckAndRunNode() {
+    allowRun();
+    supportRegion();
+    when(nodeService.runNode(REGION, "alex", null)).thenReturn(TASK);
+    when(nodeService.checkNodeStatus(TASK)).thenReturn(RunTaskStatus.UNKNOWN);
+
+    controller.launch(CONTEXT, MESSAGE_ID, REGION);
+
+    InOrder inOrder = inOrder(messenger, nodeService);
+    inOrder.verify(messenger).edit(CONTEXT, MESSAGE_ID, STARTING);
+    inOrder.verify(nodeService).getSupportedRegionIds();
+    inOrder.verify(nodeService).runNode(REGION, "alex", null);
   }
 
   @Test
@@ -133,7 +150,7 @@ class LaunchControllerTest {
   }
 
   @Test
-  @DisplayName("AC-10: HEALTHY with full info shows ready; starting before runNode, waiting before checkNodeStatus")
+  @DisplayName("AC-10: HEALTHY with full info shows ready; starting before region check and runNode, waiting before checkNodeStatus")
   void healthyWithInfo() {
     allowRun();
     supportRegion();
@@ -146,6 +163,7 @@ class LaunchControllerTest {
 
     InOrder inOrder = inOrder(messenger, nodeService);
     inOrder.verify(messenger).edit(CONTEXT, MESSAGE_ID, STARTING);
+    inOrder.verify(nodeService).getSupportedRegionIds();
     inOrder.verify(nodeService).runNode(REGION, "alex", null);
     inOrder.verify(messenger).edit(CONTEXT, MESSAGE_ID, WAITING);
     inOrder.verify(nodeService).checkNodeStatus(TASK);
@@ -169,6 +187,25 @@ class LaunchControllerTest {
     inOrder.verify(messenger).edit(CONTEXT, MESSAGE_ID, WAITING);
     inOrder.verify(messenger).edit(CONTEXT, MESSAGE_ID, STILL_STARTING);
     verify(launchScreens, never()).ready(any());
+  }
+
+  @Test
+  @DisplayName("AC-10: getFullTaskInfo throwing shows stillStarting")
+  void fullTaskInfoThrows() {
+    allowRun();
+    supportRegion();
+    when(nodeService.runNode(REGION, "alex", null)).thenReturn(TASK);
+    when(nodeService.checkNodeStatus(TASK)).thenReturn(RunTaskStatus.HEALTHY);
+    when(nodeService.getFullTaskInfo(Region.EU_CENTRAL_1, "cluster-1", "task-1"))
+        .thenThrow(new IllegalStateException("boom"));
+
+    controller.launch(CONTEXT, MESSAGE_ID, REGION);
+
+    InOrder inOrder = inOrder(messenger, nodeService);
+    inOrder.verify(messenger).edit(CONTEXT, MESSAGE_ID, WAITING);
+    inOrder.verify(nodeService).getFullTaskInfo(Region.EU_CENTRAL_1, "cluster-1", "task-1");
+    inOrder.verify(messenger).edit(CONTEXT, MESSAGE_ID, STILL_STARTING);
+    verify(messenger, never()).edit(CONTEXT, MESSAGE_ID, FAILED);
   }
 
   @Test
