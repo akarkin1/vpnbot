@@ -12,6 +12,8 @@ import org.github.akarkin1.ui.messenger.UiMessenger;
 import org.github.akarkin1.ui.screen.LaunchScreens;
 import org.github.akarkin1.ui.screen.Screen;
 
+import java.util.Optional;
+
 @Log4j2
 @RequiredArgsConstructor
 public class LaunchController {
@@ -28,12 +30,12 @@ public class LaunchController {
       return;
     }
 
+    messenger.edit(context, messageId, launchScreens.starting(regionId));
     if (!nodeService.getSupportedRegionIds().contains(regionId)) {
       messenger.edit(context, messageId, launchScreens.regionUnavailable());
       return;
     }
 
-    messenger.edit(context, messageId, launchScreens.starting(regionId));
     TaskInfo task;
     try {
       task = nodeService.runNode(regionId, username, null);
@@ -58,12 +60,24 @@ public class LaunchController {
 
   private Screen resultScreen(TaskInfo task, RunTaskStatus status, String regionId) {
     return switch (status) {
-      case HEALTHY -> nodeService.getFullTaskInfo(task.getRegion(), task.getCluster(), task.getId())
-          .map(launchScreens::ready)
-          .orElseGet(() -> launchScreens.stillStarting(regionId));
+      case HEALTHY -> readyScreen(task, regionId);
       case UNKNOWN -> launchScreens.stillStarting(regionId);
       case UNHEALTHY -> launchScreens.failed(regionId);
     };
+  }
+
+  private Screen readyScreen(TaskInfo task, String regionId) {
+    Optional<TaskInfo> fullTaskInfo;
+    try {
+      fullTaskInfo = nodeService.getFullTaskInfo(task.getRegion(), task.getCluster(), task.getId());
+    } catch (RuntimeException e) {
+      log.error("Failed to get the details of node {} in region {}", task.getId(), regionId, e);
+      fullTaskInfo = Optional.empty();
+    }
+
+    return fullTaskInfo
+        .map(launchScreens::ready)
+        .orElseGet(() -> launchScreens.stillStarting(regionId));
   }
 
 }
