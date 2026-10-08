@@ -368,4 +368,15 @@ T2–T4 run in parallel after T1. The tech lead merges, runs the suite, reviews 
 
 ## 11. Decision log
 
-- (empty)
+- D-1 Screens share package-private helpers `CommonButtons` (MENU, LINKS) and
+  `NodeFormat.nodeParams(TaskInfo, RegionLabels)` to avoid duplication (allowed as private helpers).
+- D-2 `UiRouter.handle` catches `Exception` (not only `RuntimeException`): the messenger uses
+  `@SneakyThrows`, so a checked `TelegramApiException` can escape. If `UiContext.fromUpdate` fails,
+  the router logs and returns (there is no chat to answer).
+- D-3 Parse mode uses the telegrambots constant `ParseMode.HTML` (value `"html"`; Telegram treats
+  it case-insensitively) instead of the literal `"HTML"`.
+- D-4 `UiContext.fromUpdate`: a callback query without a message uses `from.getId()` as chatId
+  (same rule as §5.5); an update with neither message nor callback throws `IllegalArgumentException`
+  (unreachable through `canHandle`).
+- D-5 A valid country code is exactly two letters `A`–`Z`; anything else renders `🌐`.
+- D-6 No unit test for `UiConfigurer` (pure wiring; the test classpath `application.yml` has no `aws` section).
