@@ -12,6 +12,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.telegram.telegrambots.meta.api.methods.AnswerCallbackQuery;
+import org.telegram.telegrambots.meta.api.methods.ParseMode;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
 import org.telegram.telegrambots.meta.api.objects.ApiResponse;
@@ -83,7 +84,7 @@ class TelegramUiMessengerTest {
 
     SendMessage message = captureSendMessage();
     assertEquals("100", message.getChatId());
-    assertEquals("HTML", message.getParseMode());
+    assertEquals(ParseMode.HTML, message.getParseMode());
     assertEquals(Boolean.TRUE, message.getDisableWebPagePreview());
   }
 
@@ -136,7 +137,7 @@ class TelegramUiMessengerTest {
     EditMessageText edit = captureEdit();
     assertEquals("100", edit.getChatId());
     assertEquals(MESSAGE_ID, edit.getMessageId());
-    assertEquals("HTML", edit.getParseMode());
+    assertEquals(ParseMode.HTML, edit.getParseMode());
     assertEquals(Boolean.TRUE, edit.getDisableWebPagePreview());
     assertEquals("[ru]Hi &lt;x&gt;, <b>a&amp;&quot;b</b> 5", edit.getText());
     assertButton(edit.getReplyMarkup().getKeyboard().get(0).get(1), "[ru]B", null, "https://example.com");
