@@ -3,6 +3,7 @@ package org.github.akarkin1.ui.screen;
 import java.util.List;
 import java.util.Map;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
@@ -41,12 +42,18 @@ final class ScreenTestSupport {
                "ap-south-1", "IN"));
   }
 
-  /** AC-7: the number of {@code %s} in the template equals the number of params, none is null. */
+  /**
+   * AC-7: the number of {@code %s} in the template equals the number of params, none is null, and
+   * the template with its {@code ${…}} keys removed formats with the params.
+   */
   static void assertPlaceholdersMatchParams(Screen screen) {
     int placeholders = countPlaceholders(screen.template());
     assertEquals(placeholders, screen.params().size(),
                  "placeholders vs params in template: " + screen.template());
     screen.params().forEach(param -> assertNotNull(param, "null param in " + screen.params()));
+    String withoutKeys = screen.template().replaceAll("\\$\\{[^}]+}", "");
+    assertDoesNotThrow(() -> withoutKeys.formatted(screen.params().toArray()),
+                       "template does not format with its params: " + screen.template());
   }
 
   private static int countPlaceholders(String template) {
