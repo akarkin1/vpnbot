@@ -51,6 +51,8 @@ jobs:
         run: |
           if [ $(aws secretsmanager describe-secret --secret-id "${{ env.TG_BOT_TOKEN_SECRET_ID }}" --region ${{ github.event.inputs.region }} >/dev/null 2>&1; echo $?) -ne 0 ]; then
              aws secretsmanager create-secret --name "${{ env.TG_BOT_TOKEN_SECRET_ID }}" --secret-string "$TG_BOT_TOKEN" --region ${{ github.event.inputs.region }};
+          else
+             aws secretsmanager put-secret-value --secret-id "${{ env.TG_BOT_TOKEN_SECRET_ID }}" --secret-string "$TG_BOT_TOKEN" --region ${{ github.event.inputs.region }};
           fi
       - name: Deploy Cloud Formation Stack
         id: deploy-cfn-stack
