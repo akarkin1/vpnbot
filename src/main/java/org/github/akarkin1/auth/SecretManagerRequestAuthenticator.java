@@ -10,6 +10,7 @@ import software.amazon.awssdk.services.secretsmanager.model.GetSecretValueRespon
 
 import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Map;
 
 @Slf4j
@@ -22,6 +23,9 @@ public class SecretManagerRequestAuthenticator implements RequestAuthenticator {
   private final String secretTokenId;
   private final Duration ttl;
   private final Clock clock;
+
+  private String cachedSecretValue;
+  private Instant cachedUntil;
 
   @Override
   public void authenticate(APIGatewayProxyRequestEvent request)
@@ -41,28 +45,34 @@ public class SecretManagerRequestAuthenticator implements RequestAuthenticator {
       throw new UnauthenticatedRequestException();
     }
 
+    if (!userTokenValue.equals(secretValue())) {
+      throw new UnauthenticatedRequestException();
+    }
+
+    log.info("Request authenticated successfully");
+  }
+
+  private synchronized String secretValue() {
+    Instant now = clock.instant();
+    if (cachedSecretValue == null || !now.isBefore(cachedUntil)) {
+      cachedSecretValue = fetchSecretValue();
+      cachedUntil = now.plus(ttl);
+    }
+    return cachedSecretValue;
+  }
+
+  private String fetchSecretValue() {
     GetSecretValueRequest smRequest = GetSecretValueRequest.builder()
         .secretId(secretTokenId)
         .build();
 
     GetSecretValueResponse smResponse = client.getSecretValue(smRequest);
-    String smSecretValue;
-
     if (smResponse.secretString() != null) {
-      smSecretValue = smResponse.secretString();
-    } else {
-      // Handle binary secret if needed
-      byte[] decodedBinarySecret = smResponse.secretBinary().asByteArray();
-      smSecretValue = new String(decodedBinarySecret);
+      return smResponse.secretString();
     }
-
-    if (!userTokenValue.equals(smSecretValue)) {
-      smSecretValue = null;
-      throw new UnauthenticatedRequestException();
-    }
-    smSecretValue = null;
-
-    log.info("Request authenticated successfully");
+    // Handle binary secret if needed
+    byte[] decodedBinarySecret = smResponse.secretBinary().asByteArray();
+    return new String(decodedBinarySecret);
   }
 
 }
