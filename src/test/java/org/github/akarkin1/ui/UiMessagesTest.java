@@ -29,6 +29,7 @@ class UiMessagesTest {
   private static final Path EN = Path.of("src/main/resources/messages.properties");
   private static final Path RU = Path.of("src/main/resources/messages_ru.properties");
   private static final Path UI_SOURCES = Path.of("src/main/java/org/github/akarkin1/ui");
+  private static final Path MAIN_SOURCES = Path.of("src/main/java");
   private static final Pattern UI_KEY_REFERENCE = Pattern.compile("\\$\\{(ui\\.[^}]+)}");
 
   private static final List<String> SPEC_KEYS = List.of(
@@ -37,13 +38,25 @@ class UiMessagesTest {
       "ui.button.refresh", "ui.button.help", "ui.button.menu", "ui.button.try-again",
       "ui.button.exit-node-guide", "ui.button.get-tailscale",
       "ui.launch.starting", "ui.launch.step.submitting", "ui.launch.step.submitted",
-      "ui.launch.step.waiting", "ui.launch.still-starting", "ui.launch.failed",
+      "ui.launch.step.waiting", "ui.launch.failed",
       "ui.launch.region-unavailable", "ui.launch.not-allowed",
       "ui.node.auto-stop", "ui.node.connect-hint", "ui.error.generic",
-      "ui.help.title", "ui.help.body");
+      "ui.help.title", "ui.help.body",
+      "ui.node.idle-warning", "ui.node.stopped-idle", "ui.node.stopped", "ui.button.start-again");
+
+  /** Keys removed by Phase 2a (§4.2, §4.3): old /runNodeIn progress messages and what only they used. */
+  private static final List<String> REMOVED_KEYS = List.of(
+      "ui.launch.still-starting",
+      "command.run-node.node.running.message",
+      "command.run-node.task.started.message",
+      "command.run-node.status.check-failed.error",
+      "command.run-node.node.start-failed.error",
+      "command.run-node.node.start-succeed.message",
+      "common.node.details.message",
+      "common.node.location.message");
 
   @Test
-  @DisplayName("AC-15: every ui.* key from the spec exists in both message files")
+  @DisplayName("2a AC-12: every ui.* key from the specs exists in both message files")
   void specKeysExistInBothFiles() throws IOException {
     Properties en = load(EN);
     Properties ru = load(RU);
@@ -88,12 +101,12 @@ class UiMessagesTest {
   }
 
   @Test
-  @DisplayName("AC-15: every ${ui.…} key used in the ui sources exists in both message files")
+  @DisplayName("2a AC-12: every ${ui.…} key used in src/main/java exists in both message files")
   void usedKeysExistInBothFiles() throws IOException {
     Properties en = load(EN);
     Properties ru = load(RU);
 
-    for (String key : usedUiKeys()) {
+    for (String key : usedUiKeys(MAIN_SOURCES)) {
       assertTrue(en.containsKey(key), "used but missing in messages.properties: " + key);
       assertTrue(ru.containsKey(key), "used but missing in messages_ru.properties: " + key);
     }
@@ -102,7 +115,19 @@ class UiMessagesTest {
   @Test
   @DisplayName("AC-15: the ui sources reference ui.* keys (guards the scan above against matching nothing)")
   void uiSourcesReferenceKeys() throws IOException {
-    assertFalse(usedUiKeys().isEmpty(), "no ${ui.…} keys found under " + UI_SOURCES);
+    assertFalse(usedUiKeys(UI_SOURCES).isEmpty(), "no ${ui.…} keys found under " + UI_SOURCES);
+  }
+
+  @Test
+  @DisplayName("2a AC-12: keys removed by Phase 2a are gone from both message files")
+  void removedKeysAreGone() throws IOException {
+    Properties en = load(EN);
+    Properties ru = load(RU);
+
+    for (String key : REMOVED_KEYS) {
+      assertFalse(en.containsKey(key), "still in messages.properties: " + key);
+      assertFalse(ru.containsKey(key), "still in messages_ru.properties: " + key);
+    }
   }
 
   private static Properties load(Path file) throws IOException {
@@ -123,9 +148,9 @@ class UiMessagesTest {
     return keys;
   }
 
-  private static Set<String> usedUiKeys() throws IOException {
+  private static Set<String> usedUiKeys(Path sources) throws IOException {
     Set<String> keys = new TreeSet<>();
-    try (Stream<Path> files = Files.walk(UI_SOURCES)) {
+    try (Stream<Path> files = Files.walk(sources)) {
       for (Path file : files.filter(path -> path.toString().endsWith(".java")).toList()) {
         Matcher matcher = UI_KEY_REFERENCE.matcher(Files.readString(file));
         while (matcher.find()) {

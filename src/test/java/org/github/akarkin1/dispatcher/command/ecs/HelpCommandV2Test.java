@@ -19,6 +19,7 @@ import org.github.akarkin1.tg.BotCommunicator;
 import org.github.akarkin1.tg.TgRequestContext;
 import org.github.akarkin1.translation.ResourceBasedTranslator;
 import org.github.akarkin1.translation.Translator;
+import org.github.akarkin1.ui.NodeLauncher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -49,6 +50,9 @@ class HelpCommandV2Test {
   @Mock
   private Authorizer authorizer;
 
+  @Mock
+  private NodeLauncher nodeLauncher;
+
   private CommandDispatcher commandDispatcher;
   private HelpCommand helpCommandV2;
 
@@ -61,7 +65,8 @@ class HelpCommandV2Test {
       nodeService, authorizer));
     commandDispatcher.registerCommand("/runNodeIn",
                                       new RunNodeCommand(nodeService,
-                                                           botCommunicator::sendMessageToTheBot));
+                                                           botCommunicator::sendMessageToTheBot,
+                                                           nodeLauncher));
     commandDispatcher.registerCommand("/supportedRegions",
                                       new SupportedRegionCommand(nodeService));
     commandDispatcher.registerCommand("/assignRoles",
