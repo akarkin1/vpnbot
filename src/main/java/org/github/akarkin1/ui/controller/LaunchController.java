@@ -48,7 +48,14 @@ public class LaunchController implements NodeLauncher {
     }
 
     if (offerExistingNodes) {
-      List<TaskInfo> existing = ownNodesInRegion(username, regionId);
+      List<TaskInfo> existing;
+      try {
+        existing = ownNodesInRegion(username, regionId);
+      } catch (RuntimeException e) {
+        log.error("Failed to list nodes in region {} for user {}", regionId, username, e);
+        messenger.edit(context, messageId, launchScreens.failed(regionId));
+        return;
+      }
       if (!existing.isEmpty()) {
         messenger.edit(context, messageId, launchScreens.existingNodes(regionId, existing));
         return;
@@ -77,6 +84,7 @@ public class LaunchController implements NodeLauncher {
   private List<TaskInfo> ownNodesInRegion(String username, String regionId) {
     return nodeService.listTasks(username)
         .stream()
+        .filter(node -> username.equals(node.getRunBy()))
         .filter(node -> node.getRegion() != null && regionId.equals(node.getRegion().id()))
         .toList();
   }
