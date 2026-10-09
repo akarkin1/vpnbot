@@ -104,6 +104,19 @@ def failed(stdout=""):
     return 1, stdout
 
 
+class FakeClock:
+    """A `time.monotonic` / `time.sleep` pair: sleeping moves the clock forward."""
+
+    def __init__(self, now=1000.0):
+        self.now = now
+
+    def monotonic(self):
+        return self.now
+
+    def sleep(self, seconds):
+        self.now += seconds
+
+
 class FakeProcess:
     def __init__(self):
         self.terminated = False

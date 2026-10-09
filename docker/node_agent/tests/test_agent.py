@@ -109,12 +109,19 @@ class RunTest(unittest.TestCase):
         self.assertEqual(1, agent.run(agent_env()))
 
     def test_up_failure_does_not_report_ready(self):
-        """AC-P6: `up` failure -> the node card is not shown"""
+        """AC-P6: `up` failure -> the ready card is not shown"""
         self.tailscale.up_result = False
 
         agent.run(agent_env())
 
         self.assertNotIn(self.expected_telegram_calls(agent_env())[0], self.telegram.calls)
+
+    def test_up_failure_edits_progress_message_to_stopped_card(self):
+        """AC-P6/D-5: `up` failure -> only the progress message is edited to the stopped card, no markup"""
+        self.tailscale.up_result = False
+
+        self.assertEqual(1, agent.run(agent_env()))
+        self.assertEqual([self.expected_telegram_calls(agent_env())[3]], self.telegram.calls)
 
     # --- start-up ---
 

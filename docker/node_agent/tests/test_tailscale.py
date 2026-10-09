@@ -2,8 +2,8 @@ import unittest
 from unittest import mock
 
 from node_agent.tailscale import Tailscale
-from node_agent.tests.fakes import (MISSING, PEERS_TWO_ACTIVE, FakePopen, FakeRun, failed, ok,
-                                    status_json)
+from node_agent.tests.fakes import (MISSING, PEERS_TWO_ACTIVE, FakeClock, FakePopen, FakeRun, failed,
+                                    ok, status_json)
 
 STATUS_COMMAND = ["tailscale", "status", "--json"]
 
@@ -130,6 +130,51 @@ class TailscaleProcessTest(unittest.TestCase):
         node.stop_daemon()
 
         self.assertTrue(popen.processes[0].terminated)
+
+
+class UpDeadlineTest(unittest.TestCase):
+    """Decision D-4: `up` gives up 300 s after its first attempt, even with attempts left."""
+
+    def setUp(self):
+        self.clock = FakeClock(now=1000.0)
+        self.started_at = []
+
+    def tailscale(self, run, seconds_per_run=0.0):
+        def timed_run(args, **kwargs):
+            self.started_at.append(self.clock.now - 1000.0)
+            self.clock.now += seconds_per_run
+            return run(args, **kwargs)
+
+        return Tailscale(run=timed_run, popen=FakePopen(), sleep=self.clock.sleep,
+                         monotonic=self.clock.monotonic)
+
+    def test_up_returns_false_after_300_seconds_with_attempts_left(self):
+        """AC-P2/D-4: up returns False once 300 s have passed, although attempts remain"""
+        node = self.tailscale(FakeRun(failed()))
+
+        self.assertFalse(node.up("tskey-123", "fra-node-1", attempts=120, delay=120.0))
+
+    def test_up_does_not_run_after_deadline(self):
+        """AC-P2/D-4: no `tailscale up` is started 300 s or more after the first attempt"""
+        node = self.tailscale(FakeRun(failed()))
+
+        node.up("tskey-123", "fra-node-1", attempts=120, delay=120.0)
+
+        self.assertEqual([0.0, 120.0, 240.0], self.started_at)
+
+    def test_deadline_includes_time_spent_in_tailscale_up(self):
+        """AC-P2/D-4: slow `tailscale up` runs count towards the 300 s"""
+        node = self.tailscale(FakeRun(failed()), seconds_per_run=200.0)
+
+        self.assertFalse(node.up("tskey-123", "fra-node-1", attempts=120, delay=1.0))
+        self.assertEqual([0.0, 201.0], self.started_at)
+
+    def test_up_succeeds_before_deadline(self):
+        """AC-P2/D-4: a success within 300 s still returns True"""
+        node = self.tailscale(FakeRun(failed(), failed(), ok()))
+
+        self.assertTrue(node.up("tskey-123", "fra-node-1", attempts=120, delay=100.0))
+        self.assertEqual([0.0, 100.0, 200.0], self.started_at)
 
 
 if __name__ == "__main__":
