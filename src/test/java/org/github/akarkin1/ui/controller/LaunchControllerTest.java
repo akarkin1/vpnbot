@@ -2,10 +2,10 @@ package org.github.akarkin1.ui.controller;
 
 import org.github.akarkin1.auth.Authorizer;
 import org.github.akarkin1.auth.Permission;
-import org.github.akarkin1.ecs.RunTaskStatus;
 import org.github.akarkin1.ecs.TaskInfo;
 import org.github.akarkin1.tailscale.TailscaleNodeService;
 import org.github.akarkin1.ui.UiContext;
+import org.github.akarkin1.ui.messenger.NodeNotifications;
 import org.github.akarkin1.ui.messenger.UiMessenger;
 import org.github.akarkin1.ui.screen.LaunchScreens;
 import org.github.akarkin1.ui.screen.Screen;
@@ -19,15 +19,17 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import software.amazon.awssdk.regions.Region;
 
 import java.util.List;
-import java.util.Optional;
+import java.util.Map;
 import java.util.Set;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -36,26 +38,21 @@ class LaunchControllerTest {
   private static final String REGION = "eu-central-1";
   private static final UiContext CONTEXT = new UiContext(100L, "alex", "Alex", "en-US");
   private static final Integer MESSAGE_ID = 42;
+  private static final Integer NEW_MESSAGE_ID = 77;
+  private static final String HOST_NAME = "node-7";
+  private static final Map<String, String> ENV = Map.of("TG_CHAT_ID", "100", "TG_MESSAGE_ID", "42");
+  private static final Map<String, String> NEW_MESSAGE_ENV = Map.of("TG_CHAT_ID", "100",
+                                                                    "TG_MESSAGE_ID", "77");
   private static final TaskInfo TASK = TaskInfo.builder()
       .id("task-1")
       .cluster("cluster-1")
       .region(Region.EU_CENTRAL_1)
-      .build();
-  private static final TaskInfo FULL_INFO = TaskInfo.builder()
-      .id("task-1")
-      .cluster("cluster-1")
-      .region(Region.EU_CENTRAL_1)
-      .hostName("node-1")
-      .publicIp("1.2.3.4")
-      .state("HEALTHY")
       .build();
 
   private static final Screen NOT_ALLOWED = screen("notAllowed");
   private static final Screen REGION_UNAVAILABLE = screen("regionUnavailable");
   private static final Screen STARTING = screen("starting");
   private static final Screen WAITING = screen("waiting");
-  private static final Screen READY = screen("ready");
-  private static final Screen STILL_STARTING = screen("stillStarting");
   private static final Screen FAILED = screen("failed");
 
   @Mock
@@ -66,44 +63,47 @@ class LaunchControllerTest {
   private UiMessenger messenger;
   @Mock
   private LaunchScreens launchScreens;
+  @Mock
+  private NodeNotifications nodeNotifications;
 
   private LaunchController controller;
 
   @BeforeEach
   void setUp() {
-    controller = new LaunchController(nodeService, authorizer, messenger, launchScreens);
+    controller = new LaunchController(nodeService, authorizer, messenger, launchScreens,
+                                      nodeNotifications);
     lenient().when(launchScreens.notAllowed()).thenReturn(NOT_ALLOWED);
     lenient().when(launchScreens.regionUnavailable()).thenReturn(REGION_UNAVAILABLE);
     lenient().when(launchScreens.starting(REGION)).thenReturn(STARTING);
     lenient().when(launchScreens.waiting(REGION)).thenReturn(WAITING);
-    lenient().when(launchScreens.ready(FULL_INFO)).thenReturn(READY);
-    lenient().when(launchScreens.stillStarting(REGION)).thenReturn(STILL_STARTING);
     lenient().when(launchScreens.failed(REGION)).thenReturn(FAILED);
   }
 
   @Test
-  @DisplayName("AC-10: null username is not allowed and makes no service calls")
+  @DisplayName("2a AC-1: null username is not allowed and makes no service calls")
   void nullUsernameNotAllowed() {
     UiContext anonymous = new UiContext(100L, null, "Alex", "en-US");
 
     controller.launch(anonymous, MESSAGE_ID, REGION);
 
     verify(messenger).edit(anonymous, MESSAGE_ID, NOT_ALLOWED);
-    verifyNoInteractions(nodeService);
+    verify(messenger, never()).edit(anonymous, MESSAGE_ID, STARTING);
+    verifyNoInteractions(nodeService, nodeNotifications);
   }
 
   @Test
-  @DisplayName("AC-10: user without RUN_NODES is not allowed and nothing is started")
+  @DisplayName("2a AC-1: user without RUN_NODES is not allowed and nothing is started")
   void withoutRunNodesNotAllowed() {
     controller.launch(CONTEXT, MESSAGE_ID, REGION);
 
+    verify(authorizer).hasPermission("alex", Permission.RUN_NODES);
     verify(messenger).edit(CONTEXT, MESSAGE_ID, NOT_ALLOWED);
-    verify(nodeService, never()).runNode(any(), any(), any());
     verify(messenger, never()).edit(CONTEXT, MESSAGE_ID, STARTING);
+    verifyNoInteractions(nodeService, nodeNotifications);
   }
 
   @Test
-  @DisplayName("AC-10: unsupported region shows starting, then regionUnavailable, and nothing is started")
+  @DisplayName("2a AC-1: unsupported region shows starting, then regionUnavailable, and nothing is started")
   void regionUnavailable() {
     allowRun();
     when(nodeService.getSupportedRegionIds()).thenReturn(Set.of("us-east-1"));
@@ -113,148 +113,127 @@ class LaunchControllerTest {
     InOrder inOrder = inOrder(messenger);
     inOrder.verify(messenger).edit(CONTEXT, MESSAGE_ID, STARTING);
     inOrder.verify(messenger).edit(CONTEXT, MESSAGE_ID, REGION_UNAVAILABLE);
-    verify(nodeService, never()).runNode(any(), any(), any());
+    verify(nodeService, never()).runNode(any(), any(), any(), any());
+    verifyNoInteractions(nodeNotifications);
   }
 
   @Test
-  @DisplayName("AC-10: starting is edited before the region check and before runNode")
-  void startingBeforeRegionCheckAndRunNode() {
+  @DisplayName("2a AC-1: starting is edited before the region check")
+  void startingBeforeRegionCheck() {
     allowRun();
     supportRegion();
-    when(nodeService.runNode(REGION, "alex", null)).thenReturn(TASK);
-    when(nodeService.checkNodeStatus(TASK)).thenReturn(RunTaskStatus.UNKNOWN);
+    when(nodeNotifications.build(CONTEXT, MESSAGE_ID, REGION)).thenReturn(ENV);
+    when(nodeService.runNode(REGION, "alex", null, ENV)).thenReturn(TASK);
 
     controller.launch(CONTEXT, MESSAGE_ID, REGION);
 
     InOrder inOrder = inOrder(messenger, nodeService);
     inOrder.verify(messenger).edit(CONTEXT, MESSAGE_ID, STARTING);
     inOrder.verify(nodeService).getSupportedRegionIds();
-    inOrder.verify(nodeService).runNode(REGION, "alex", null);
   }
 
   @Test
-  @DisplayName("AC-10: runNode throwing shows failed after starting, no waiting")
+  @DisplayName("2a AC-1: success runs the node with the notifications env and a null hostName, then shows waiting")
+  void success() {
+    allowRun();
+    supportRegion();
+    when(nodeNotifications.build(CONTEXT, MESSAGE_ID, REGION)).thenReturn(ENV);
+    when(nodeService.runNode(REGION, "alex", null, ENV)).thenReturn(TASK);
+
+    controller.launch(CONTEXT, MESSAGE_ID, REGION);
+
+    InOrder inOrder = inOrder(messenger, nodeService, nodeNotifications);
+    inOrder.verify(messenger).edit(CONTEXT, MESSAGE_ID, STARTING);
+    inOrder.verify(nodeService).getSupportedRegionIds();
+    inOrder.verify(nodeNotifications).build(CONTEXT, MESSAGE_ID, REGION);
+    inOrder.verify(nodeService).runNode(REGION, "alex", null, ENV);
+    inOrder.verify(messenger).edit(CONTEXT, MESSAGE_ID, WAITING);
+    verify(messenger, never()).edit(CONTEXT, MESSAGE_ID, FAILED);
+    verify(messenger, never()).send(any(), any());
+    verifyNoMoreInteractions(nodeService);
+  }
+
+  @Test
+  @DisplayName("2a AC-1: runNode throwing shows failed after starting, no waiting")
   void runNodeThrows() {
     allowRun();
     supportRegion();
-    when(nodeService.runNode(REGION, "alex", null)).thenThrow(new IllegalStateException("boom"));
-
-    controller.launch(CONTEXT, MESSAGE_ID, REGION);
-
-    InOrder inOrder = inOrder(messenger, nodeService);
-    inOrder.verify(messenger).edit(CONTEXT, MESSAGE_ID, STARTING);
-    inOrder.verify(nodeService).runNode(REGION, "alex", null);
-    inOrder.verify(messenger).edit(CONTEXT, MESSAGE_ID, FAILED);
-    verify(messenger, never()).edit(CONTEXT, MESSAGE_ID, WAITING);
-    verify(nodeService, never()).checkNodeStatus(any());
-  }
-
-  @Test
-  @DisplayName("AC-10: HEALTHY with full info shows ready; starting before region check and runNode, waiting before checkNodeStatus")
-  void healthyWithInfo() {
-    allowRun();
-    supportRegion();
-    when(nodeService.runNode(REGION, "alex", null)).thenReturn(TASK);
-    when(nodeService.checkNodeStatus(TASK)).thenReturn(RunTaskStatus.HEALTHY);
-    when(nodeService.getFullTaskInfo(Region.EU_CENTRAL_1, "cluster-1", "task-1"))
-        .thenReturn(Optional.of(FULL_INFO));
-
-    controller.launch(CONTEXT, MESSAGE_ID, REGION);
-
-    InOrder inOrder = inOrder(messenger, nodeService);
-    inOrder.verify(messenger).edit(CONTEXT, MESSAGE_ID, STARTING);
-    inOrder.verify(nodeService).getSupportedRegionIds();
-    inOrder.verify(nodeService).runNode(REGION, "alex", null);
-    inOrder.verify(messenger).edit(CONTEXT, MESSAGE_ID, WAITING);
-    inOrder.verify(nodeService).checkNodeStatus(TASK);
-    inOrder.verify(nodeService).getFullTaskInfo(Region.EU_CENTRAL_1, "cluster-1", "task-1");
-    inOrder.verify(messenger).edit(CONTEXT, MESSAGE_ID, READY);
-  }
-
-  @Test
-  @DisplayName("AC-10: HEALTHY without full info shows stillStarting")
-  void healthyWithoutInfo() {
-    allowRun();
-    supportRegion();
-    when(nodeService.runNode(REGION, "alex", null)).thenReturn(TASK);
-    when(nodeService.checkNodeStatus(TASK)).thenReturn(RunTaskStatus.HEALTHY);
-    when(nodeService.getFullTaskInfo(Region.EU_CENTRAL_1, "cluster-1", "task-1"))
-        .thenReturn(Optional.empty());
-
-    controller.launch(CONTEXT, MESSAGE_ID, REGION);
-
-    InOrder inOrder = inOrder(messenger);
-    inOrder.verify(messenger).edit(CONTEXT, MESSAGE_ID, WAITING);
-    inOrder.verify(messenger).edit(CONTEXT, MESSAGE_ID, STILL_STARTING);
-    verify(launchScreens, never()).ready(any());
-  }
-
-  @Test
-  @DisplayName("AC-10: getFullTaskInfo throwing shows stillStarting")
-  void fullTaskInfoThrows() {
-    allowRun();
-    supportRegion();
-    when(nodeService.runNode(REGION, "alex", null)).thenReturn(TASK);
-    when(nodeService.checkNodeStatus(TASK)).thenReturn(RunTaskStatus.HEALTHY);
-    when(nodeService.getFullTaskInfo(Region.EU_CENTRAL_1, "cluster-1", "task-1"))
+    when(nodeNotifications.build(CONTEXT, MESSAGE_ID, REGION)).thenReturn(ENV);
+    when(nodeService.runNode(REGION, "alex", null, ENV))
         .thenThrow(new IllegalStateException("boom"));
 
     controller.launch(CONTEXT, MESSAGE_ID, REGION);
 
     InOrder inOrder = inOrder(messenger, nodeService);
-    inOrder.verify(messenger).edit(CONTEXT, MESSAGE_ID, WAITING);
-    inOrder.verify(nodeService).getFullTaskInfo(Region.EU_CENTRAL_1, "cluster-1", "task-1");
-    inOrder.verify(messenger).edit(CONTEXT, MESSAGE_ID, STILL_STARTING);
-    verify(messenger, never()).edit(CONTEXT, MESSAGE_ID, FAILED);
+    inOrder.verify(messenger).edit(CONTEXT, MESSAGE_ID, STARTING);
+    inOrder.verify(nodeService).runNode(REGION, "alex", null, ENV);
+    inOrder.verify(messenger).edit(CONTEXT, MESSAGE_ID, FAILED);
+    verify(messenger, never()).edit(CONTEXT, MESSAGE_ID, WAITING);
+    verifyNoMoreInteractions(nodeService);
   }
 
   @Test
-  @DisplayName("AC-10: UNKNOWN status shows stillStarting")
-  void unknownStatus() {
-    allowRun();
+  @DisplayName("2a AC-2: launchInNewMessage sends starting and uses its id for the notifications and the following edits")
+  void newMessageSuccess() {
     supportRegion();
-    when(nodeService.runNode(REGION, "alex", null)).thenReturn(TASK);
-    when(nodeService.checkNodeStatus(TASK)).thenReturn(RunTaskStatus.UNKNOWN);
+    when(messenger.send(CONTEXT, STARTING)).thenReturn(NEW_MESSAGE_ID);
+    when(nodeNotifications.build(CONTEXT, NEW_MESSAGE_ID, REGION)).thenReturn(NEW_MESSAGE_ENV);
+    when(nodeService.runNode(REGION, "alex", HOST_NAME, NEW_MESSAGE_ENV)).thenReturn(TASK);
 
-    controller.launch(CONTEXT, MESSAGE_ID, REGION);
+    controller.launchInNewMessage(CONTEXT, REGION, HOST_NAME);
+
+    InOrder inOrder = inOrder(messenger, nodeService, nodeNotifications);
+    inOrder.verify(messenger).send(CONTEXT, STARTING);
+    inOrder.verify(nodeService).getSupportedRegionIds();
+    inOrder.verify(nodeNotifications).build(CONTEXT, NEW_MESSAGE_ID, REGION);
+    inOrder.verify(nodeService).runNode(REGION, "alex", HOST_NAME, NEW_MESSAGE_ENV);
+    inOrder.verify(messenger).edit(CONTEXT, NEW_MESSAGE_ID, WAITING);
+    verify(messenger, times(1)).edit(any(), any(), any());
+    verifyNoMoreInteractions(nodeService);
+  }
+
+  @Test
+  @DisplayName("2a AC-2: launchInNewMessage passes a null hostName through")
+  void newMessageNullHostName() {
+    supportRegion();
+    when(messenger.send(CONTEXT, STARTING)).thenReturn(NEW_MESSAGE_ID);
+    when(nodeNotifications.build(CONTEXT, NEW_MESSAGE_ID, REGION)).thenReturn(NEW_MESSAGE_ENV);
+    when(nodeService.runNode(REGION, "alex", null, NEW_MESSAGE_ENV)).thenReturn(TASK);
+
+    controller.launchInNewMessage(CONTEXT, REGION, null);
+
+    verify(nodeService).runNode(REGION, "alex", null, NEW_MESSAGE_ENV);
+    verify(messenger).edit(CONTEXT, NEW_MESSAGE_ID, WAITING);
+  }
+
+  @Test
+  @DisplayName("2a AC-2: launchInNewMessage with an unsupported region edits the new message to regionUnavailable")
+  void newMessageRegionUnavailable() {
+    when(nodeService.getSupportedRegionIds()).thenReturn(Set.of("us-east-1"));
+    when(messenger.send(CONTEXT, STARTING)).thenReturn(NEW_MESSAGE_ID);
+
+    controller.launchInNewMessage(CONTEXT, REGION, HOST_NAME);
 
     InOrder inOrder = inOrder(messenger);
-    inOrder.verify(messenger).edit(CONTEXT, MESSAGE_ID, WAITING);
-    inOrder.verify(messenger).edit(CONTEXT, MESSAGE_ID, STILL_STARTING);
-    verify(messenger, never()).edit(CONTEXT, MESSAGE_ID, FAILED);
+    inOrder.verify(messenger).send(CONTEXT, STARTING);
+    inOrder.verify(messenger).edit(CONTEXT, NEW_MESSAGE_ID, REGION_UNAVAILABLE);
+    verify(nodeService, never()).runNode(any(), any(), any(), any());
+    verifyNoInteractions(nodeNotifications);
   }
 
   @Test
-  @DisplayName("AC-10: UNHEALTHY status shows failed")
-  void unhealthyStatus() {
-    allowRun();
+  @DisplayName("2a AC-2: launchInNewMessage edits the new message to failed when runNode throws")
+  void newMessageRunNodeThrows() {
     supportRegion();
-    when(nodeService.runNode(REGION, "alex", null)).thenReturn(TASK);
-    when(nodeService.checkNodeStatus(TASK)).thenReturn(RunTaskStatus.UNHEALTHY);
+    when(messenger.send(CONTEXT, STARTING)).thenReturn(NEW_MESSAGE_ID);
+    when(nodeNotifications.build(CONTEXT, NEW_MESSAGE_ID, REGION)).thenReturn(NEW_MESSAGE_ENV);
+    when(nodeService.runNode(REGION, "alex", HOST_NAME, NEW_MESSAGE_ENV))
+        .thenThrow(new IllegalStateException("boom"));
 
-    controller.launch(CONTEXT, MESSAGE_ID, REGION);
+    controller.launchInNewMessage(CONTEXT, REGION, HOST_NAME);
 
-    InOrder inOrder = inOrder(messenger);
-    inOrder.verify(messenger).edit(CONTEXT, MESSAGE_ID, WAITING);
-    inOrder.verify(messenger).edit(CONTEXT, MESSAGE_ID, FAILED);
-    verify(messenger, never()).edit(CONTEXT, MESSAGE_ID, STILL_STARTING);
-  }
-
-  @Test
-  @DisplayName("AC-10: checkNodeStatus throwing shows failed after waiting")
-  void checkNodeStatusThrows() {
-    allowRun();
-    supportRegion();
-    when(nodeService.runNode(REGION, "alex", null)).thenReturn(TASK);
-    when(nodeService.checkNodeStatus(TASK)).thenThrow(new IllegalStateException("boom"));
-
-    controller.launch(CONTEXT, MESSAGE_ID, REGION);
-
-    InOrder inOrder = inOrder(messenger, nodeService);
-    inOrder.verify(messenger).edit(CONTEXT, MESSAGE_ID, WAITING);
-    inOrder.verify(nodeService).checkNodeStatus(TASK);
-    inOrder.verify(messenger).edit(CONTEXT, MESSAGE_ID, FAILED);
-    verify(nodeService, never()).getFullTaskInfo(any(), any(), any());
+    verify(messenger).edit(CONTEXT, NEW_MESSAGE_ID, FAILED);
+    verify(messenger, never()).edit(CONTEXT, NEW_MESSAGE_ID, WAITING);
   }
 
   private void allowRun() {

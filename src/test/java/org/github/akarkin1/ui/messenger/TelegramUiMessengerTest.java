@@ -1,8 +1,8 @@
 package org.github.akarkin1.ui.messenger;
 
-import org.github.akarkin1.translation.Translator;
+import org.github.akarkin1.metrics.MetricComponent;
+import org.github.akarkin1.metrics.RecordingRequestMetrics;
 import org.github.akarkin1.ui.UiContext;
-import org.github.akarkin1.ui.screen.Button;
 import org.github.akarkin1.ui.screen.Screen;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -16,25 +16,24 @@ import org.telegram.telegrambots.meta.api.methods.ParseMode;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
 import org.telegram.telegrambots.meta.api.objects.ApiResponse;
+import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 import org.telegram.telegrambots.meta.bots.AbsSender;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiRequestException;
 
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.RETURNS_DEFAULTS;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -44,93 +43,77 @@ class TelegramUiMessengerTest {
 
   private static final UiContext CONTEXT = new UiContext(100L, "alex", "Alex", "ru");
   private static final Integer MESSAGE_ID = 42;
-  private static final Screen SCREEN = new Screen(
-      "Hi %s, <b>%s</b> %s",
-      List.of("<x>", "a&\"b", 5),
-      List.of(List.of(new Button("A", "HOME", null), new Button("B", null, "https://example.com")),
-              List.of(new Button("C", "RUN:eu-central-1", null))));
+  private static final Integer SENT_MESSAGE_ID = 77;
+  private static final Screen SCREEN = new Screen("screen", List.of(), List.of());
   private static final Screen NO_KEYBOARD = new Screen("plain", List.of(), List.of());
+  private static final InlineKeyboardMarkup KEYBOARD = keyboard();
+  private static final RenderedMessage RENDERED = new RenderedMessage("<b>rendered</b>", KEYBOARD);
+  private static final RenderedMessage RENDERED_NO_KEYBOARD = new RenderedMessage("plain text", null);
 
   @Mock
   private AbsSender sender;
+  @Mock
+  private ScreenRenderer renderer;
 
-  /** Every translator call as [langCode, message, params...]. */
-  private final List<List<Object>> translations = new ArrayList<>();
-  private Translator translator;
+  private final RecordingRequestMetrics metrics = new RecordingRequestMetrics();
   private TelegramUiMessenger messenger;
 
   @BeforeEach
   void setUp() {
-    translator = mock(Translator.class, invocation -> {
-      if (!invocation.getMethod().getName().equals("translate")) {
-        return RETURNS_DEFAULTS.answer(invocation);
-      }
-      Object[] raw = invocation.getRawArguments();
-      String langCode = (String) raw[0];
-      String message = (String) raw[1];
-      Object[] params = raw.length > 2 && raw[2] != null ? (Object[]) raw[2] : new Object[0];
-      List<Object> call = new ArrayList<>(List.of(langCode, message));
-      call.addAll(Arrays.asList(params));
-      translations.add(call);
-      return "[" + langCode + "]" + message.formatted(params);
-    });
-    messenger = new TelegramUiMessenger(sender, translator);
+    messenger = new TelegramUiMessenger(sender, renderer, metrics);
+    lenient().when(renderer.render(CONTEXT, SCREEN)).thenReturn(RENDERED);
+    lenient().when(renderer.render(CONTEXT, NO_KEYBOARD)).thenReturn(RENDERED_NO_KEYBOARD);
   }
 
   @Test
-  @DisplayName("AC-13: send uses HTML parse mode, the chat id and disables link previews")
+  @DisplayName("2a AC-6: send returns the id of the sent message")
+  void sendReturnsMessageId() throws TelegramApiException {
+    when(sender.execute(any(SendMessage.class))).thenReturn(sentMessage());
+
+    assertEquals(SENT_MESSAGE_ID, messenger.send(CONTEXT, SCREEN));
+  }
+
+  @Test
+  @DisplayName("2a AC-6: send uses the rendered text and keyboard, HTML parse mode, the chat id and no link previews")
   void sendBasics() throws TelegramApiException {
+    when(sender.execute(any(SendMessage.class))).thenReturn(sentMessage());
+
     messenger.send(CONTEXT, SCREEN);
 
     SendMessage message = captureSendMessage();
     assertEquals("100", message.getChatId());
+    assertEquals("<b>rendered</b>", message.getText());
+    assertSame(KEYBOARD, message.getReplyMarkup());
     assertEquals(ParseMode.HTML, message.getParseMode());
     assertEquals(Boolean.TRUE, message.getDisableWebPagePreview());
   }
 
   @Test
-  @DisplayName("AC-13: params are HTML-escaped before they are passed to the translator")
-  void escapedParamsPassedToTranslator() {
-    messenger.send(CONTEXT, SCREEN);
-
-    assertTrue(translations.contains(List.of("ru", "Hi %s, <b>%s</b> %s", "&lt;x&gt;", "a&amp;&quot;b", "5")),
-               translations.toString());
-  }
-
-  @Test
-  @DisplayName("AC-13: message text is the translated template with escaped params")
-  void translatedText() throws TelegramApiException {
-    messenger.send(CONTEXT, SCREEN);
-
-    assertEquals("[ru]Hi &lt;x&gt;, <b>a&amp;&quot;b</b> 5", captureSendMessage().getText());
-  }
-
-  @Test
-  @DisplayName("AC-13: button labels are translated, callback and url buttons are kept apart")
-  void inlineKeyboard() throws TelegramApiException {
-    messenger.send(CONTEXT, SCREEN);
-
-    InlineKeyboardMarkup markup =
-        assertInstanceOf(InlineKeyboardMarkup.class, captureSendMessage().getReplyMarkup());
-    List<List<InlineKeyboardButton>> rows = markup.getKeyboard();
-    assertEquals(2, rows.size());
-    assertEquals(2, rows.get(0).size());
-    assertEquals(1, rows.get(1).size());
-    assertButton(rows.get(0).get(0), "[ru]A", "HOME", null);
-    assertButton(rows.get(0).get(1), "[ru]B", null, "https://example.com");
-    assertButton(rows.get(1).get(0), "[ru]C", "RUN:eu-central-1", null);
-  }
-
-  @Test
-  @DisplayName("AC-13: send has no reply markup for an empty keyboard")
+  @DisplayName("2a AC-6: send has no reply markup when the rendered keyboard is null")
   void sendWithoutKeyboard() throws TelegramApiException {
+    when(sender.execute(any(SendMessage.class))).thenReturn(sentMessage());
+
     messenger.send(CONTEXT, NO_KEYBOARD);
 
     assertNull(captureSendMessage().getReplyMarkup());
   }
 
   @Test
-  @DisplayName("AC-13: edit sets message id, HTML parse mode, text and keyboard")
+  @DisplayName("2a AC-6: send executes the Telegram call inside a TELEGRAM timing")
+  void sendIsTimed() throws TelegramApiException {
+    AtomicBoolean timed = new AtomicBoolean();
+    when(sender.execute(any(SendMessage.class))).thenAnswer(invocation -> {
+      timed.set(metrics.isTiming(MetricComponent.TELEGRAM));
+      return sentMessage();
+    });
+
+    messenger.send(CONTEXT, SCREEN);
+
+    assertTrue(timed.get(), "execute was not called inside metrics.time(TELEGRAM, ...)");
+  }
+
+  @Test
+  @DisplayName("2a AC-6: edit sets message id, HTML parse mode, the rendered text and keyboard")
   void edit() throws TelegramApiException {
     messenger.edit(CONTEXT, MESSAGE_ID, SCREEN);
 
@@ -139,16 +122,30 @@ class TelegramUiMessengerTest {
     assertEquals(MESSAGE_ID, edit.getMessageId());
     assertEquals(ParseMode.HTML, edit.getParseMode());
     assertEquals(Boolean.TRUE, edit.getDisableWebPagePreview());
-    assertEquals("[ru]Hi &lt;x&gt;, <b>a&amp;&quot;b</b> 5", edit.getText());
-    assertButton(edit.getReplyMarkup().getKeyboard().get(0).get(1), "[ru]B", null, "https://example.com");
+    assertEquals("<b>rendered</b>", edit.getText());
+    assertSame(KEYBOARD, edit.getReplyMarkup());
   }
 
   @Test
-  @DisplayName("AC-13: edit has no reply markup for an empty keyboard")
+  @DisplayName("2a AC-6: edit has no reply markup when the rendered keyboard is null")
   void editWithoutKeyboard() throws TelegramApiException {
     messenger.edit(CONTEXT, MESSAGE_ID, NO_KEYBOARD);
 
     assertNull(captureEdit().getReplyMarkup());
+  }
+
+  @Test
+  @DisplayName("2a AC-6: edit executes the Telegram call inside a TELEGRAM timing")
+  void editIsTimed() throws TelegramApiException {
+    AtomicBoolean timed = new AtomicBoolean();
+    when(sender.execute(any(EditMessageText.class))).thenAnswer(invocation -> {
+      timed.set(metrics.isTiming(MetricComponent.TELEGRAM));
+      return true;
+    });
+
+    messenger.edit(CONTEXT, MESSAGE_ID, SCREEN);
+
+    assertTrue(timed.get(), "execute was not called inside metrics.time(TELEGRAM, ...)");
   }
 
   @Test
@@ -184,6 +181,20 @@ class TelegramUiMessengerTest {
   }
 
   @Test
+  @DisplayName("2a AC-6: answerCallback executes the Telegram call inside a TELEGRAM timing")
+  void answerCallbackIsTimed() throws TelegramApiException {
+    AtomicBoolean timed = new AtomicBoolean();
+    when(sender.execute(any(AnswerCallbackQuery.class))).thenAnswer(invocation -> {
+      timed.set(metrics.isTiming(MetricComponent.TELEGRAM));
+      return true;
+    });
+
+    messenger.answerCallback("cb-1");
+
+    assertTrue(timed.get(), "execute was not called inside metrics.time(TELEGRAM, ...)");
+  }
+
+  @Test
   @DisplayName("AC-13: answerCallback failures are swallowed")
   void answerCallbackFailureSwallowed() throws TelegramApiException {
     when(sender.execute(any(AnswerCallbackQuery.class)))
@@ -204,18 +215,26 @@ class TelegramUiMessengerTest {
     return captor.getValue();
   }
 
+  private static Message sentMessage() {
+    Message message = new Message();
+    message.setMessageId(SENT_MESSAGE_ID);
+    return message;
+  }
+
+  private static InlineKeyboardMarkup keyboard() {
+    InlineKeyboardButton button = new InlineKeyboardButton();
+    button.setText("Menu");
+    button.setCallbackData("HOME");
+    InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
+    markup.setKeyboard(List.of(List.of(button)));
+    return markup;
+  }
+
   @SuppressWarnings("unchecked")
   private static TelegramApiRequestException apiError(String description) {
     ApiResponse<Boolean> response = mock(ApiResponse.class);
     when(response.getErrorDescription()).thenReturn(description);
     return new TelegramApiRequestException("Error editing message text", response);
-  }
-
-  private static void assertButton(InlineKeyboardButton button, String text, String callbackData,
-                                   String url) {
-    assertEquals(text, button.getText());
-    assertEquals(callbackData, button.getCallbackData());
-    assertEquals(url, button.getUrl());
   }
 
 }

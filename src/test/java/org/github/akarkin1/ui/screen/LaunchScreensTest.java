@@ -1,9 +1,7 @@
 package org.github.akarkin1.ui.screen;
 
-import org.github.akarkin1.ecs.TaskInfo;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import software.amazon.awssdk.regions.Region;
 
 import java.util.List;
 
@@ -30,27 +28,20 @@ class LaunchScreensTest {
   }
 
   @Test
-  @DisplayName("AC-8: waiting shows the region label and the waiting step, no keyboard")
+  @DisplayName("2a AC-4: waiting shows the region label and the waiting step, with a menu button")
   void waiting() {
     Screen screen = screens.waiting(REGION);
 
     assertEquals("🚀 ${ui.launch.starting} %s…\n✅ ${ui.launch.step.submitted}\n⏳ ${ui.launch.step.waiting}",
                  screen.template());
     assertEquals(List.of("🇩🇪 Frankfurt"), screen.params());
-    assertEquals(List.of(), screen.keyboard());
+    assertEquals(List.of(List.of(MENU)), screen.keyboard());
   }
 
   @Test
-  @DisplayName("AC-8: ready shows the node card with links and menu")
+  @DisplayName("2a AC-4: ready shows the node card with links and menu")
   void ready() {
-    TaskInfo node = TaskInfo.builder()
-        .state("HEALTHY")
-        .hostName("node-1")
-        .region(Region.EU_CENTRAL_1)
-        .publicIp("1.2.3.4")
-        .build();
-
-    Screen screen = screens.ready(node);
+    Screen screen = screens.ready("node-1", REGION, "1.2.3.4");
 
     assertEquals(READY_TEMPLATE, screen.template());
     assertEquals(List.of("🟢", "node-1", "🇩🇪 Frankfurt", "1.2.3.4"), screen.params());
@@ -58,22 +49,44 @@ class LaunchScreensTest {
   }
 
   @Test
-  @DisplayName("AC-8: ready shows — for missing node values")
+  @DisplayName("2a AC-4: ready shows — for a missing host and IP")
   void readyWithMissingValues() {
-    Screen screen = screens.ready(TaskInfo.builder().build());
-
-    assertEquals(READY_TEMPLATE, screen.template());
-    assertEquals(List.of("🟡", "—", "—", "—"), screen.params());
+    assertEquals(List.of("🟢", "—", "🇩🇪 Frankfurt", "—"), screens.ready(null, REGION, null).params());
+    assertEquals(List.of("🟢", "—", "🇩🇪 Frankfurt", "—"), screens.ready(" ", REGION, "").params());
   }
 
   @Test
-  @DisplayName("AC-8: stillStarting shows the region and a menu button")
-  void stillStarting() {
-    Screen screen = screens.stillStarting(REGION);
+  @DisplayName("2a AC-4: idleWarning shows the host, no keyboard")
+  void idleWarning() {
+    Screen screen = screens.idleWarning("node-1");
 
-    assertEquals("🟡 ${ui.launch.still-starting}\n📍 %s", screen.template());
-    assertEquals(List.of("🇩🇪 Frankfurt"), screen.params());
-    assertEquals(List.of(List.of(MENU)), screen.keyboard());
+    assertEquals("⚠️ <b>%s</b> ${ui.node.idle-warning}", screen.template());
+    assertEquals(List.of("node-1"), screen.params());
+    assertEquals(List.of(), screen.keyboard());
+    assertEquals(List.of("—"), screens.idleWarning(null).params());
+  }
+
+  @Test
+  @DisplayName("2a AC-4: stopped shows the host with start-again (RUN:<id>) and menu buttons")
+  void stopped() {
+    Screen screen = screens.stopped("node-1", REGION);
+
+    assertEquals("🛑 <b>%s</b> ${ui.node.stopped-idle}", screen.template());
+    assertEquals(List.of("node-1"), screen.params());
+    assertEquals(List.of(List.of(new Button("🚀 ${ui.button.start-again}", "RUN:eu-central-1", null), MENU)),
+                 screen.keyboard());
+    assertEquals(List.of("—"), screens.stopped(null, REGION).params());
+  }
+
+  @Test
+  @DisplayName("2a AC-4: stoppedCard shows the host and region label, no keyboard")
+  void stoppedCard() {
+    Screen screen = screens.stoppedCard("node-1", REGION);
+
+    assertEquals("⚪ <b>%s</b> · %s\n🛑 ${ui.node.stopped}", screen.template());
+    assertEquals(List.of("node-1", "🇩🇪 Frankfurt"), screen.params());
+    assertEquals(List.of(), screen.keyboard());
+    assertEquals(List.of("—", "🇩🇪 Frankfurt"), screens.stoppedCard("", REGION).params());
   }
 
   @Test
@@ -115,15 +128,19 @@ class LaunchScreensTest {
   }
 
   @Test
-  @DisplayName("AC-7: launch templates' placeholders match params for every screen")
+  @DisplayName("2a AC-4: launch templates' placeholders match params for every screen, no null params")
   void placeholdersMatchParams() {
     List.of(screens.starting(REGION),
             screens.starting("unknown-1"),
             screens.waiting(REGION),
-            screens.ready(TaskInfo.builder().state("HEALTHY").hostName("node-1")
-                              .region(Region.EU_CENTRAL_1).publicIp("1.2.3.4").build()),
-            screens.ready(TaskInfo.builder().build()),
-            screens.stillStarting(REGION),
+            screens.ready("node-1", REGION, "1.2.3.4"),
+            screens.ready(null, "unknown-1", null),
+            screens.idleWarning("node-1"),
+            screens.idleWarning(null),
+            screens.stopped("node-1", REGION),
+            screens.stopped(null, "unknown-1"),
+            screens.stoppedCard("node-1", REGION),
+            screens.stoppedCard(null, "unknown-1"),
             screens.failed(REGION),
             screens.regionUnavailable(),
             screens.notAllowed())
