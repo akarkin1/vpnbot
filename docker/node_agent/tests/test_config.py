@@ -60,6 +60,32 @@ class AgentConfigTest(unittest.TestCase):
         self.assertEqual(fakes.STOPPED_MARKUP, config.stopped_markup)
         self.assertEqual(fakes.STOPPED_CARD_TEXT, config.stopped_card_text)
 
+    def test_invalid_message_id_is_none(self):
+        """AC-P5/D-9: an invalid TG_MESSAGE_ID gives None, no exception"""
+        for value in ("null", "abc", ""):
+            with self.subTest(TG_MESSAGE_ID=value):
+                env = fakes.full_env()
+                env["TG_MESSAGE_ID"] = value
+
+                self.assertIsNone(AgentConfig.from_env(env).message_id)
+
+    def test_invalid_message_id_logs_warning(self):
+        """AC-P5/D-9: an invalid TG_MESSAGE_ID logs a warning"""
+        env = fakes.full_env()
+        env["TG_MESSAGE_ID"] = "abc"
+
+        with self.assertLogs(level="WARNING"):
+            AgentConfig.from_env(env)
+
+    def test_blank_chat_id_is_none(self):
+        """AC-P5/D-9: a blank TG_CHAT_ID gives None, no exception"""
+        for value in ("", "   "):
+            with self.subTest(TG_CHAT_ID=value):
+                env = fakes.full_env()
+                env["TG_CHAT_ID"] = value
+
+                self.assertIsNone(AgentConfig.from_env(env).chat_id)
+
     def test_missing_required_var_is_rejected(self):
         """AC-P5: a missing required var is an error"""
         env = fakes.required_env()
