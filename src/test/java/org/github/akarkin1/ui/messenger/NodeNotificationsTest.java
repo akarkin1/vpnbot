@@ -33,10 +33,11 @@ class NodeNotificationsTest {
       new ScreenRenderer(messages));
 
   @Test
-  @DisplayName("2a AC-5: placeholders are the documented constants")
+  @DisplayName("2a AC-5, 2b AC-11: placeholders are the documented constants")
   void placeholders() {
     assertEquals("{{HOSTNAME}}", NodeNotifications.HOSTNAME_PLACEHOLDER);
     assertEquals("{{PUBLIC_IP}}", NodeNotifications.PUBLIC_IP_PLACEHOLDER);
+    assertEquals("{{TASK_ID}}", NodeNotifications.TASK_ID_PLACEHOLDER);
   }
 
   @Test
@@ -72,7 +73,7 @@ class NodeNotificationsTest {
   }
 
   @Test
-  @DisplayName("2a AC-5: ready markup JSON has inline_keyboard with the links row and the menu row")
+  @DisplayName("2a AC-5, 2b AC-11: ready markup JSON has the links row, then stop (STOP:<region>:{{TASK_ID}}) and menu")
   void readyMarkup() throws Exception {
     Map<String, String> env = notifications.build(RU_CONTEXT, MESSAGE_ID, REGION);
 
@@ -81,8 +82,20 @@ class NodeNotificationsTest {
     assertEquals(2, rows.get(0).size());
     assertUrlButton(rows.get(0).get(0), "📖 " + ru("ui.button.exit-node-guide"), Links.EXIT_NODE_GUIDE);
     assertUrlButton(rows.get(0).get(1), "⬇️ " + ru("ui.button.get-tailscale"), Links.DOWNLOAD);
-    assertEquals(1, rows.get(1).size());
-    assertCallbackButton(rows.get(1).get(0), "🏠 " + ru("ui.button.menu"), "HOME");
+    assertEquals(2, rows.get(1).size());
+    assertCallbackButton(rows.get(1).get(0), "🛑 " + ru("ui.button.stop"),
+                         "STOP:" + REGION + ":{{TASK_ID}}");
+    assertCallbackButton(rows.get(1).get(1), "🏠 " + ru("ui.button.menu"), "HOME");
+  }
+
+  @Test
+  @DisplayName("2b AC-11: the raw ready markup contains STOP:<region>:{{TASK_ID}} for the node agent to fill in")
+  void readyMarkupContainsTaskIdPlaceholder() {
+    for (UiContext context : new UiContext[]{RU_CONTEXT, EN_CONTEXT}) {
+      String markup = notifications.build(context, MESSAGE_ID, REGION).get("TG_READY_MARKUP");
+
+      assertTrue(markup.contains("STOP:eu-central-1:{{TASK_ID}}"), markup);
+    }
   }
 
   @Test
@@ -98,7 +111,7 @@ class NodeNotificationsTest {
   }
 
   @Test
-  @DisplayName("2a AC-5: total size of all keys and values stays below 8192 characters")
+  @DisplayName("2a AC-5, 2b AC-11: total size of all keys and values stays below 8192 characters")
   void totalSize() {
     for (UiContext context : new UiContext[]{RU_CONTEXT, EN_CONTEXT}) {
       Map<String, String> env = notifications.build(context, MESSAGE_ID, REGION);
