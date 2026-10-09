@@ -11,17 +11,21 @@ Assumptions about how `agent.run` is wired (§5, §7):
 - The real `AgentConfig`, `Notifier` and `IdleMonitor` are used.
 """
 
+import os
 import signal
 import unittest
 from unittest import mock
 
 from node_agent import agent
 from node_agent.config import AgentConfig
+from node_agent.notifier import Notifier
 from tests import fakes
 from tests.fakes import (LINKS_ROW, MENU_BUTTON, READY_MARKUP_WITH_STOP, TASK_ARN, TASK_ID, FakeResponse,
-                         FakeSession, FakeTailscale, FakeTelegram, bind, markup_json, stop_button)
+                         FakeSession, FakeTailscale, FakeTelegram, bind, canonical_markup, markup_json,
+                         stop_button)
 
 PUBLIC_IP = "203.0.113.7"
+WARNING_ID = FakeTelegram.FIRST_MESSAGE_ID
 METADATA_URI = "http://169.254.170.2/v4/0123456789abcdef0123456789abcdef-1234567890"
 SECRETS = {"ts-secret": "tskey-123", "tg-secret": "bot-token"}
 
@@ -80,20 +84,34 @@ class RunTest(unittest.TestCase):
         return value
 
     def expected_telegram_calls(self, env):
+        """Ready card, silent warning, warning deleted, node message edited into the stopped card."""
         config = AgentConfig.from_env(env)
-        chat_id, message_id = config.chat_id, config.message_id
-        return [
-            ("edit_message", {"chat_id": chat_id, "message_id": message_id,
-                              "text": "\U0001F7E2 <b>fra-node-1</b> · Frankfurt\n<code>203.0.113.7</code>",
-                              "reply_markup": fakes.READY_MARKUP}),
-            ("send_message", {"chat_id": chat_id, "text": "⚠️ <b>fra-node-1</b> will stop in 2 minutes",
-                              "reply_markup": None, "silent": True}),
-            ("send_message", {"chat_id": chat_id, "text": "\U0001F6D1 <b>fra-node-1</b> was stopped",
-                              "reply_markup": fakes.STOPPED_MARKUP, "silent": False}),
-            ("edit_message", {"chat_id": chat_id, "message_id": message_id,
-                              "text": "⚪ <b>fra-node-1</b> · Frankfurt\nStopped",
-                              "reply_markup": None}),
-        ]
+        return [self.ready_edit(config), self.warning_send(config), self.warning_delete(config, WARNING_ID),
+                ("edit_message", {"chat_id": config.chat_id, "message_id": config.message_id,
+                                  "text": "⚪ <b>fra-node-1</b> · Frankfurt\n"
+                                          "\U0001F6D1 Stopped: no devices were connected for 10 minutes.",
+                                  "reply_markup": canonical_markup(fakes.STOPPED_MARKUP)})]
+
+    @staticmethod
+    def ready_edit(config):
+        return ("edit_message", {"chat_id": config.chat_id, "message_id": config.message_id,
+                                 "text": "\U0001F7E2 <b>fra-node-1</b> · Frankfurt\n<code>203.0.113.7</code>",
+                                 "reply_markup": canonical_markup(fakes.READY_MARKUP)})
+
+    @staticmethod
+    def warning_send(config):
+        return ("send_message", {"chat_id": config.chat_id, "text": "⚠️ <b>fra-node-1</b> will stop in 2 minutes",
+                                 "reply_markup": None, "silent": True})
+
+    @staticmethod
+    def warning_delete(config, message_id):
+        return ("delete_message", {"chat_id": config.chat_id, "message_id": message_id})
+
+    @staticmethod
+    def stopped_card_edit(config):
+        return ("edit_message", {"chat_id": config.chat_id, "message_id": config.message_id,
+                                 "text": "⚪ <b>fra-node-1</b> · Frankfurt\nStopped",
+                                 "reply_markup": canonical_markup(fakes.STOPPED_CARD_MARKUP)})
 
     # --- start-up failures ---
 
@@ -127,11 +145,12 @@ class RunTest(unittest.TestCase):
         self.assertNotIn(self.expected_telegram_calls(agent_env())[0], self.telegram.calls)
 
     def test_up_failure_edits_progress_message_to_stopped_card(self):
-        """AC-P6/D-5: `up` failure -> only the progress message is edited to the stopped card, no markup"""
+        """AC-P6/D-5, stop-in-place AC-P5: `up` failure -> only the progress message is edited to the
+        stopped card, with TG_STOPPED_CARD_MARKUP"""
         self.tailscale.up_result = False
 
         self.assertEqual(1, agent.run(agent_env()))
-        self.assertEqual([self.expected_telegram_calls(agent_env())[3]], self.telegram.calls)
+        self.assertEqual([self.stopped_card_edit(AgentConfig.from_env(agent_env()))], self.telegram.calls)
 
     # --- start-up ---
 
@@ -198,17 +217,78 @@ class RunTest(unittest.TestCase):
         self.assertEqual(0, agent.run(agent_env()))
 
     def test_idle_stop_notifies_ready_warning_and_stop(self):
-        """AC-P6: idle STOP path notifies: ready card, silent warning, stopped message, stopped card"""
+        """AC-P7: idle STOP path: ready card, silent warning, warning deleted, node message edited
+        into the stopped card"""
         agent.run(agent_env())
 
         self.assertEqual(self.expected_telegram_calls(agent_env()), self.telegram.calls)
 
-    def test_idle_stop_logs_out_and_stops_daemon_after_notifying(self):
-        """AC-P6: idle STOP path notifies, then logs out, then terminates tailscaled"""
+    def test_idle_stop_sends_no_new_message(self):
+        """AC-P7: the warning is the only message the agent sends"""
         agent.run(agent_env())
 
-        self.assertEqual(["telegram.send_message", "telegram.edit_message", "tailscale.logout",
+        self.assertEqual(1, self.telegram.methods().count("send_message"))
+
+    def test_idle_stop_logs_out_and_stops_daemon_after_notifying(self):
+        """AC-P7: idle STOP path deletes the warning, edits the card, then logs out and terminates tailscaled"""
+        agent.run(agent_env())
+
+        self.assertEqual(["telegram.delete_message", "telegram.edit_message", "tailscale.logout",
                           "tailscale.stop_daemon"], self.events[-4:])
+
+    # --- devices connect again after the warning (stop-in-place) ---
+
+    def test_resume_deletes_warning_and_node_keeps_running(self):
+        """AC-P7: WARN, then a device connects (RESUME) -> warning deleted; the next idle period warns
+        again and the stop deletes that warning and edits the card"""
+        self.tailscale.peer_counts = [0, 1]
+        env = agent_env()
+        config = AgentConfig.from_env(env)
+
+        self.assertEqual(0, agent.run(env))
+        self.assertEqual([self.ready_edit(config),
+                          self.warning_send(config), self.warning_delete(config, WARNING_ID),
+                          self.warning_send(config), self.warning_delete(config, WARNING_ID + 1),
+                          self.expected_telegram_calls(env)[-1]], self.telegram.calls)
+        self.assertEqual(4, self.tailscale.status_calls)
+
+    def test_resume_calls_activity_resumed(self):
+        """AC-P7: Action.RESUME -> notifier.activity_resumed(), once per RESUME"""
+        self.tailscale.peer_counts = [0, 1, 1, 0]
+        calls = []
+        with mock.patch.object(Notifier, "activity_resumed", autospec=True,
+                               side_effect=lambda notifier: calls.append(self.tailscale.status_calls)):
+            self.assertEqual(0, agent.run(agent_env()))
+
+        self.assertEqual([2], calls, "called right after the check that found peers after the warning")
+
+    def test_no_activity_resumed_without_warning(self):
+        """AC-P7: peers without a prior warning -> activity_resumed is not called"""
+        self.tailscale.peer_counts = [1, 1]
+        with mock.patch.object(Notifier, "activity_resumed", autospec=True) as activity_resumed:
+            agent.run(agent_env(INACTIVITY_TIMEOUT="300", STATUS_CHECK_INTERVAL="100"))
+
+        activity_resumed.assert_not_called()
+
+    # --- SIGTERM (🛑 tap) ---
+
+    def test_sigterm_after_warning_deletes_warning_and_edits_card(self):
+        """AC-P5/AC-P7: SIGTERM after the warning -> warning deleted, card edited with the card markup, exit 0"""
+        def active_peer_count():
+            self.tailscale.status_calls += 1
+            if self.tailscale.status_calls == 2:
+                os.kill(os.getpid(), signal.SIGTERM)
+            return 0
+
+        self.tailscale.active_peer_count = active_peer_count
+        env = agent_env(INACTIVITY_TIMEOUT="10")
+        config = AgentConfig.from_env(env)
+
+        self.assertEqual(0, agent.run(env))
+        self.assertEqual([self.ready_edit(config), self.warning_send(config),
+                          self.warning_delete(config, WARNING_ID), self.stopped_card_edit(config)],
+                         self.telegram.calls)
+        self.assertEqual(["tailscale.logout", "tailscale.stop_daemon"], self.events[-2:])
 
     def test_connected_devices_postpone_idle_stop(self):
         """AC-P6: checks with active peers reset the idle time"""
