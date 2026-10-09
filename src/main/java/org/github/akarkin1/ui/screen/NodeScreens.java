@@ -21,8 +21,9 @@ public class NodeScreens {
     NodeRef nodeRef = new NodeRef(node.getRegion().id(), node.getId());
     Button yes = Button.action("🛑 ${ui.button.yes-stop}", UiAction.confirmStop(nodeRef));
     Button cancel = Button.action("↩️ ${ui.button.cancel}", UiAction.home());
+    String owner = node.getRunBy() == null ? null : "@" + node.getRunBy();
     return new Screen("❓ ${ui.stop.confirm} <b>%s</b> (%s)?",
-                      List.of(orDash(node.getHostName()), "@" + node.getRunBy()),
+                      List.of(orDash(node.getHostName()), orDash(owner)),
                       List.of(List.of(yes, cancel)));
   }
 

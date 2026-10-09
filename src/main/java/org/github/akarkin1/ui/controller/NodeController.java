@@ -2,7 +2,6 @@ package org.github.akarkin1.ui.controller;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
-import org.apache.commons.lang3.StringUtils;
 import org.github.akarkin1.ecs.TaskInfo;
 import org.github.akarkin1.tailscale.TailscaleNodeService;
 import org.github.akarkin1.ui.NodeRef;
@@ -17,8 +16,6 @@ import java.util.function.BiPredicate;
 @Log4j2
 @RequiredArgsConstructor
 public class NodeController {
-
-  private static final String DEFAULT_LANGUAGE_CODE = "en-US";
 
   private final TailscaleNodeService nodeService;
   private final NodeAccess nodeAccess;
@@ -58,9 +55,21 @@ public class NodeController {
     }
   }
 
-  /** Fetches the node from ECS; edits the message and returns empty when it is gone or not accessible. */
+  /**
+   * Checks the user and the region before any AWS call, then fetches the node from ECS.
+   * Edits the message and returns empty when the node is gone or not accessible.
+   */
   private Optional<TaskInfo> findNode(UiContext context, Integer messageId, NodeRef node,
                                       BiPredicate<String, TaskInfo> access) {
+    if (!nodeAccess.canManageNodes(context.username())) {
+      messenger.edit(context, messageId, nodeScreens.notAllowed());
+      return Optional.empty();
+    }
+    if (!nodeService.getSupportedRegionIds().contains(node.regionId())) {
+      messenger.edit(context, messageId, nodeScreens.alreadyStopped());
+      return Optional.empty();
+    }
+
     Optional<TaskInfo> task = nodeService.getNode(node.regionId(), node.taskId());
     if (task.isEmpty()) {
       messenger.edit(context, messageId, nodeScreens.alreadyStopped());
@@ -75,8 +84,8 @@ public class NodeController {
 
   private void stopNode(UiContext context, Integer messageId, NodeRef node, TaskInfo task) {
     String reason = "Stopped by @%s via the bot".formatted(context.username());
-    nodeService.stopNode(node.regionId(), node.taskId(), reason);
     messenger.edit(context, messageId, nodeScreens.stopping(task));
+    nodeService.stopNode(node.regionId(), node.taskId(), reason);
   }
 
   private void notifyOwner(TaskInfo task) {
@@ -87,8 +96,7 @@ public class NodeController {
       return;
     }
 
-    String languageCode = StringUtils.defaultIfBlank(task.getLanguageCode(), DEFAULT_LANGUAGE_CODE);
-    UiContext owner = new UiContext(ownerChatId, task.getRunBy(), null, languageCode);
+    UiContext owner = new UiContext(ownerChatId, task.getRunBy(), null, task.getLanguageCode());
     try {
       messenger.send(owner, nodeScreens.stoppedByAdmin(task));
     } catch (RuntimeException e) {

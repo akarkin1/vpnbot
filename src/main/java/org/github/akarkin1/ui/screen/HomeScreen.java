@@ -106,7 +106,7 @@ public class HomeScreen {
 
   private static Button stopButton(TaskInfo node) {
     NodeRef nodeRef = new NodeRef(node.getRegion().id(), node.getId());
-    String hostName = NodeFormat.orDash(node.getHostName()).replace("%", "%%");
+    String hostName = NodeFormat.escapePercent(NodeFormat.orDash(node.getHostName()));
     return Button.action("🛑 " + hostName, UiAction.stop(nodeRef));
   }
 
