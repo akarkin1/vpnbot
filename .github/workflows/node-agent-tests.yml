@@ -25,5 +25,5 @@ jobs:
         run: pip install -r docker/requirements.txt
       - name: Run Tests
         run: |
-          cd docker
-          python3 -m unittest discover -s node_agent/tests -t .
+          cd docker/node_agent
+          PYTHONPATH=src python3 -m unittest discover -s tests -t .

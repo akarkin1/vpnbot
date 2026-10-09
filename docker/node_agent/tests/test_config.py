@@ -1,7 +1,7 @@
 import unittest
 
 from node_agent.config import AgentConfig
-from node_agent.tests import fakes
+from tests import fakes
 
 OPTIONAL_FIELDS = (
     "bot_token_secret_id", "bot_token_secret_region", "chat_id", "message_id",

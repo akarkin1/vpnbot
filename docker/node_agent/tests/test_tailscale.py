@@ -2,7 +2,7 @@ import unittest
 from unittest import mock
 
 from node_agent.tailscale import Tailscale
-from node_agent.tests.fakes import (MISSING, PEERS_TWO_ACTIVE, FakeClock, FakePopen, FakeRun, failed,
+from tests.fakes import (MISSING, PEERS_TWO_ACTIVE, FakeClock, FakePopen, FakeRun, failed,
                                     ok, status_json)
 
 STATUS_COMMAND = ["tailscale", "status", "--json"]

@@ -202,7 +202,7 @@ Image (`docker/Dockerfile`): `FROM amazonlinux:2023`; install `python3`, `python
 `WORKDIR /opt`; `CMD ["python3", "-m", "node_agent"]`. The `aws` CLI and the old shell scripts are
 removed. The task definition health check (`tailscale status | grep ...`) keeps working.
 
-Tests: `cd docker && python3 -m unittest discover -s node_agent/tests -t .`
+Tests: `cd docker/node_agent && PYTHONPATH=src python3 -m unittest discover -s tests -t .`
 
 ## 6. Infrastructure
 
@@ -431,3 +431,7 @@ Mixed versions are safe: an old image ignores the `TG_*` vars (user taps Menu); 
 - D-11 (review) The node container gets `StopTimeout: 60` so the SIGTERM path (card edit, logout,
   daemon stop) can finish before ECS kills it.
 - D-12 `.gitignore` ignores Python bytecode caches (`__pycache__/`, `*.pyc`).
+- D-13 (feedback) Node agent layout: production package in `docker/node_agent/src/node_agent`, tests in
+  `docker/node_agent/tests` (tests are not inside the production source tree). Paths in §5, §7 and §10
+  that say `docker/node_agent/...` refer to this layout; the test command is
+  `cd docker/node_agent && PYTHONPATH=src python3 -m unittest discover -s tests -t .`.

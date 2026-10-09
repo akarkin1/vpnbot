@@ -1,7 +1,7 @@
 # vpnbot
 
 A Telegram bot that starts Tailscale exit nodes in AWS as ECS Fargate tasks. A node stops
-itself after a period with no connected devices (Python node agent in `docker/node_agent`).
+itself after a period with no connected devices (Python node agent in `docker/node_agent/src`).
 It is a small home project used by a handful of people: prefer simple, readable solutions.
 Planned work lives in `docs/roadmap.md`.
 
@@ -9,7 +9,8 @@ Planned work lives in `docs/roadmap.md`.
 
 - Java 21, Maven: `mvn -B verify` (compiles, runs unit tests, builds the shaded Lambda jar).
 - Node agent (Python 3.9, deps pinned in `docker/requirements.txt`):
-  `cd docker && python3 -m unittest discover -s node_agent/tests -t .`
+  `cd docker/node_agent && PYTHONPATH=src python3 -m unittest discover -s tests -t .`
+  (production code in `docker/node_agent/src/node_agent`, tests in `docker/node_agent/tests`)
 - The build rewrites `dependency-reduced-pom.xml`; never commit that change
   (`git checkout dependency-reduced-pom.xml`).
 - Deployment is manual via GitHub Actions (`.github/workflows/deploy-*.yml`).
