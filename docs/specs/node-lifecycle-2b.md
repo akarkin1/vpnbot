@@ -295,3 +295,4 @@ changed; every AC has a test; no TODOs or dead code.
 - D-11 (review) `confirmStop` shows `—` instead of `@null` for tasks without `RunBy`; the owner
   notification passes the task's language code through (translator falls back for null/blank);
   `%` escaping for labels lives in one helper `NodeFormat.escapePercent`.
+- D-12 (T3) `NodeAccess.canManageNodes(username)` (RUN_NODES or ROOT_ACCESS) implements the D-10 pre-check.
