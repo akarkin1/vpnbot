@@ -162,3 +162,12 @@ CLAUDE.md) changed; every AC has a test; no TODOs or dead code.
 
 ## 11. Decision log
 
+- D-1 (T1) `Notifier._safely` returns the call's result (`None` on an exception), so `idle_warning`
+  can keep the warning's message id.
+- D-2 (T3) `stopped()` without `TG_STOPPED_CARD_TEXT` still deletes a sent warning (no edit follows);
+  the `stopped_idle` → `stopped()` fallback deletes the warning once.
+- D-3 (T3) `activity_resumed` forgets the warning even if the delete fails (no retry).
+- D-4 (T3) `send_message` returns `None` on a non-200 response even if its body has a message id.
+- D-5 (T2) The environment size check (AC-3) counts UTF-8 bytes, not characters.
+- D-6 (T2) No tests for a `null` region in the stopped screens: `UiAction.run(null)` is invalid and
+  the Lambda always knows the region.
