@@ -48,7 +48,8 @@ jobs:
         run: |
           if [ $(aws s3api head-object --bucket "${{ env.S3_CONFIG_BUCKET_NAME }}" --key "${{ env.S3_CONFIG_DIR }}/${{ env.S3_SUPPORTED_REGIONS_FILE_NAME }}" --region ${{ env.S3_CONFIG_BUCKET_REGION }} >/dev/null 2>&1; echo $?) = 0 ]; then
             aws s3 cp ${{ env.S3_CONFIG_REGIONS_FILE_URL }} ./regions.txt --region ${{ env.S3_CONFIG_BUCKET_REGION }}
-            grep -v "^${{ github.event.inputs.region }}$" ./regions.txt > ./regions-new.txt
+            # grep exits with 1 when no lines are left (the last region was removed) – that is fine
+            grep -v "^${{ github.event.inputs.region }}$" ./regions.txt > ./regions-new.txt || [ $? -eq 1 ]
             aws s3 cp ./regions-new.txt ${{ env.S3_CONFIG_REGIONS_FILE_URL }} --region ${{ env.S3_CONFIG_BUCKET_REGION }}
             echo "Region '${{ github.event.inputs.region }}' has been removed from ${{ env.S3_SUPPORTED_REGIONS_FILE_NAME }}"
             echo "Current list of supported regions:"
