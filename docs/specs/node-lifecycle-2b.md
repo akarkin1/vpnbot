@@ -203,9 +203,9 @@ EcsConfiguration: + chatIdTag, languageTag
 ```
 
 ```python
-# docker/node_agent/agent.py
+# docker/node_agent/src/node_agent/agent.py
 def fetch_task_id(env, session=None) -> Optional[str]
-# docker/node_agent/notifier.py
+# docker/node_agent/src/node_agent/notifier.py
 def ready(self, public_ip, task_id=None) -> None
 ```
 
@@ -249,7 +249,7 @@ changed; every AC has a test; no TODOs or dead code.
 | T2 Java tests | `src/test/java/**` |
 | T3 Stop | `ui/NodeRef`, `ui/UiAction`, `ui/UiRouter`, `ui/controller/NodeAccess`, `ui/controller/NodeController`, `ui/controller/HomeController`, `ui/screen/NodeScreens`, `ui/screen/HomeScreen`, `ui/screen/HomeModel` |
 | T4 Reuse + ECS | `ui/controller/LaunchController`, `ui/screen/LaunchScreens`, `ui/messenger/NodeNotifications`, `tailscale/**`, `ecs/**` |
-| T5 Node agent | `docker/node_agent/*.py` |
+| T5 Node agent | `docker/node_agent/src/node_agent/*.py` |
 | T6 Python tests | `docker/node_agent/tests/**` |
 
 ## 10. Deploy checklist
