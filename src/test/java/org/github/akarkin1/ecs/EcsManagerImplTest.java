@@ -28,6 +28,7 @@ import software.amazon.awssdk.services.ecs.model.DescribeTasksRequest;
 import software.amazon.awssdk.services.ecs.model.DescribeTasksResponse;
 import software.amazon.awssdk.services.ecs.model.Failure;
 import software.amazon.awssdk.services.ecs.model.HealthStatus;
+import software.amazon.awssdk.services.ecs.model.InvalidParameterException;
 import software.amazon.awssdk.services.ecs.model.KeyValuePair;
 import software.amazon.awssdk.services.ecs.model.ListTasksRequest;
 import software.amazon.awssdk.services.ecs.model.ListTasksResponse;
@@ -277,6 +278,16 @@ class EcsManagerImplTest {
             .build());
 
     assertEquals(Optional.empty(), ecsManager.getTask(Region.EU_CENTRAL_1, TASK_ID));
+  }
+
+  @Test
+  @Timeout(30)
+  @DisplayName("2b D-6: getTask is empty when ECS rejects the task id (e.g. the {{TASK_ID}} placeholder)")
+  void getTaskInvalidTaskId() {
+    when(euClient.describeTasks(any(DescribeTasksRequest.class)))
+        .thenThrow(InvalidParameterException.builder().message("Invalid id: {{TASK_ID}}").build());
+
+    assertEquals(Optional.empty(), ecsManager.getTask(Region.EU_CENTRAL_1, "{{TASK_ID}}"));
   }
 
   @Test

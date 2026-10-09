@@ -22,9 +22,11 @@ import software.amazon.awssdk.regions.Region;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
@@ -32,6 +34,7 @@ import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -87,6 +90,9 @@ class NodeControllerTest {
     lenient().when(nodeScreens.confirmStop(any())).thenReturn(CONFIRM);
     lenient().when(nodeScreens.stopping(any())).thenReturn(STOPPING);
     lenient().when(nodeScreens.stoppedByAdmin(any())).thenReturn(STOPPED_BY_ADMIN);
+    // D-10: the region check may use either of the two service methods
+    lenient().when(nodeService.getSupportedRegionIds()).thenReturn(Set.of(REGION, "us-east-1"));
+    lenient().when(nodeService.isRegionSupported(REGION)).thenReturn(true);
   }
 
   // --- stop ---------------------------------------------------------------------------------
@@ -116,18 +122,39 @@ class NodeControllerTest {
   }
 
   @Test
-  @DisplayName("2b AC-3: stop of an own node without RUN_NODES shows notAllowed and stops nothing")
+  @DisplayName("2b AC-3, D-10: stop by a user without RUN_NODES/ROOT_ACCESS shows notAllowed before any node-service call")
   void stopNotAllowedWithoutRunNodes() {
-    when(nodeService.getNode(REGION, TASK_ID)).thenReturn(Optional.of(node("reader", "400", "en")));
-
     controller.stop(READER, MESSAGE_ID, REF);
 
     verify(messenger).edit(READER, MESSAGE_ID, NOT_ALLOWED);
+    verifyNoInteractions(nodeService);
+  }
+
+  @Test
+  @DisplayName("2b D-10: stop with a null username shows notAllowed before any node-service call")
+  void stopNullUsername() {
+    UiContext anonymous = new UiContext(500L, null, "Anon", "en-US");
+
+    controller.stop(anonymous, MESSAGE_ID, REF);
+
+    verify(messenger).edit(anonymous, MESSAGE_ID, NOT_ALLOWED);
+    verifyNoInteractions(nodeService);
+  }
+
+  @Test
+  @DisplayName("2b D-10: stop in an unsupported region shows alreadyStopped without calling getNode")
+  void stopUnsupportedRegion() {
+    NodeRef unknownRegion = new NodeRef("xx-unknown-1", TASK_ID);
+
+    controller.stop(ALEX, MESSAGE_ID, unknownRegion);
+
+    verify(messenger).edit(ALEX, MESSAGE_ID, ALREADY_STOPPED);
+    verify(nodeService, never()).getNode(any(), any());
     verify(nodeService, never()).stopNode(any(), any(), any());
   }
 
   @Test
-  @DisplayName("2b AC-3: owner stops the node at once with the reason, then sees stopping; nobody is notified")
+  @DisplayName("2b AC-3, D-9: owner sees stopping first, then the node is stopped with the reason; nobody is notified")
   void stopByOwner() {
     when(nodeService.getNode(REGION, TASK_ID)).thenReturn(Optional.of(ALEX_NODE));
 
@@ -135,8 +162,8 @@ class NodeControllerTest {
 
     InOrder inOrder = inOrder(nodeService, messenger);
     inOrder.verify(nodeService).getNode(REGION, TASK_ID);
-    inOrder.verify(nodeService).stopNode(REGION, TASK_ID, "Stopped by @alex via the bot");
     inOrder.verify(messenger).edit(ALEX, MESSAGE_ID, STOPPING);
+    inOrder.verify(nodeService).stopNode(REGION, TASK_ID, "Stopped by @alex via the bot");
     verify(nodeScreens).stopping(ALEX_NODE);
     verify(nodeScreens, never()).confirmStop(any());
     verify(messenger, never()).send(any(), any());
@@ -156,15 +183,16 @@ class NodeControllerTest {
   }
 
   @Test
-  @DisplayName("2b AC-3: root on its own node stops at once without confirmation")
+  @DisplayName("2b AC-3, D-9: root on its own node stops at once without confirmation, stopping edited first")
   void stopByRootOnOwnNode() {
     TaskInfo rootNode = node("root", "200", "en");
     when(nodeService.getNode(REGION, TASK_ID)).thenReturn(Optional.of(rootNode));
 
     controller.stop(ROOT, MESSAGE_ID, REF);
 
-    verify(nodeService).stopNode(REGION, TASK_ID, "Stopped by @root via the bot");
-    verify(messenger).edit(ROOT, MESSAGE_ID, STOPPING);
+    InOrder inOrder = inOrder(nodeService, messenger);
+    inOrder.verify(messenger).edit(ROOT, MESSAGE_ID, STOPPING);
+    inOrder.verify(nodeService).stopNode(REGION, TASK_ID, "Stopped by @root via the bot");
     verify(nodeScreens, never()).confirmStop(any());
     verify(messenger, never()).send(any(), any());
   }
@@ -172,7 +200,7 @@ class NodeControllerTest {
   // --- confirmStop --------------------------------------------------------------------------
 
   @Test
-  @DisplayName("2b AC-4: root confirms: the node is stopped, root sees stopping, the owner is notified in the owner's chat and language")
+  @DisplayName("2b AC-4, D-9: root confirms: root sees stopping, then the node is stopped, the owner is notified in the owner's chat and language")
   void confirmStopByRootNotifiesOwner() {
     when(nodeService.getNode(REGION, TASK_ID)).thenReturn(Optional.of(ALEX_NODE));
 
@@ -180,12 +208,47 @@ class NodeControllerTest {
 
     InOrder inOrder = inOrder(nodeService, messenger);
     inOrder.verify(nodeService).getNode(REGION, TASK_ID);
-    inOrder.verify(nodeService).stopNode(REGION, TASK_ID, "Stopped by @root via the bot");
     inOrder.verify(messenger).edit(ROOT, MESSAGE_ID, STOPPING);
+    inOrder.verify(nodeService).stopNode(REGION, TASK_ID, "Stopped by @root via the bot");
     verify(nodeScreens).stoppedByAdmin(ALEX_NODE);
     UiContext ownerContext = sentContext(STOPPED_BY_ADMIN);
     assertEquals(100L, ownerContext.chatId());
     assertEquals("ru", ownerContext.languageCode());
+  }
+
+  @Test
+  @DisplayName("2b D-11: the owner notification passes the task's missing language code through as null")
+  void confirmStopNotificationWithoutLanguage() {
+    when(nodeService.getNode(REGION, TASK_ID)).thenReturn(Optional.of(node("alex", "100", null)));
+
+    controller.confirmStop(ROOT, MESSAGE_ID, REF);
+
+    UiContext ownerContext = sentContext(STOPPED_BY_ADMIN);
+    assertEquals(100L, ownerContext.chatId());
+    assertNull(ownerContext.languageCode());
+  }
+
+  @Test
+  @DisplayName("2b D-10: confirmStop with a null username shows notAllowed before any node-service call")
+  void confirmStopNullUsername() {
+    UiContext anonymous = new UiContext(500L, null, "Anon", "en-US");
+
+    controller.confirmStop(anonymous, MESSAGE_ID, REF);
+
+    verify(messenger).edit(anonymous, MESSAGE_ID, NOT_ALLOWED);
+    verifyNoInteractions(nodeService);
+    verify(messenger, never()).send(any(), any());
+  }
+
+  @Test
+  @DisplayName("2b D-10: confirmStop in an unsupported region shows alreadyStopped without calling getNode")
+  void confirmStopUnsupportedRegion() {
+    controller.confirmStop(ROOT, MESSAGE_ID, new NodeRef("xx-unknown-1", TASK_ID));
+
+    verify(messenger).edit(ROOT, MESSAGE_ID, ALREADY_STOPPED);
+    verify(nodeService, never()).getNode(any(), any());
+    verify(nodeService, never()).stopNode(any(), any(), any());
+    verify(messenger, never()).send(any(), any());
   }
 
   @Test
@@ -213,14 +276,12 @@ class NodeControllerTest {
   }
 
   @Test
-  @DisplayName("2b AC-4: confirmStop by a read-only user gets notAllowed")
+  @DisplayName("2b AC-4, D-10: confirmStop by a read-only user gets notAllowed before any node-service call")
   void confirmStopNotAllowedForReader() {
-    when(nodeService.getNode(REGION, TASK_ID)).thenReturn(Optional.of(ALEX_NODE));
-
     controller.confirmStop(READER, MESSAGE_ID, REF);
 
     verify(messenger).edit(READER, MESSAGE_ID, NOT_ALLOWED);
-    verify(nodeService, never()).stopNode(any(), any(), any());
+    verifyNoInteractions(nodeService);
   }
 
   @Test
@@ -236,26 +297,28 @@ class NodeControllerTest {
   }
 
   @Test
-  @DisplayName("2b AC-4 (D-2): root confirming the stop of its own node notifies nobody")
+  @DisplayName("2b AC-4 (D-2), D-9: root confirming the stop of its own node notifies nobody")
   void confirmStopOwnNodeByRootNotifiesNobody() {
     when(nodeService.getNode(REGION, TASK_ID)).thenReturn(Optional.of(node("root", "200", "en")));
 
     controller.confirmStop(ROOT, MESSAGE_ID, REF);
 
-    verify(nodeService).stopNode(REGION, TASK_ID, "Stopped by @root via the bot");
-    verify(messenger).edit(ROOT, MESSAGE_ID, STOPPING);
+    InOrder inOrder = inOrder(nodeService, messenger);
+    inOrder.verify(messenger).edit(ROOT, MESSAGE_ID, STOPPING);
+    inOrder.verify(nodeService).stopNode(REGION, TASK_ID, "Stopped by @root via the bot");
     verify(messenger, never()).send(any(), any());
   }
 
   @Test
-  @DisplayName("2b AC-4 (D-2): the owner confirming the stop of an own node stops it and notifies nobody")
+  @DisplayName("2b AC-4 (D-2), D-9: the owner confirming the stop of an own node stops it and notifies nobody")
   void confirmStopByOwnerNotifiesNobody() {
     when(nodeService.getNode(REGION, TASK_ID)).thenReturn(Optional.of(ALEX_NODE));
 
     controller.confirmStop(ALEX, MESSAGE_ID, REF);
 
-    verify(nodeService).stopNode(REGION, TASK_ID, "Stopped by @alex via the bot");
-    verify(messenger).edit(ALEX, MESSAGE_ID, STOPPING);
+    InOrder inOrder = inOrder(nodeService, messenger);
+    inOrder.verify(messenger).edit(ALEX, MESSAGE_ID, STOPPING);
+    inOrder.verify(nodeService).stopNode(REGION, TASK_ID, "Stopped by @alex via the bot");
     verify(messenger, never()).send(any(), any());
   }
 
@@ -305,6 +368,35 @@ class NodeControllerTest {
 
     verify(messenger).edit(ALEX, MESSAGE_ID, ALREADY_STOPPED);
     verify(launchScreens, never()).ready(any(), any(), any(), any());
+  }
+
+  @Test
+  @DisplayName("2b D-10: use by a read-only user (even of an own node) shows notAllowed before any node-service call")
+  void useByReaderNotAllowed() {
+    controller.use(READER, MESSAGE_ID, REF);
+
+    verify(messenger).edit(READER, MESSAGE_ID, NOT_ALLOWED);
+    verifyNoInteractions(nodeService);
+  }
+
+  @Test
+  @DisplayName("2b D-10: use with a null username shows notAllowed before any node-service call")
+  void useNullUsername() {
+    UiContext anonymous = new UiContext(500L, null, "Anon", "en-US");
+
+    controller.use(anonymous, MESSAGE_ID, REF);
+
+    verify(messenger).edit(anonymous, MESSAGE_ID, NOT_ALLOWED);
+    verifyNoInteractions(nodeService);
+  }
+
+  @Test
+  @DisplayName("2b D-10: use in an unsupported region shows alreadyStopped without calling getNode")
+  void useUnsupportedRegion() {
+    controller.use(ALEX, MESSAGE_ID, new NodeRef("xx-unknown-1", TASK_ID));
+
+    verify(messenger).edit(ALEX, MESSAGE_ID, ALREADY_STOPPED);
+    verify(nodeService, never()).getNode(any(), any());
   }
 
   @Test

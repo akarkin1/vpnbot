@@ -49,6 +49,20 @@ class NodeScreensTest {
   }
 
   @Test
+  @DisplayName("2b D-11: confirmStop shows — instead of @null for a task without RunBy")
+  void confirmStopWithoutRunBy() {
+    TaskInfo untagged = TaskInfo.builder()
+        .id(TASK_ID)
+        .hostName("legacy-frankfurt-1")
+        .region(Region.EU_CENTRAL_1)
+        .build();
+
+    Screen screen = screens.confirmStop(untagged);
+
+    assertEquals(List.of("legacy-frankfurt-1", "—"), screen.params());
+  }
+
+  @Test
   @DisplayName("2b AC-7: alreadyStopped has no params and a menu button")
   void alreadyStopped() {
     Screen screen = screens.alreadyStopped();
