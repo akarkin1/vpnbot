@@ -68,6 +68,7 @@ def _run_node(config: AgentConfig, auth_key: str, notifier: Notifier, tailscale:
     tailscale.start_daemon()
     if not tailscale.up(auth_key, config.hostname):
         log.error("Tailscale did not come up, giving up")
+        notifier.stopped()
         tailscale.stop_daemon()
         return 1
     notifier.ready(fetch_public_ip())

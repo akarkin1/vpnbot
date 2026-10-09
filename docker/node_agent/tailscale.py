@@ -8,15 +8,18 @@ log = logging.getLogger(__name__)
 
 COMMAND_TIMEOUT_SECONDS = 30
 DAEMON_STOP_TIMEOUT_SECONDS = 10
+UP_DEADLINE_SECONDS = 300
 
 
 class Tailscale:
     """Runs the tailscale CLI and the tailscaled daemon."""
 
-    def __init__(self, run=subprocess.run, popen=subprocess.Popen, sleep=time.sleep):
+    def __init__(self, run=subprocess.run, popen=subprocess.Popen, sleep=time.sleep,
+                 monotonic=time.monotonic):
         self._run = run
         self._popen = popen
         self._sleep = sleep
+        self._monotonic = monotonic
         self._daemon = None
 
     def start_daemon(self) -> None:
@@ -25,14 +28,16 @@ class Tailscale:
 
     def up(self, auth_key, hostname, attempts=120, delay=1.0) -> bool:
         command = ["tailscale", "up", f"--authkey={auth_key}", f"--hostname={hostname}", "--advertise-exit-node"]
+        started = self._monotonic()
         for attempt in range(1, attempts + 1):
             result = self._execute(command)
             if result is not None and result.returncode == 0:
                 log.info("Tailscale is up as %s", hostname)
                 return True
             log.info("tailscale up failed (attempt %d of %d)", attempt, attempts)
-            if attempt < attempts:
-                self._sleep(delay)
+            if attempt == attempts or self._monotonic() - started >= UP_DEADLINE_SECONDS:
+                break
+            self._sleep(delay)
         return False
 
     def active_peer_count(self) -> int:
