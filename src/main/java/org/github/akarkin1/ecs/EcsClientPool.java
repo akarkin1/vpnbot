@@ -3,12 +3,12 @@ package org.github.akarkin1.ecs;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.ecs.EcsClient;
 
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class EcsClientPool implements EcsClientProvider {
 
-  private final Map<Region, EcsClient> regionalInstances = new HashMap<>();
+  private final Map<Region, EcsClient> regionalInstances = new ConcurrentHashMap<>();
   private final EcsClient defaultInstance;
   private final EcsClientProvider delegate;
 
