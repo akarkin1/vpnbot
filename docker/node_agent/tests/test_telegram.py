@@ -1,7 +1,7 @@
 import unittest
 
 from node_agent.telegram import TelegramClient
-from node_agent.tests.fakes import FakeResponse, FakeSession, network_error, posted_json
+from tests.fakes import FakeResponse, FakeSession, network_error, posted_json
 
 TOKEN = "123:abc"
 MARKUP = '{"inline_keyboard":[[{"text":"Menu","callback_data":"m"}]]}'

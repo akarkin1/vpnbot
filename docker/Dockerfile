@@ -13,8 +13,8 @@ RUN pip3 install --no-cache-dir -r /tmp/requirements.txt && \
 # Unbuffered output: the agent's log lines reach CloudWatch immediately.
 ENV PYTHONUNBUFFERED=1
 
-# Only the agent's modules; node_agent/tests stays out of the image.
-COPY node_agent/*.py /opt/node_agent/
+# Only the production package (node_agent/src); the tests stay out of the image.
+COPY node_agent/src/node_agent/ /opt/node_agent/
 WORKDIR /opt
 
 CMD ["python3", "-m", "node_agent"]

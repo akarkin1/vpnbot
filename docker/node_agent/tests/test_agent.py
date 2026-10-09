@@ -16,8 +16,8 @@ from unittest import mock
 
 from node_agent import agent
 from node_agent.config import AgentConfig
-from node_agent.tests import fakes
-from node_agent.tests.fakes import FakeResponse, FakeSession, FakeTailscale, FakeTelegram, bind
+from tests import fakes
+from tests.fakes import FakeResponse, FakeSession, FakeTailscale, FakeTelegram, bind
 
 PUBLIC_IP = "203.0.113.7"
 SECRETS = {"ts-secret": "tskey-123", "tg-secret": "bot-token"}

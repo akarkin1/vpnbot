@@ -2,7 +2,7 @@ import unittest
 from unittest import mock
 
 from node_agent.secrets import get_secret
-from node_agent.tests.fakes import bind
+from tests.fakes import bind
 
 
 def boto3_client(service_name, region_name=None, **kwargs):

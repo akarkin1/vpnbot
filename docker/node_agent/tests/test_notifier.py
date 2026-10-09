@@ -2,8 +2,8 @@ import unittest
 
 from node_agent.config import AgentConfig
 from node_agent.notifier import Notifier
-from node_agent.tests import fakes
-from node_agent.tests.fakes import FakeTelegram
+from tests import fakes
+from tests.fakes import FakeTelegram
 
 READY = "\U0001F7E2 <b>fra-node-1</b> · Frankfurt\n<code>203.0.113.7</code>"
 IDLE_WARNING = "⚠️ <b>fra-node-1</b> will stop in 2 minutes"
