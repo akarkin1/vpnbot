@@ -30,14 +30,16 @@ class Tailscale:
         command = ["tailscale", "up", f"--authkey={auth_key}", f"--hostname={hostname}", "--advertise-exit-node"]
         started = self._monotonic()
         for attempt in range(1, attempts + 1):
+            if attempt > 1:
+                self._sleep(delay)
+                if self._monotonic() - started >= UP_DEADLINE_SECONDS:
+                    log.info("tailscale up did not succeed within %d s", UP_DEADLINE_SECONDS)
+                    break
             result = self._execute(command)
             if result is not None and result.returncode == 0:
                 log.info("Tailscale is up as %s", hostname)
                 return True
             log.info("tailscale up failed (attempt %d of %d)", attempt, attempts)
-            if attempt == attempts or self._monotonic() - started >= UP_DEADLINE_SECONDS:
-                break
-            self._sleep(delay)
         return False
 
     def active_peer_count(self) -> int:
