@@ -263,6 +263,7 @@ Resources:
       ContainerDefinitions:
         - Name: vpn-container
           Essential: true
+          StopTimeout: 60
           LinuxParameters:
             InitProcessEnabled: true
           Image: !Join [':', [!GetAtt TailscaleNodeEcrRepository.RepositoryUri, 'latest']]

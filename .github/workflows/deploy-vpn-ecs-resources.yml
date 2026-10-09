@@ -74,9 +74,11 @@ jobs:
         env:
           TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
         run: |
-           # Create Telegram Bot Token Secret, if needed
+           # Create Telegram Bot Token Secret, or update its value if it already exists
            if [ $(aws secretsmanager describe-secret --secret-id "${{ env.TG_BOT_TOKEN_SECRET_ID }}" --region ${{ env.TAILSCALE_AUTH_TOKEN_REGION }} >/dev/null 2>&1; echo $?) -ne 0 ]; then
              aws secretsmanager create-secret --name "${{ env.TG_BOT_TOKEN_SECRET_ID }}" --secret-string "$TG_BOT_TOKEN" --region ${{ env.TAILSCALE_AUTH_TOKEN_REGION }};
+           else
+             aws secretsmanager put-secret-value --secret-id "${{ env.TG_BOT_TOKEN_SECRET_ID }}" --secret-string "$TG_BOT_TOKEN" --region ${{ env.TAILSCALE_AUTH_TOKEN_REGION }};
            fi
       - name: Deploy Cloud Formation Stack
         id: deploy-cfn-stack
