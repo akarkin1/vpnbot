@@ -23,6 +23,18 @@ Parameters:
   EnvTgBotSecretTokenId:
     Type: String
     Description: Secret Id in Secret Manager for Telegram Secret Token is to be used during request authentication.
+  EnvTgBotTokenSecretId:
+    Type: String
+    Description: Secret Id in Secret Manager for Telegram Bot Token (takes precedence over EnvTgBotToken).
+    Default: vpn-tg-bot-token
+  EnvMetricsEnabled:
+    Type: String
+    Description: Whether the lambda emits CloudWatch metrics (EMF log lines).
+    Default: "true"
+  EnvConfigCacheTtlSec:
+    Type: String
+    Description: How long in seconds the lambda caches configuration and secrets read from S3 / Secret Manager.
+    Default: "300"
   EnvPauseBetweenStatusCheckMs:
     Type: Number
     Description: Pause between status check of EC2 instance in milliseconds.
@@ -341,7 +353,9 @@ Resources:
               - Action:
                   - 'secretsmanager:GetSecretValue'
                 Effect: Allow
-                Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${EnvTgBotSecretTokenId}*"
+                Resource:
+                  - !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${EnvTgBotSecretTokenId}*"
+                  - !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${EnvTgBotTokenSecretId}*"
 
   LambdaEfsStorage:
     Type: 'AWS::EFS::FileSystem'
@@ -397,6 +411,9 @@ Resources:
           BOT_TOKEN: !Ref EnvTgBotToken
           BOT_USERNAME: !Ref EnvTgBotUsername
           BOT_SECRET_TOKEN_ID: !Ref EnvTgBotSecretTokenId
+          BOT_TOKEN_SECRET_ID: !Ref EnvTgBotTokenSecretId
+          METRICS_ENABLED: !Ref EnvMetricsEnabled
+          CONFIG_CACHE_TTL_SEC: !Ref EnvConfigCacheTtlSec
 #          STATUS_CHECK_PAUSE_MS: !Ref EnvPauseBetweenStatusCheckMs
 #          OPERATION_WAIT_TIMEOUT_SEC: !Ref EnvOperationWaitTimeoutSec
 #          RESTART_SLEEP_TIME_SEC_ENV: !Ref EnvRestartSleepTimeSec
@@ -484,7 +501,7 @@ Resources:
       ConnectionType: INTERNET
       CredentialsArn: !GetAtt ApiGatewayIamRole.Arn
       PassthroughBehavior: WHEN_NO_MATCH
-      TimeoutInMillis: 600
+      TimeoutInMillis: 29000
       IntegrationMethod: POST
       IntegrationType: AWS_PROXY
       PayloadFormatVersion: "2.0"
