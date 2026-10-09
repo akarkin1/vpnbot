@@ -1,7 +1,9 @@
 package org.github.akarkin1.ui.screen;
 
+import org.github.akarkin1.ecs.TaskInfo;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import software.amazon.awssdk.regions.Region;
 
 import java.util.List;
 
@@ -12,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class LaunchScreensTest {
 
   private static final String REGION = "eu-central-1";
+  private static final String TASK_ID = "0123456789abcdef0123456789abcdef";
   private static final String READY_TEMPLATE =
       "%s <b>%s</b> · %s\n🌐 <code>%s</code>\n⏱ ${ui.node.auto-stop}\n\n${ui.node.connect-hint}";
 
@@ -39,20 +42,58 @@ class LaunchScreensTest {
   }
 
   @Test
-  @DisplayName("2a AC-4: ready shows the node card with links and menu")
+  @DisplayName("2a AC-4, 2b AC-7: ready shows the node card with links, then stop (STOP:<region>:<task>) and menu in the last row")
   void ready() {
-    Screen screen = screens.ready("node-1", REGION, "1.2.3.4");
+    Screen screen = screens.ready("node-1", REGION, "1.2.3.4", TASK_ID);
 
     assertEquals(READY_TEMPLATE, screen.template());
     assertEquals(List.of("🟢", "node-1", "🇩🇪 Frankfurt", "1.2.3.4"), screen.params());
-    assertEquals(List.of(LINKS, List.of(MENU)), screen.keyboard());
+    assertEquals(List.of(LINKS, List.of(stop("STOP:eu-central-1:" + TASK_ID), MENU)),
+                 screen.keyboard());
+  }
+
+  @Test
+  @DisplayName("2b AC-7: ready with the {{TASK_ID}} placeholder puts it into the stop callback")
+  void readyWithTaskIdPlaceholder() {
+    Screen screen = screens.ready("{{HOSTNAME}}", REGION, "{{PUBLIC_IP}}", "{{TASK_ID}}");
+
+    assertEquals(List.of(stop("STOP:eu-central-1:{{TASK_ID}}"), MENU), screen.keyboard().get(1));
   }
 
   @Test
   @DisplayName("2a AC-4: ready shows — for a missing host and IP")
   void readyWithMissingValues() {
-    assertEquals(List.of("🟢", "—", "🇩🇪 Frankfurt", "—"), screens.ready(null, REGION, null).params());
-    assertEquals(List.of("🟢", "—", "🇩🇪 Frankfurt", "—"), screens.ready(" ", REGION, "").params());
+    assertEquals(List.of("🟢", "—", "🇩🇪 Frankfurt", "—"),
+                 screens.ready(null, REGION, null, TASK_ID).params());
+    assertEquals(List.of("🟢", "—", "🇩🇪 Frankfurt", "—"),
+                 screens.ready(" ", REGION, "", TASK_ID).params());
+  }
+
+  @Test
+  @DisplayName("2b AC-7: existingNodes shows the region, one use button per node (USE:<region>:<task>), then start-another (RUN_NEW:<region>), then menu")
+  void existingNodes() {
+    List<TaskInfo> nodes = List.of(node("task-a", "alex-frankfurt-1"), node("task-b", "alex-frankfurt-2"));
+
+    Screen screen = screens.existingNodes(REGION, nodes);
+
+    assertEquals("ℹ️ ${ui.reuse.existing}\n📍 %s", screen.template());
+    assertEquals(List.of("🇩🇪 Frankfurt"), screen.params());
+    assertEquals(List.of(
+                     List.of(new Button("📋 ${ui.button.use} alex-frankfurt-1", "USE:eu-central-1:task-a", null)),
+                     List.of(new Button("📋 ${ui.button.use} alex-frankfurt-2", "USE:eu-central-1:task-b", null)),
+                     List.of(new Button("🚀 ${ui.button.start-another}", "RUN_NEW:eu-central-1", null)),
+                     List.of(MENU)),
+                 screen.keyboard());
+  }
+
+  @Test
+  @DisplayName("2b AC-7: existingNodes escapes % in host names as %% (the translator formats labels)")
+  void existingNodesEscapesPercent() {
+    Screen screen = screens.existingNodes(REGION, List.of(node("task-a", "100%-node")));
+
+    String label = screen.keyboard().getFirst().getFirst().label();
+    assertEquals("📋 ${ui.button.use} 100%%-node", label);
+    assertEquals("📋 ${ui.button.use} 100%-node", label.formatted());
   }
 
   @Test
@@ -128,13 +169,15 @@ class LaunchScreensTest {
   }
 
   @Test
-  @DisplayName("2a AC-4: launch templates' placeholders match params for every screen, no null params")
+  @DisplayName("2a AC-4, 2b AC-7: launch templates' placeholders match params for every screen, no null params")
   void placeholdersMatchParams() {
     List.of(screens.starting(REGION),
             screens.starting("unknown-1"),
             screens.waiting(REGION),
-            screens.ready("node-1", REGION, "1.2.3.4"),
-            screens.ready(null, "unknown-1", null),
+            screens.ready("node-1", REGION, "1.2.3.4", TASK_ID),
+            screens.ready(null, "unknown-1", null, TASK_ID),
+            screens.existingNodes(REGION, List.of(node("task-a", "alex-frankfurt-1"))),
+            screens.existingNodes("unknown-1", List.of(node("task-a", "alex-frankfurt-1"))),
             screens.idleWarning("node-1"),
             screens.idleWarning(null),
             screens.stopped("node-1", REGION),
@@ -145,6 +188,19 @@ class LaunchScreensTest {
             screens.regionUnavailable(),
             screens.notAllowed())
         .forEach(ScreenTestSupport::assertPlaceholdersMatchParams);
+  }
+
+  private static Button stop(String callbackData) {
+    return new Button("🛑 ${ui.button.stop}", callbackData, null);
+  }
+
+  private static TaskInfo node(String id, String hostName) {
+    return TaskInfo.builder()
+        .id(id)
+        .hostName(hostName)
+        .region(Region.EU_CENTRAL_1)
+        .runBy("alex")
+        .build();
   }
 
 }

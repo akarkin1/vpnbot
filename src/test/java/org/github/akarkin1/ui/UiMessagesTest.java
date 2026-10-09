@@ -9,6 +9,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.TreeSet;
@@ -44,6 +45,24 @@ class UiMessagesTest {
       "ui.help.title", "ui.help.body",
       "ui.node.idle-warning", "ui.node.stopped-idle", "ui.node.stopped", "ui.button.start-again");
 
+  /** Keys added by Phase 2b (§4.9) with their English and Russian values. */
+  private static final Map<String, List<String>> PHASE_2B_KEYS = Map.ofEntries(
+      Map.entry("ui.button.stop", List.of("Stop", "Остановить")),
+      Map.entry("ui.button.yes-stop", List.of("Yes, stop", "Да, остановить")),
+      Map.entry("ui.button.cancel", List.of("Cancel", "Отмена")),
+      Map.entry("ui.button.use", List.of("Use", "Использовать")),
+      Map.entry("ui.button.start-another", List.of("Start another", "Запустить ещё один")),
+      Map.entry("ui.reuse.existing", List.of("You already have a VPN server running in this region.",
+                                             "У вас уже запущен VPN-сервер в этом регионе.")),
+      Map.entry("ui.node.stopping", List.of("is stopping.", "останавливается.")),
+      Map.entry("ui.node.already-stopped", List.of("This VPN server is not running anymore.",
+                                                   "Этот VPN-сервер уже не запущен.")),
+      Map.entry("ui.node.stopped-by-admin", List.of("was stopped by an administrator.",
+                                                    "остановлен администратором.")),
+      Map.entry("ui.stop.confirm", List.of("Stop", "Остановить")),
+      Map.entry("ui.stop.not-allowed", List.of("You are not allowed to stop this VPN server.",
+                                               "У вас нет прав на остановку этого VPN-сервера.")));
+
   /** Keys removed by Phase 2a (§4.2, §4.3): old /runNodeIn progress messages and what only they used. */
   private static final List<String> REMOVED_KEYS = List.of(
       "ui.launch.still-starting",
@@ -65,6 +84,18 @@ class UiMessagesTest {
       assertTrue(en.containsKey(key), "missing in messages.properties: " + key);
       assertTrue(ru.containsKey(key), "missing in messages_ru.properties: " + key);
     }
+  }
+
+  @Test
+  @DisplayName("2b AC-12: every new Phase 2b key exists in both message files with the values of §4.9")
+  void phase2bKeysExistInBothFiles() throws IOException {
+    Properties en = load(EN);
+    Properties ru = load(RU);
+
+    PHASE_2B_KEYS.forEach((key, values) -> {
+      assertEquals(values.get(0), en.getProperty(key), "messages.properties " + key);
+      assertEquals(values.get(1), ru.getProperty(key), "messages_ru.properties " + key);
+    });
   }
 
   @Test

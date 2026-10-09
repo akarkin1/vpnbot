@@ -2,6 +2,7 @@ package org.github.akarkin1.ui;
 
 import org.github.akarkin1.ui.controller.HomeController;
 import org.github.akarkin1.ui.controller.LaunchController;
+import org.github.akarkin1.ui.controller.NodeController;
 import org.github.akarkin1.ui.messenger.UiMessenger;
 import org.github.akarkin1.ui.screen.ErrorScreen;
 import org.github.akarkin1.ui.screen.Screen;
@@ -27,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -36,11 +38,15 @@ class UiRouterTest {
 
   private static final UiContext CONTEXT = new UiContext(CHAT_ID, "alex", "Alex", "ru");
   private static final Screen ERROR = new Screen("error", List.of(), List.of());
+  private static final String TASK_ID = "0123456789abcdef0123456789abcdef";
+  private static final NodeRef NODE = new NodeRef("eu-central-1", TASK_ID);
 
   @Mock
   private HomeController homeController;
   @Mock
   private LaunchController launchController;
+  @Mock
+  private NodeController nodeController;
   @Mock
   private UiMessenger messenger;
   @Mock
@@ -50,7 +56,7 @@ class UiRouterTest {
 
   @BeforeEach
   void setUp() {
-    router = new UiRouter(homeController, launchController, messenger, errorScreen);
+    router = new UiRouter(homeController, launchController, nodeController, messenger, errorScreen);
   }
 
   @Test
@@ -129,6 +135,68 @@ class UiRouterTest {
   }
 
   @Test
+  @DisplayName("2b AC-10: RUN_NEW callback is answered first, then launches another node in the region")
+  void runNewCallback() {
+    router.handle(callbackUpdate("RUN_NEW:eu-central-1"));
+
+    InOrder inOrder = inOrder(messenger, launchController);
+    inOrder.verify(messenger).answerCallback(CALLBACK_ID);
+    inOrder.verify(launchController).launchAnother(CONTEXT, MESSAGE_ID, "eu-central-1");
+    verify(launchController, never()).launch(any(), any(), any());
+    verifyNoInteractions(nodeController);
+  }
+
+  @Test
+  @DisplayName("2b AC-10: USE callback is answered first, then shows the node")
+  void useCallback() {
+    router.handle(callbackUpdate("USE:eu-central-1:" + TASK_ID));
+
+    InOrder inOrder = inOrder(messenger, nodeController);
+    inOrder.verify(messenger).answerCallback(CALLBACK_ID);
+    inOrder.verify(nodeController).use(CONTEXT, MESSAGE_ID, NODE);
+    verifyNoInteractions(launchController);
+  }
+
+  @Test
+  @DisplayName("2b AC-10: STOP callback is answered first, then requests the stop")
+  void stopCallback() {
+    router.handle(callbackUpdate("STOP:eu-central-1:" + TASK_ID));
+
+    InOrder inOrder = inOrder(messenger, nodeController);
+    inOrder.verify(messenger).answerCallback(CALLBACK_ID);
+    inOrder.verify(nodeController).stop(CONTEXT, MESSAGE_ID, NODE);
+    verify(nodeController, never()).confirmStop(any(), any(), any());
+  }
+
+  @Test
+  @DisplayName("2b AC-10: STOP_CONFIRM callback is answered first, then confirms the stop")
+  void stopConfirmCallback() {
+    router.handle(callbackUpdate("STOP_CONFIRM:eu-central-1:" + TASK_ID));
+
+    InOrder inOrder = inOrder(messenger, nodeController);
+    inOrder.verify(messenger).answerCallback(CALLBACK_ID);
+    inOrder.verify(nodeController).confirmStop(CONTEXT, MESSAGE_ID, NODE);
+    verify(nodeController, never()).stop(any(), any(), any());
+  }
+
+  @Test
+  @DisplayName("2b AC-10: STOP with the unfilled {{TASK_ID}} placeholder reaches the node controller")
+  void stopWithPlaceholderCallback() {
+    router.handle(callbackUpdate("STOP:eu-central-1:{{TASK_ID}}"));
+
+    verify(nodeController).stop(CONTEXT, MESSAGE_ID, new NodeRef("eu-central-1", "{{TASK_ID}}"));
+  }
+
+  @Test
+  @DisplayName("2b AC-10: STOP without a task id is undecodable and refreshes home")
+  void stopWithoutTaskIdRefreshesHome() {
+    router.handle(callbackUpdate("STOP:eu-central-1"));
+
+    verify(homeController).refreshHome(CONTEXT, MESSAGE_ID);
+    verifyNoInteractions(nodeController);
+  }
+
+  @Test
   @DisplayName("AC-12: undecodable callback data refreshes home")
   void undecodableCallback() {
     router.handle(callbackUpdate("garbage"));
@@ -136,7 +204,7 @@ class UiRouterTest {
     InOrder inOrder = inOrder(messenger, homeController);
     inOrder.verify(messenger).answerCallback(CALLBACK_ID);
     inOrder.verify(homeController).refreshHome(CONTEXT, MESSAGE_ID);
-    verifyNoInteractions(launchController);
+    verifyNoInteractions(launchController, nodeController);
   }
 
   @Test
