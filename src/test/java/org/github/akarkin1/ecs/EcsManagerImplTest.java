@@ -14,11 +14,19 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.ec2.Ec2Client;
+import software.amazon.awssdk.services.ec2.model.DescribeNetworkInterfacesRequest;
+import software.amazon.awssdk.services.ec2.model.DescribeNetworkInterfacesResponse;
+import software.amazon.awssdk.services.ec2.model.Ec2Exception;
+import software.amazon.awssdk.services.ec2.model.NetworkInterface;
+import software.amazon.awssdk.services.ec2.model.NetworkInterfaceAssociation;
 import software.amazon.awssdk.services.ecs.EcsClient;
+import software.amazon.awssdk.services.ecs.model.Attachment;
 import software.amazon.awssdk.services.ecs.model.Container;
 import software.amazon.awssdk.services.ecs.model.DescribeTasksRequest;
 import software.amazon.awssdk.services.ecs.model.DescribeTasksResponse;
 import software.amazon.awssdk.services.ecs.model.HealthStatus;
+import software.amazon.awssdk.services.ecs.model.KeyValuePair;
 import software.amazon.awssdk.services.ecs.model.ListTasksRequest;
 import software.amazon.awssdk.services.ecs.model.ListTasksResponse;
 import software.amazon.awssdk.services.ecs.model.Tag;
@@ -34,7 +42,9 @@ import java.util.concurrent.TimeUnit;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
@@ -55,6 +65,8 @@ class EcsManagerImplTest {
   private EcsClientPool ecsClientPool;
   @Mock
   private Ec2ClientPool ec2ClientPool;
+  @Mock
+  private Ec2Client ec2Client;
   @Mock
   private EcsClient euClient;
   @Mock
@@ -124,6 +136,76 @@ class EcsManagerImplTest {
                                            () -> ecsManager.listTasks(MATCHING_TAGS));
 
     assertTrue(hasCause(thrown, failure), "the region failure is not in the cause chain: " + thrown);
+  }
+
+  @Test
+  @Timeout(30)
+  @DisplayName("2a D-8: a task whose ENI has no association is listed with a null public IP")
+  void eniWithoutAssociation() {
+    stubEuTasksWithEnis();
+    stubEni("eni-a", NetworkInterface.builder().networkInterfaceId("eni-a").build());
+    stubEni("eni-b", networkInterfaceWithIp("eni-b", "1.2.3.4"));
+
+    List<TaskInfo> tasks = ecsManager.listTasks(MATCHING_TAGS);
+
+    assertEquals(List.of("task-a", "task-b"), tasks.stream().map(TaskInfo::getId).toList());
+    assertNull(tasks.get(0).getPublicIp());
+    assertEquals("1.2.3.4", tasks.get(1).getPublicIp());
+  }
+
+  @Test
+  @Timeout(30)
+  @DisplayName("2a D-8: an ENI lookup failure (SdkException) gives that task a null public IP, others are unaffected, no exception")
+  void eniLookupFailure() {
+    stubEuTasksWithEnis();
+    when(ec2Client.describeNetworkInterfaces(eniRequest("eni-a")))
+        .thenThrow(Ec2Exception.builder().message("InvalidNetworkInterfaceID.NotFound").build());
+    stubEni("eni-b", networkInterfaceWithIp("eni-b", "1.2.3.4"));
+
+    List<TaskInfo> tasks = ecsManager.listTasks(MATCHING_TAGS);
+
+    assertEquals(List.of("task-a", "task-b"), tasks.stream().map(TaskInfo::getId).toList());
+    assertEquals(List.of("host-a", "host-b"), tasks.stream().map(TaskInfo::getHostName).toList());
+    assertNull(tasks.get(0).getPublicIp());
+    assertEquals("1.2.3.4", tasks.get(1).getPublicIp());
+  }
+
+  /** eu-central-1 runs task-a (ENI eni-a) and task-b (ENI eni-b); the other regions run nothing. */
+  private void stubEuTasksWithEnis() {
+    when(euClient.listTasks(any(ListTasksRequest.class))).thenReturn(
+        ListTasksResponse.builder()
+            .taskArns("arn:aws:ecs:region:123:task/cluster/task-a",
+                      "arn:aws:ecs:region:123:task/cluster/task-b")
+            .build());
+    when(euClient.describeTasks(any(DescribeTasksRequest.class))).thenReturn(
+        DescribeTasksResponse.builder().tasks(taskWithEni("a"), taskWithEni("b")).build());
+    when(usClient.listTasks(any(ListTasksRequest.class))).thenReturn(emptyList());
+    when(ukClient.listTasks(any(ListTasksRequest.class))).thenReturn(emptyList());
+    when(ec2ClientPool.getForRegion("eu-central-1")).thenReturn(ec2Client);
+  }
+
+  private void stubEni(String eniId, NetworkInterface networkInterface) {
+    when(ec2Client.describeNetworkInterfaces(eniRequest(eniId))).thenReturn(
+        DescribeNetworkInterfacesResponse.builder().networkInterfaces(networkInterface).build());
+  }
+
+  private static DescribeNetworkInterfacesRequest eniRequest(String eniId) {
+    return argThat(request -> request != null && request.networkInterfaceIds().contains(eniId));
+  }
+
+  private static NetworkInterface networkInterfaceWithIp(String eniId, String publicIp) {
+    return NetworkInterface.builder()
+        .networkInterfaceId(eniId)
+        .association(NetworkInterfaceAssociation.builder().publicIp(publicIp).build())
+        .build();
+  }
+
+  private static Task taskWithEni(String suffix) {
+    Attachment eni = Attachment.builder()
+        .type("ElasticNetworkInterface")
+        .details(KeyValuePair.builder().name("networkInterfaceId").value("eni-" + suffix).build())
+        .build();
+    return task(suffix).toBuilder().attachments(eni).build();
   }
 
   private void stubRegion(Region region, EcsClient client) {
