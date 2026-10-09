@@ -18,7 +18,8 @@ Spec: `docs/specs/node-lifecycle-2a.md` · Branch: `feature/node-lifecycle-2a`
 2. **Node agent in Python** (`docker/node_agent`, replaces `start_tailscale.sh` and
    `monitor_connections.sh`): `amazonlinux:2023`, `boto3` + `requests` (pinned), no `aws` CLI.
    Starts Tailscale, detects idleness via `tailscale status --json`, and edits/sends Telegram messages
-   itself: ready card, silent "stops in 2 minutes" warning, "stopped" message (+ card marked stopped).
+   itself: ready card, silent "stops in 2 minutes" warning, "stopped" message (+ card marked stopped;
+   changed by "Stop updates in place").
    Texts are rendered by the Lambda (user's language) and passed as `TG_*` env vars.
 3. **Launch flow**: the Lambda returns right after `RunTask` (no more health polling);
    `/runNodeIn` uses the same flow.
@@ -38,6 +39,14 @@ Spec: `docs/specs/node-lifecycle-2b.md` · Branch: `feature/node-lifecycle-2b`
    `TaskInfo.runBy` and `EcsManager.stopTask` (`ecs:StopTask` is already allowed).
 2. **Use existing or start another**: tapping a region where the user already has a node shows
    `[📋 Use <name>] [🚀 Start another] [🏠 Menu]`. Running several nodes stays allowed.
+
+## Stop updates in place (in progress)
+
+Spec: `docs/specs/stop-in-place.md` · Branch: `feature/stop-in-place` (based on 2b)
+
+User feedback: a stopped node edits its own message into a stopped card with
+`[🚀 Start again] [🏠 Menu]` instead of sending a new message; the silent idle warning is deleted
+when the node stops or a device connects again.
 
 ## Phase 3 – Infrastructure cleanup (Lambda stack)
 
