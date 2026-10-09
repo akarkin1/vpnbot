@@ -418,3 +418,16 @@ Mixed versions are safe: an old image ignores the `TG_*` vars (user taps Menu); 
   (`notifier.stopped()`) before exiting with 1, so the user isn't left on "waiting".
 - D-6 (T3) Two message keys that were already unused before this phase were removed with the others
   (`command.assign-roles.usage-note.without-roles`, `common.permissions.action-not-allowed.error`).
+- D-7 (review, blocker) `EcsClientPool` and `Ec2ClientPool` use `ConcurrentHashMap`: parallel `listTasks`
+  hit `HashMap.computeIfAbsent` concurrently (ConcurrentModificationException on cold start).
+  Both files are added to T4's ownership.
+- D-8 (review) A task whose ENI has no public IP yet (no association) or whose ENI lookup fails gets
+  `publicIp = null` instead of failing the whole listing (users can now open the menu while a node is
+  still starting or stopping).
+- D-9 (review) The agent parses `TG_MESSAGE_ID`/`TG_CHAT_ID` leniently: an invalid value logs a
+  warning and disables notifications; it never stops the node from starting.
+- D-10 (review) The deploy workflows update the bot-token secret (`put-secret-value`) when it already
+  exists, so rotating `TG_BOT_TOKEN` in GitHub takes effect on the next deploy.
+- D-11 (review) The node container gets `StopTimeout: 60` so the SIGTERM path (card edit, logout,
+  daemon stop) can finish before ECS kills it.
+- D-12 `.gitignore` ignores Python bytecode caches (`__pycache__/`, `*.pyc`).
