@@ -279,3 +279,8 @@ changed; every AC has a test; no TODOs or dead code.
 - D-2 (T3) The owner is notified only when the stopping user is root and not the owner; a failing owner
   notification is logged and doesn't turn the stop into an error.
 - D-3 (review) `NodeScreens` has a no-arg constructor (no screen shows a region, so `RegionLabels` was unused).
+- D-4 (T2/T4) The node card's last row is one row: `[🛑 Stop] [🏠 Menu]` (after the links row).
+- D-5 (T4) `ChatId`/`Lang` tags are built in `TailscaleEcsNodeService.runNode` (with `RunBy`);
+  `EcsManagerImpl.startTask` passes them through unchanged.
+- D-6 (T4) `getTask` treats an ECS `InvalidParameterException` (e.g. a card from an old agent that still
+  sends `{{TASK_ID}}`) as "not found".
