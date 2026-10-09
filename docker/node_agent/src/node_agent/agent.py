@@ -18,6 +18,8 @@ log = logging.getLogger(__name__)
 CHECK_IP_URL = "https://checkip.amazonaws.com"
 CHECK_IP_TIMEOUT_SECONDS = 5
 UNKNOWN_IP = "—"
+METADATA_URI_VARIABLE = "ECS_CONTAINER_METADATA_URI_V4"
+METADATA_TIMEOUT_SECONDS = 5
 
 
 class _Terminated(BaseException):
@@ -33,6 +35,24 @@ def fetch_public_ip(session=None) -> str:
     except Exception as e:
         log.warning("Public IP lookup failed: %s", e)
     return UNKNOWN_IP
+
+
+def fetch_task_id(env, session=None) -> Optional[str]:
+    """Returns this node's ECS task id (last segment of the task ARN) or None if it is unknown."""
+    metadata_uri = env.get(METADATA_URI_VARIABLE)
+    if not metadata_uri:
+        log.warning("Task id lookup skipped: %s is not set", METADATA_URI_VARIABLE)
+        return None
+    try:
+        response = (session or requests).get(f"{metadata_uri}/task", timeout=METADATA_TIMEOUT_SECONDS)
+        if response.status_code != 200:
+            log.warning("Task id lookup failed: HTTP %s", response.status_code)
+            return None
+        task_id = response.json()["TaskARN"].rsplit("/", 1)[-1]
+        return task_id or None
+    except Exception as e:
+        log.warning("Task id lookup failed: %s", e)
+        return None
 
 
 def run(env=os.environ) -> int:
@@ -53,7 +73,7 @@ def run(env=os.environ) -> int:
     tailscale = Tailscale()
     previous_handler = signal.signal(signal.SIGTERM, _on_sigterm)
     try:
-        return _run_node(config, auth_key, notifier, tailscale)
+        return _run_node(config, auth_key, notifier, tailscale, env)
     except _Terminated:
         log.info("SIGTERM received, stopping the node")
         signal.signal(signal.SIGTERM, signal.SIG_IGN)
@@ -64,14 +84,14 @@ def run(env=os.environ) -> int:
         signal.signal(signal.SIGTERM, previous_handler)
 
 
-def _run_node(config: AgentConfig, auth_key: str, notifier: Notifier, tailscale: Tailscale) -> int:
+def _run_node(config: AgentConfig, auth_key: str, notifier: Notifier, tailscale: Tailscale, env) -> int:
     tailscale.start_daemon()
     if not tailscale.up(auth_key, config.hostname):
         log.error("Tailscale did not come up, giving up")
         notifier.stopped()
         tailscale.stop_daemon()
         return 1
-    notifier.ready(fetch_public_ip())
+    notifier.ready(fetch_public_ip(), fetch_task_id(env))
 
     monitor = IdleMonitor(config.inactivity_timeout, config.status_check_interval)
     while True:
