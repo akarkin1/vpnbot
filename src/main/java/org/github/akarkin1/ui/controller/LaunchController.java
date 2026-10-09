@@ -3,81 +3,30 @@ package org.github.akarkin1.ui.controller;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.github.akarkin1.auth.Authorizer;
-import org.github.akarkin1.auth.Permission;
-import org.github.akarkin1.ecs.RunTaskStatus;
-import org.github.akarkin1.ecs.TaskInfo;
 import org.github.akarkin1.tailscale.TailscaleNodeService;
+import org.github.akarkin1.ui.NodeLauncher;
 import org.github.akarkin1.ui.UiContext;
+import org.github.akarkin1.ui.messenger.NodeNotifications;
 import org.github.akarkin1.ui.messenger.UiMessenger;
 import org.github.akarkin1.ui.screen.LaunchScreens;
-import org.github.akarkin1.ui.screen.Screen;
-
-import java.util.Optional;
 
 @Log4j2
 @RequiredArgsConstructor
-public class LaunchController {
+public class LaunchController implements NodeLauncher {
 
   private final TailscaleNodeService nodeService;
   private final Authorizer authorizer;
   private final UiMessenger messenger;
   private final LaunchScreens launchScreens;
+  private final NodeNotifications nodeNotifications;
 
   public void launch(UiContext context, Integer messageId, String regionId) {
-    String username = context.username();
-    if (username == null || !authorizer.hasPermission(username, Permission.RUN_NODES)) {
-      messenger.edit(context, messageId, launchScreens.notAllowed());
-      return;
-    }
-
-    messenger.edit(context, messageId, launchScreens.starting(regionId));
-    if (!nodeService.getSupportedRegionIds().contains(regionId)) {
-      messenger.edit(context, messageId, launchScreens.regionUnavailable());
-      return;
-    }
-
-    TaskInfo task;
-    try {
-      task = nodeService.runNode(regionId, username, null);
-    } catch (RuntimeException e) {
-      log.error("Failed to run a node in region {} for user {}", regionId, username, e);
-      messenger.edit(context, messageId, launchScreens.failed(regionId));
-      return;
-    }
-
-    messenger.edit(context, messageId, launchScreens.waiting(regionId));
-    RunTaskStatus status;
-    try {
-      status = nodeService.checkNodeStatus(task);
-    } catch (RuntimeException e) {
-      log.error("Failed to check the status of node {} in region {}", task.getId(), regionId, e);
-      messenger.edit(context, messageId, launchScreens.failed(regionId));
-      return;
-    }
-
-    messenger.edit(context, messageId, resultScreen(task, status, regionId));
+    throw new UnsupportedOperationException("Not implemented yet");
   }
 
-  private Screen resultScreen(TaskInfo task, RunTaskStatus status, String regionId) {
-    return switch (status) {
-      case HEALTHY -> readyScreen(task, regionId);
-      case UNKNOWN -> launchScreens.stillStarting(regionId);
-      case UNHEALTHY -> launchScreens.failed(regionId);
-    };
-  }
-
-  private Screen readyScreen(TaskInfo task, String regionId) {
-    Optional<TaskInfo> fullTaskInfo;
-    try {
-      fullTaskInfo = nodeService.getFullTaskInfo(task.getRegion(), task.getCluster(), task.getId());
-    } catch (RuntimeException e) {
-      log.error("Failed to get the details of node {} in region {}", task.getId(), regionId, e);
-      fullTaskInfo = Optional.empty();
-    }
-
-    return fullTaskInfo
-        .map(launchScreens::ready)
-        .orElseGet(() -> launchScreens.stillStarting(regionId));
+  @Override
+  public void launchInNewMessage(UiContext context, String regionId, String hostName) {
+    throw new UnsupportedOperationException("Not implemented yet");
   }
 
 }

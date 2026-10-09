@@ -4,7 +4,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.github.akarkin1.config.YamlApplicationConfiguration.AWSConfiguration;
 import org.github.akarkin1.config.YamlApplicationConfiguration.EcsConfiguration;
 import org.github.akarkin1.ecs.EcsManager;
-import org.github.akarkin1.ecs.RunTaskStatus;
 import org.github.akarkin1.ecs.TaskInfo;
 import software.amazon.awssdk.regions.Region;
 
@@ -12,7 +11,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -67,7 +65,8 @@ public class TailscaleEcsNodeService implements TailscaleNodeService {
   }
 
   @Override
-  public TaskInfo runNode(String userRegion, String userTgId, String userHostName) {
+  public TaskInfo runNode(String userRegion, String userTgId, String userHostName,
+                          Map<String, String> environment) {
     Region region = regionByCity.getOrDefault(userRegion, Region.of(userRegion));
 
     String hostName = userHostName;
@@ -80,19 +79,12 @@ public class TailscaleEcsNodeService implements TailscaleNodeService {
         config.getRunByTag(), userTgId,
         config.getServiceNameTag(), config.getServiceName()
     );
-    return ecsManager.startTask(region, hostName, assignedTags);
+    return ecsManager.startTask(region, hostName, assignedTags, environment);
   }
 
   @Override
-  public Optional<TaskInfo> getFullTaskInfo(Region region, String clusterName, String taskId) {
-    return ecsManager.getFullTaskInfo(region, clusterName, taskId);
-  }
-
-  @Override
-  public RunTaskStatus checkNodeStatus(TaskInfo taskInfo) {
-    return ecsManager.checkTaskHealth(taskInfo.getRegion(),
-                                      taskInfo.getCluster(),
-                                      taskInfo.getId());
+  public String toRegionId(String userRegion) {
+    return regionByCity.getOrDefault(userRegion, Region.of(userRegion)).id();
   }
 
   private String chooseHostName(String userTgId, String regionId) {

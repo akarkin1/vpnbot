@@ -24,12 +24,15 @@ import org.github.akarkin1.dispatcher.command.ListUsersCommand;
 import org.github.akarkin1.dispatcher.command.RunNodeCommand;
 import org.github.akarkin1.dispatcher.command.SupportedRegionCommand;
 import org.github.akarkin1.dispatcher.command.VersionCommand;
+import org.github.akarkin1.metrics.EmfRequestMetrics;
+import org.github.akarkin1.metrics.RequestMetrics;
 import org.github.akarkin1.tailscale.TailscaleEcsNodeServiceConfigurer;
 import org.github.akarkin1.tailscale.TailscaleNodeService;
 import org.github.akarkin1.tg.BotCommunicator;
 import org.github.akarkin1.tg.TgRequestContext;
 import org.github.akarkin1.translation.ResourceBasedTranslator;
 import org.github.akarkin1.translation.Translator;
+import org.github.akarkin1.ui.UiComponents;
 import org.github.akarkin1.ui.UiConfigurer;
 import org.github.akarkin1.ui.UiRouter;
 import org.telegram.telegrambots.meta.api.objects.Message;
@@ -37,6 +40,7 @@ import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.bots.AbsSender;
 
+import java.time.Clock;
 import java.util.Optional;
 
 import static org.github.akarkin1.config.ConfigManager.getAppVersion;
@@ -44,6 +48,7 @@ import static org.github.akarkin1.config.ConfigManager.getBotToken;
 import static org.github.akarkin1.config.ConfigManager.getBotUsernameEnv;
 import static org.github.akarkin1.config.ConfigManager.getEventRootDir;
 import static org.github.akarkin1.config.ConfigManager.getEventTtlSec;
+import static org.github.akarkin1.config.ConfigManager.isMetricsEnabled;
 import static org.github.akarkin1.tg.TelegramBotFactory.sender;
 
 @Log4j2
@@ -57,20 +62,26 @@ public class TailscaleVpnLambdaHandler implements
   private static final String BOT_SERVER_ERROR = "${bot.internal.error}";
   private static final RequestAuthenticator REQUEST_AUTHENTICATOR;
   private static final UiRouter UI_ROUTER;
+  private static final RequestMetrics METRICS;
 
   static {
+    METRICS = new EmfRequestMetrics(isMetricsEnabled(), Clock.systemUTC(), System.out::println);
     REQUEST_AUTHENTICATOR = new RequestAuthenticatorConfigurer().configure();
 
     EVENTS_REGISTRY = new FSUpdateEventsRegistry(getEventTtlSec(), getEventRootDir());
 
     final AbsSender sender = sender(getBotToken(), getBotUsernameEnv());
-    final TailscaleNodeService nodeService = new TailscaleEcsNodeServiceConfigurer().configure();
-    final PermissionsService permissionsService = new PermissionsServiceConfigurer().configure();
+    final TailscaleNodeService nodeService = new TailscaleEcsNodeServiceConfigurer().configure(METRICS);
+    final PermissionsService permissionsService = new PermissionsServiceConfigurer().configure(METRICS);
     final Authorizer authorizer = new AuthorizerConfigurer().configure(permissionsService);
 
     final Translator translator = new ResourceBasedTranslator();
 
-    COMMUNICATOR = new BotCommunicator(sender, translator);
+    final UiComponents ui = new UiConfigurer().configure(sender, translator, nodeService,
+                                                         authorizer, METRICS);
+    UI_ROUTER = ui.router();
+
+    COMMUNICATOR = new BotCommunicator(sender, translator, METRICS);
     COMMAND_DISPATCHER = new CommandDispatcher(COMMUNICATOR, authorizer);
 
     COMMAND_DISPATCHER.registerCommand("/version", new VersionCommand());
@@ -78,7 +89,8 @@ public class TailscaleVpnLambdaHandler implements
         nodeService, authorizer));
     COMMAND_DISPATCHER.registerCommand("/runNodeIn",
                                        new RunNodeCommand(nodeService,
-                                                          COMMUNICATOR::sendMessageToTheBot));
+                                                          COMMUNICATOR::sendMessageToTheBot,
+                                                          ui.nodeLauncher()));
     COMMAND_DISPATCHER.registerCommand("/supportedRegions",
                                        new SupportedRegionCommand(nodeService));
     COMMAND_DISPATCHER.registerCommand("/assignRoles",
@@ -90,8 +102,6 @@ public class TailscaleVpnLambdaHandler implements
                                                               COMMUNICATOR::sendMessageToTheBot));
     COMMAND_DISPATCHER.registerCommand("/listRegisteredUsers",
                                        new ListUsersCommand(permissionsService));
-
-    UI_ROUTER = new UiConfigurer().configure(sender, translator, nodeService, authorizer);
   }
 
   @Override

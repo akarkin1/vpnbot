@@ -8,6 +8,8 @@ import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient;
 import software.amazon.awssdk.services.secretsmanager.model.GetSecretValueRequest;
 import software.amazon.awssdk.services.secretsmanager.model.GetSecretValueResponse;
 
+import java.time.Clock;
+import java.time.Duration;
 import java.util.Map;
 
 @Slf4j
@@ -18,6 +20,8 @@ public class SecretManagerRequestAuthenticator implements RequestAuthenticator {
 
   private final SecretsManagerClient client;
   private final String secretTokenId;
+  private final Duration ttl;
+  private final Clock clock;
 
   @Override
   public void authenticate(APIGatewayProxyRequestEvent request)

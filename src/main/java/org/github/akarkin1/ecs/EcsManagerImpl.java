@@ -1,13 +1,12 @@
 package org.github.akarkin1.ecs;
 
 import lombok.RequiredArgsConstructor;
-import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
 import org.github.akarkin1.config.TaskConfigService;
 import org.github.akarkin1.config.TaskRuntimeParameters;
 import org.github.akarkin1.config.YamlApplicationConfiguration.EcsConfiguration;
-import org.github.akarkin1.config.YamlApplicationConfiguration.EcsContainerHealth;
 import org.github.akarkin1.ec2.Ec2ClientPool;
+import org.github.akarkin1.metrics.RequestMetrics;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.ec2.Ec2Client;
 import software.amazon.awssdk.services.ec2.model.DescribeNetworkInterfacesRequest;
@@ -21,7 +20,6 @@ import software.amazon.awssdk.services.ecs.model.AwsVpcConfiguration;
 import software.amazon.awssdk.services.ecs.model.ContainerOverride;
 import software.amazon.awssdk.services.ecs.model.DescribeTasksRequest;
 import software.amazon.awssdk.services.ecs.model.DescribeTasksResponse;
-import software.amazon.awssdk.services.ecs.model.HealthStatus;
 import software.amazon.awssdk.services.ecs.model.KeyValuePair;
 import software.amazon.awssdk.services.ecs.model.LaunchType;
 import software.amazon.awssdk.services.ecs.model.ListTasksRequest;
@@ -37,9 +35,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 
 @Log4j2
@@ -55,9 +52,12 @@ public class EcsManagerImpl implements EcsManager {
   private final Ec2ClientPool ec2ClientPool;
   private final EcsConfiguration config;
   private final Map<String, String> regionToCitiesMap;
+  private final ExecutorService executor;
+  private final RequestMetrics metrics;
 
   @Override
-  public TaskInfo startTask(Region region, String hostName, Map<String, String> tags) {
+  public TaskInfo startTask(Region region, String hostName, Map<String, String> tags,
+                            Map<String, String> environment) {
     TaskRuntimeParameters taskParams = taskConfigService.getTaskRuntimeParameters(region);
     AwsVpcConfiguration awsVpcConfig = AwsVpcConfiguration.builder()
         .assignPublicIp(AssignPublicIp.ENABLED)
@@ -70,7 +70,7 @@ public class EcsManagerImpl implements EcsManager {
 
     ContainerOverride containerOverride = ContainerOverride.builder()
         .name(CONTAINER_NAME)
-        .environment(env(config.getHostNameEnv(), hostName))
+        .environment(containerEnv(hostName, environment))
         .build();
 
     RunTaskRequest runTaskRequest = RunTaskRequest.builder()
@@ -99,54 +99,6 @@ public class EcsManagerImpl implements EcsManager {
         .build();
   }
 
-  @Override
-  @SneakyThrows(InterruptedException.class)
-  public RunTaskStatus checkTaskHealth(Region region, String clusterName, String taskId) {
-    EcsContainerHealth health = config.getHealth();
-
-    DescribeTasksRequest describeTasksRequest = DescribeTasksRequest.builder()
-        .cluster(clusterName)
-        .tasks(taskId)
-        .build();
-    EcsClient client = ecsClientPool.get(region);
-    long startedAt = System.currentTimeMillis();
-    RunTaskStatus lastStatus = RunTaskStatus.UNKNOWN;
-
-    for (; ; ) {
-      long timePassed = System.currentTimeMillis() - startedAt;
-
-      if (timePassed >= TimeUnit.SECONDS.toMillis(health.getTimeoutSec())) {
-        return lastStatus;
-      }
-
-      DescribeTasksResponse resp = client.describeTasks(describeTasksRequest);
-      List<Task> runningTasks = resp.tasks();
-      if (!resp.hasTasks() || runningTasks.isEmpty()) {
-        log.warn("No tasks found. Retrying...");
-        TimeUnit.MILLISECONDS.sleep(health.getIntervalMs());
-        continue;
-      }
-      if (resp.hasFailures() && !resp.failures().isEmpty()) {
-        log.error("Failed to get list of tasks. Failures: ");
-        resp.failures().forEach(log::error);
-        return RunTaskStatus.UNHEALTHY;
-      }
-
-      Task task = runningTasks.getFirst();
-      if (!HealthStatus.HEALTHY.equals(task.healthStatus())) {
-        TimeUnit.MILLISECONDS.sleep(health.getIntervalMs());
-        continue;
-      }
-
-      lastStatus = getContainerHealthStatus(task);
-      if (RunTaskStatus.HEALTHY.equals(lastStatus)) {
-        return RunTaskStatus.HEALTHY;
-      } else {
-        TimeUnit.MILLISECONDS.sleep(health.getIntervalMs());
-      }
-    }
-  }
-
   private RunTaskStatus getContainerHealthStatus(Task task) {
     return task.containers()
         .stream()
@@ -165,6 +117,13 @@ public class EcsManagerImpl implements EcsManager {
             .value(entry.getValue())
             .build())
         .toList();
+  }
+
+  private List<KeyValuePair> containerEnv(String hostName, Map<String, String> environment) {
+    List<KeyValuePair> containerEnv = new ArrayList<>();
+    containerEnv.add(env(config.getHostNameEnv(), hostName));
+    environment.forEach((name, value) -> containerEnv.add(env(name, value)));
+    return containerEnv;
   }
 
   private static KeyValuePair env(String name, String value) {
@@ -277,42 +236,6 @@ public class EcsManagerImpl implements EcsManager {
         .stream()
         .map(Region::id)
         .collect(Collectors.toSet());
-  }
-
-  @Override
-  public Optional<TaskInfo> getFullTaskInfo(Region region, String clusterName, String taskId) {
-    EcsClient client = ecsClientPool.get(region);
-
-    DescribeTasksRequest describeTasksRequest = DescribeTasksRequest.builder()
-        .cluster(clusterName)
-        .tasks(taskId)
-        .include(TaskField.TAGS)
-        .build();
-
-    DescribeTasksResponse describeTaskResp = client.describeTasks(describeTasksRequest);
-
-    return describeTaskResp.tasks().stream()
-        .map(task -> {
-          String publicIp = getTaskPublicIp(region, task);
-
-          String hostName = task.tags()
-              .stream()
-              .filter(tag -> config.getHostNameTag().equals(tag.key()))
-              .map(Tag::value)
-              .findFirst()
-              .orElse(null);
-
-          return TaskInfo.builder()
-              .hostName(hostName)
-              .id(taskId)
-              .state(getContainerHealthStatus(task).name())
-              .cluster(clusterName)
-              .region(region)
-              .location(regionToCitiesMap.get(region.id()))
-              .publicIp(publicIp)
-              .build();
-        })
-        .findFirst();
   }
 
 }

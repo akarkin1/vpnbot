@@ -1,12 +1,10 @@
 package org.github.akarkin1.ui.screen;
 
 import lombok.RequiredArgsConstructor;
-import org.github.akarkin1.ecs.TaskInfo;
 import org.github.akarkin1.ui.UiAction;
 
 import java.util.List;
 
-import static org.github.akarkin1.ui.screen.CommonButtons.LINKS;
 import static org.github.akarkin1.ui.screen.CommonButtons.MENU;
 
 @RequiredArgsConstructor
@@ -26,16 +24,20 @@ public class LaunchScreens {
                       List.of());
   }
 
-  public Screen ready(TaskInfo node) {
-    return new Screen("%s <b>%s</b> · %s\n🌐 <code>%s</code>\n⏱ ${ui.node.auto-stop}\n\n${ui.node.connect-hint}",
-                      NodeFormat.nodeParams(node, regionLabels),
-                      List.of(LINKS, List.of(MENU)));
+  public Screen ready(String hostName, String regionId, String publicIp) {
+    throw new UnsupportedOperationException("Not implemented yet");
   }
 
-  public Screen stillStarting(String regionId) {
-    return new Screen("🟡 ${ui.launch.still-starting}\n📍 %s",
-                      List.of(regionLabels.label(regionId)),
-                      List.of(List.of(MENU)));
+  public Screen idleWarning(String hostName) {
+    throw new UnsupportedOperationException("Not implemented yet");
+  }
+
+  public Screen stopped(String hostName, String regionId) {
+    throw new UnsupportedOperationException("Not implemented yet");
+  }
+
+  public Screen stoppedCard(String hostName, String regionId) {
+    throw new UnsupportedOperationException("Not implemented yet");
   }
 
   public Screen failed(String regionId) {
