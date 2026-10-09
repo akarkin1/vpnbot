@@ -42,6 +42,7 @@ env:
   STACK_NAME: ${{ vars.ECS_STACK_NAME }}
   TAILSCALE_AUTH_TOKEN_SECRET_ID: ${{ vars.TAILSCALE_AUTH_TOKEN_SECRET_ID }}
   TAILSCALE_AUTH_TOKEN_REGION: ${{ vars.CONFIG_BASE_REGION }}
+  TG_BOT_TOKEN_SECRET_ID: ${{ vars.TG_BOT_TOKEN_SECRET_ID || 'vpn-tg-bot-token' }}
 
 jobs:
   # ToDo: docker build and cloudformation template deployment can be run in parallel, if there is no dependency between the formers
@@ -67,6 +68,16 @@ jobs:
            if [ $(aws secretsmanager describe-secret --secret-id "${{ env.TAILSCALE_AUTH_TOKEN_SECRET_ID }}" --region ${{ env.TAILSCALE_AUTH_TOKEN_REGION }} >/dev/null 2>&1; echo $?) -ne 0 ]; then
              aws secretsmanager create-secret --name ${{ env.TAILSCALE_AUTH_TOKEN_SECRET_ID }} --secret-string "${{ secrets.TAILSCALE_AUTH_TOKEN }}" --region ${{ env.TAILSCALE_AUTH_TOKEN_REGION }};
            fi
+      - name: Load TG Bot Token
+        if: ${{ github.event.inputs.run-docker == 'true' || github.event.inputs.run-cfn-deploy == 'true' }}
+        id: tg-bot-token-upload
+        env:
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+        run: |
+           # Create Telegram Bot Token Secret, if needed
+           if [ $(aws secretsmanager describe-secret --secret-id "${{ env.TG_BOT_TOKEN_SECRET_ID }}" --region ${{ env.TAILSCALE_AUTH_TOKEN_REGION }} >/dev/null 2>&1; echo $?) -ne 0 ]; then
+             aws secretsmanager create-secret --name "${{ env.TG_BOT_TOKEN_SECRET_ID }}" --secret-string "$TG_BOT_TOKEN" --region ${{ env.TAILSCALE_AUTH_TOKEN_REGION }};
+           fi
       - name: Deploy Cloud Formation Stack
         id: deploy-cfn-stack
         if: ${{ github.event.inputs.run-cfn-deploy == 'true' }}
@@ -75,7 +86,7 @@ jobs:
           name: ${{ env.STACK_NAME }}
           template: cloudformation/ecs-vpn-server.yml
           no-fail-on-empty-changeset: "1"
-          parameter-overrides: 'EcsClusterName=${{ github.event.inputs.cluster-name }},EcrRepositoryName=${{ github.event.inputs.repository-name }},TailscaleAuthTokenSecretId=${{ env.TAILSCALE_AUTH_TOKEN_SECRET_ID }},TailscaleAuthTokenSecretRegion=${{ env.TAILSCALE_AUTH_TOKEN_REGION }}'
+          parameter-overrides: 'EcsClusterName=${{ github.event.inputs.cluster-name }},EcrRepositoryName=${{ github.event.inputs.repository-name }},TailscaleAuthTokenSecretId=${{ env.TAILSCALE_AUTH_TOKEN_SECRET_ID }},TailscaleAuthTokenSecretRegion=${{ env.TAILSCALE_AUTH_TOKEN_REGION }},TgBotTokenSecretId=${{ env.TG_BOT_TOKEN_SECRET_ID }}'
       - name: Update Task Configuration In S3
         id: upload-config-to-s3
         if: ${{ github.event.inputs.run-cfn-deploy == 'true' }}
