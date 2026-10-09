@@ -1,6 +1,6 @@
 # Spec: Phase 2b – Stop and reuse
 
-Status: draft for review · Branch: `feature/node-lifecycle-2b` (based on `feature/node-lifecycle-2a`)
+Status: approved for implementation · Branch: `feature/node-lifecycle-2b` (based on `feature/node-lifecycle-2a`)
 · Roadmap: `docs/roadmap.md`
 
 ## 1. Goal

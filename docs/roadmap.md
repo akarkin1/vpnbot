@@ -29,7 +29,7 @@ Spec: `docs/specs/node-lifecycle-2a.md` · Branch: `feature/node-lifecycle-2a`
    workflows if missing, read by the node agent and by the Lambda (once at start-up, falling back to
    the `BOT_TOKEN` env var for one release).
 
-## Phase 2b – Stop and reuse (spec drafted)
+## Phase 2b – Stop and reuse (in progress)
 
 Spec: `docs/specs/node-lifecycle-2b.md` · Branch: `feature/node-lifecycle-2b`
 
