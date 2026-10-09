@@ -274,4 +274,8 @@ changed; every AC has a test; no TODOs or dead code.
 
 ## 12. Decision log
 
-- (empty)
+
+- D-1 (T3) `confirmStop` and `stoppedByAdmin` keyboards are one row each (like `stopped`/`failed`).
+- D-2 (T3) The owner is notified only when the stopping user is root and not the owner; a failing owner
+  notification is logged and doesn't turn the stop into an error.
+- D-3 (review) `NodeScreens` has a no-arg constructor (no screen shows a region, so `RegionLabels` was unused).
