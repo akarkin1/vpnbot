@@ -1,7 +1,7 @@
 import html
 import json
 import logging
-from typing import Callable, Optional
+from typing import Callable, Optional, TypeVar
 
 from .config import AgentConfig
 from .telegram import TelegramClient
@@ -12,6 +12,8 @@ HOSTNAME_PLACEHOLDER = "{{HOSTNAME}}"
 PUBLIC_IP_PLACEHOLDER = "{{PUBLIC_IP}}"
 TASK_ID_PLACEHOLDER = "{{TASK_ID}}"
 
+T = TypeVar("T")
+
 
 class Notifier:
     """Edits the node card and sends node messages; the texts come pre-rendered from the Lambda."""
@@ -19,6 +21,7 @@ class Notifier:
     def __init__(self, config: AgentConfig, telegram: Optional[TelegramClient]):
         self._config = config
         self._telegram = telegram
+        self._warning_message_id: Optional[int] = None
 
     @property
     def enabled(self) -> bool:
@@ -56,25 +59,39 @@ class Notifier:
     def idle_warning(self) -> None:
         text = self._config.idle_warning_text
         if self.enabled and text:
-            self._safely(lambda: self._telegram.send_message(
+            self._warning_message_id = self._safely(lambda: self._telegram.send_message(
                 self._config.chat_id, self.render(text), silent=True))
+
+    def activity_resumed(self) -> None:
+        self._delete_warning()
 
     def stopped_idle(self) -> None:
         text = self._config.stopped_text
-        if self.enabled and text:
-            self._safely(lambda: self._telegram.send_message(
-                self._config.chat_id, self.render(text), reply_markup=self._config.stopped_markup))
-        self.stopped()
+        if not text:
+            self.stopped()
+            return
+        self._delete_warning()
+        self._edit_card(text, self._config.stopped_markup)
 
     def stopped(self) -> None:
-        text = self._config.stopped_card_text
+        self._delete_warning()
+        self._edit_card(self._config.stopped_card_text, self._config.stopped_card_markup)
+
+    def _edit_card(self, text, reply_markup) -> None:
         if self.enabled and text:
             self._safely(lambda: self._telegram.edit_message(
-                self._config.chat_id, self._config.message_id, self.render(text)))
+                self._config.chat_id, self._config.message_id, self.render(text), reply_markup=reply_markup))
+
+    def _delete_warning(self) -> None:
+        message_id = self._warning_message_id
+        self._warning_message_id = None
+        if self.enabled and message_id is not None:
+            self._safely(lambda: self._telegram.delete_message(self._config.chat_id, message_id))
 
     @staticmethod
-    def _safely(call: Callable[[], object]) -> None:
+    def _safely(call: Callable[[], T]) -> Optional[T]:
         try:
-            call()
+            return call()
         except Exception:
             log.exception("Telegram notification failed")
+            return None
