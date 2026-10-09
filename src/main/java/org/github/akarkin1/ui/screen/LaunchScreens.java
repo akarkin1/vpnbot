@@ -10,6 +10,7 @@ import java.util.List;
 
 import static org.github.akarkin1.ui.screen.CommonButtons.LINKS;
 import static org.github.akarkin1.ui.screen.CommonButtons.MENU;
+import static org.github.akarkin1.ui.screen.NodeFormat.escapePercent;
 import static org.github.akarkin1.ui.screen.NodeFormat.orDash;
 
 @RequiredArgsConstructor
@@ -73,10 +74,6 @@ public class LaunchScreens {
     return new Screen("ℹ️ ${ui.reuse.existing}\n📍 %s",
                       List.of(regionLabels.label(regionId)),
                       keyboard);
-  }
-
-  private static String escapePercent(String value) {
-    return value.replace("%", "%%");
   }
 
   public Screen regionUnavailable() {

@@ -10,6 +10,12 @@ public class NodeAccess {
 
   private final Authorizer authorizer;
 
+  /** Users who may run nodes or are root may view and stop nodes at all. */
+  public boolean canManageNodes(String username) {
+    return isRoot(username)
+           || username != null && authorizer.hasPermission(username, Permission.RUN_NODES);
+  }
+
   public boolean canStop(String username, TaskInfo node) {
     return isRoot(username)
            || isOwner(username, node) && authorizer.hasPermission(username, Permission.RUN_NODES);

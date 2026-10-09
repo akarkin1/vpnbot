@@ -27,6 +27,11 @@ final class NodeFormat {
     return StringUtils.isBlank(value) ? DASH : value;
   }
 
+  /** Escapes {@code %} in dynamic button-label parts, since the translator formats labels. */
+  static String escapePercent(String value) {
+    return value.replace("%", "%%");
+  }
+
   static List<Object> nodeParams(TaskInfo node, RegionLabels regionLabels) {
     String regionLabel = node.getRegion() == null ? null : regionLabels.label(node.getRegion().id());
     return List.of(statusEmoji(node.getState()),
