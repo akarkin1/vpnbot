@@ -284,3 +284,14 @@ changed; every AC has a test; no TODOs or dead code.
   `EcsManagerImpl.startTask` passes them through unchanged.
 - D-6 (T4) `getTask` treats an ECS `InvalidParameterException` (e.g. a card from an old agent that still
   sends `{{TASK_ID}}`) as "not found".
+- D-7 (review) The reuse check keeps only nodes whose `runBy` equals the user (`listTasks(username)`
+  also matches tasks without a `RunBy` tag).
+- D-8 (review) A failure of the reuse check's `listTasks` is logged and edits the message to
+  `failed(regionId)` (like a failed `runNode`), so it never stays on "starting".
+- D-9 (review) `NodeController.stop`/`confirmStop` edit `stopping` before calling `stopNode`, so the
+  agent's "stopped" edit (after SIGTERM) can't be overwritten.
+- D-10 (review) `NodeController` checks before any AWS call that the user has `RUN_NODES` or
+  `ROOT_ACCESS` (else `notAllowed()`) and that the region is supported (else `alreadyStopped()`).
+- D-11 (review) `confirmStop` shows `—` instead of `@null` for tasks without `RunBy`; the owner
+  notification passes the task's language code through (translator falls back for null/blank);
+  `%` escaping for labels lives in one helper `NodeFormat.escapePercent`.
