@@ -101,6 +101,8 @@ def _run_node(config: AgentConfig, auth_key: str, notifier: Notifier, tailscale:
         log.info("Active peers: %d, action: %s", active_peers, action.name)
         if action is Action.WARN:
             notifier.idle_warning()
+        elif action is Action.RESUME:
+            notifier.activity_resumed()
         elif action is Action.STOP:
             log.info("No active peers for %d s, stopping the node", config.inactivity_timeout)
             signal.signal(signal.SIGTERM, signal.SIG_IGN)
