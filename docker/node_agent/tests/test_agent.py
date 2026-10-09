@@ -1,10 +1,11 @@
-"""Tests for `agent.run` and `agent.fetch_public_ip`.
+"""Tests for `agent.run`, `agent.fetch_public_ip` and `agent.fetch_task_id`.
 
 Assumptions about how `agent.run` is wired (§5, §7):
 - `node_agent.agent` imports `get_secret`, `Tailscale`, `TelegramClient` by name
   (`from node_agent.<module> import <name>` or the relative equivalent), so they are patched
   as `node_agent.agent.<name>`; `run` creates one `Tailscale` and at most one `TelegramClient`.
-- `run` calls the module-level `fetch_public_ip` (patched, so no network access).
+- `run` calls the module-level `fetch_public_ip` and `fetch_task_id` (patched, so no network
+  access; `fetch_task_id` returns None unless a test sets a task id).
 - The monitor loop waits with `time.sleep` (patched). The tests use a 2 s timeout and a 1 s
   interval, so even another waiting mechanism keeps them short.
 - The real `AgentConfig`, `Notifier` and `IdleMonitor` are used.
@@ -17,14 +18,20 @@ from unittest import mock
 from node_agent import agent
 from node_agent.config import AgentConfig
 from tests import fakes
-from tests.fakes import FakeResponse, FakeSession, FakeTailscale, FakeTelegram, bind
+from tests.fakes import (LINKS_ROW, MENU_BUTTON, READY_MARKUP_WITH_STOP, TASK_ARN, TASK_ID, FakeResponse,
+                         FakeSession, FakeTailscale, FakeTelegram, bind, markup_json, stop_button)
 
 PUBLIC_IP = "203.0.113.7"
+METADATA_URI = "http://169.254.170.2/v4/0123456789abcdef0123456789abcdef-1234567890"
 SECRETS = {"ts-secret": "tskey-123", "tg-secret": "bot-token"}
 
 
 def telegram_client(token, api_base="https://api.telegram.org", session=None):
     """Signature of the `TelegramClient` constructor, used to compare constructor calls."""
+
+
+def fetch_task_id(env, session=None):
+    """Signature of `agent.fetch_task_id` (§6), used to compare calls."""
 
 
 def agent_env(**overrides):
@@ -48,6 +55,7 @@ class RunTest(unittest.TestCase):
         self.secrets = dict(SECRETS)
         self.secret_calls = []
         self.telegram_client_class = mock.Mock(return_value=self.telegram)
+        self.fetch_task_id = mock.Mock(return_value=None)
 
         sigterm_handler = signal.getsignal(signal.SIGTERM)
         self.addCleanup(signal.signal, signal.SIGTERM, sigterm_handler)
@@ -56,9 +64,11 @@ class RunTest(unittest.TestCase):
                 ("node_agent.agent.Tailscale", mock.Mock(return_value=self.tailscale)),
                 ("node_agent.agent.TelegramClient", self.telegram_client_class),
                 ("node_agent.agent.fetch_public_ip", mock.Mock(return_value=PUBLIC_IP)),
+                ("node_agent.agent.fetch_task_id", self.fetch_task_id),
                 ("time.sleep", mock.Mock()),
         ):
-            patcher = mock.patch(target, replacement)
+            # create=True: `fetch_task_id` is new in 2b; the 2a tests keep running without it.
+            patcher = mock.patch(target, replacement, create=True)
             patcher.start()
             self.addCleanup(patcher.stop)
 
@@ -146,6 +156,41 @@ class RunTest(unittest.TestCase):
         arguments = bind(telegram_client, args, kwargs)
         self.assertEqual(("bot-token", "http://telegram.local"), (arguments["token"], arguments["api_base"]))
 
+    # --- task id on the ready card (2b §5) ---
+
+    def ready_markup(self):
+        """The reply_markup of the ready card edit (the first Telegram call)."""
+        method, arguments = self.telegram.calls[0]
+        self.assertEqual("edit_message", method)
+        return arguments["reply_markup"]
+
+    def test_fetches_task_id_with_run_env_after_tailscale_is_up(self):
+        """AC-P7/§5: `run` calls fetch_task_id(env) once, after `tailscale up`"""
+        env = agent_env()
+        self.fetch_task_id.side_effect = lambda *args, **kwargs: self.events.append("fetch_task_id")
+
+        agent.run(env)
+
+        self.assertEqual(1, self.fetch_task_id.call_count)
+        args, kwargs = self.fetch_task_id.call_args
+        self.assertEqual(env, bind(fetch_task_id, args, kwargs)["env"])
+        self.assertEqual(["tailscale.start_daemon", "tailscale.up", "fetch_task_id"], self.events[:3])
+
+    def test_ready_card_stop_button_gets_fetched_task_id(self):
+        """AC-P8/§5: `run` passes the fetched task id to `ready` -> Stop callback_data STOP:<region>:<task id>"""
+        self.fetch_task_id.return_value = TASK_ID
+
+        agent.run(agent_env(TG_READY_MARKUP=READY_MARKUP_WITH_STOP))
+
+        self.assertEqual(markup_json(LINKS_ROW, [stop_button(TASK_ID), MENU_BUTTON]), self.ready_markup())
+
+    def test_ready_card_without_task_id_has_no_stop_button(self):
+        """AC-P8/§5: task id unknown -> ready card without the Stop button, node still runs"""
+        self.fetch_task_id.return_value = None
+
+        self.assertEqual(0, agent.run(agent_env(TG_READY_MARKUP=READY_MARKUP_WITH_STOP)))
+        self.assertEqual(markup_json(LINKS_ROW, [MENU_BUTTON]), self.ready_markup())
+
     # --- idle stop ---
 
     def test_idle_stop_exits_with_0(self):
@@ -232,6 +277,62 @@ class FetchPublicIpTest(unittest.TestCase):
         session = FakeSession(error=fakes.network_error())
 
         self.assertEqual("—", agent.fetch_public_ip(session=session))
+
+
+class FetchTaskIdTest(unittest.TestCase):
+    """§5: the ECS task id from the task metadata endpoint v4."""
+
+    def env(self):
+        return {"ECS_CONTAINER_METADATA_URI_V4": METADATA_URI}
+
+    def test_returns_last_segment_of_task_arn(self):
+        """AC-P7: task id = last `/` segment of TaskARN in the metadata response"""
+        session = FakeSession(FakeResponse(200, {"Cluster": "vpn-cluster", "TaskARN": TASK_ARN,
+                                                 "Family": "tailscale-node", "Revision": "7"}))
+
+        self.assertEqual(TASK_ID, agent.fetch_task_id(self.env(), session=session))
+
+    def test_queries_task_metadata_with_5_second_timeout(self):
+        """AC-P7: one GET $ECS_CONTAINER_METADATA_URI_V4/task with a 5 s timeout"""
+        session = FakeSession(FakeResponse(200, {"TaskARN": TASK_ARN}))
+
+        agent.fetch_task_id(self.env(), session=session)
+
+        self.assertEqual(1, len(session.gets))
+        url, kwargs = session.gets[0]
+        self.assertEqual(METADATA_URI + "/task", url)
+        self.assertEqual(5, kwargs.get("timeout"))
+
+    def test_without_metadata_variable_returns_none_without_request(self):
+        """AC-P7: no ECS_CONTAINER_METADATA_URI_V4 -> None, no request"""
+        session = FakeSession(FakeResponse(200, {"TaskARN": TASK_ARN}))
+
+        self.assertIsNone(agent.fetch_task_id({}, session=session))
+        self.assertEqual([], session.gets)
+
+    def test_http_error_returns_none(self):
+        """AC-P7: HTTP error -> None (even if the body has a TaskARN)"""
+        session = FakeSession(FakeResponse(500, {"TaskARN": TASK_ARN}))
+
+        self.assertIsNone(agent.fetch_task_id(self.env(), session=session))
+
+    def test_network_error_returns_none(self):
+        """AC-P7: network exception -> None"""
+        session = FakeSession(error=fakes.network_error())
+
+        self.assertIsNone(agent.fetch_task_id(self.env(), session=session))
+
+    def test_bad_json_returns_none(self):
+        """AC-P7: response body that is not JSON -> None"""
+        session = FakeSession(FakeResponse(200, text="<html>Bad Gateway</html>"))
+
+        self.assertIsNone(agent.fetch_task_id(self.env(), session=session))
+
+    def test_missing_task_arn_returns_none(self):
+        """AC-P7: JSON without TaskARN -> None"""
+        session = FakeSession(FakeResponse(200, {"Cluster": "vpn-cluster"}))
+
+        self.assertIsNone(agent.fetch_task_id(self.env(), session=session))
 
 
 if __name__ == "__main__":

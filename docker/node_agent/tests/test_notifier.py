@@ -3,7 +3,8 @@ import unittest
 from node_agent.config import AgentConfig
 from node_agent.notifier import Notifier
 from tests import fakes
-from tests.fakes import FakeTelegram
+from tests.fakes import (LINKS_ROW, MENU_BUTTON, READY_MARKUP_WITH_STOP, TASK_ID, TASK_ID_PLACEHOLDER,
+                         FakeTelegram, markup_json, stop_button)
 
 READY = "\U0001F7E2 <b>fra-node-1</b> · Frankfurt\n<code>203.0.113.7</code>"
 IDLE_WARNING = "⚠️ <b>fra-node-1</b> will stop in 2 minutes"
@@ -112,6 +113,90 @@ class NotifierTest(unittest.TestCase):
         Notifier(config(TG_READY_TEXT=None), self.telegram).ready("203.0.113.7")
 
         self.assertEqual([], self.telegram.calls)
+
+    # --- ready: task id in the Stop button (2b §4.5, §5) ---
+
+    def ready_with_markup(self, markup, *args, **kwargs):
+        """Calls `ready` with TG_READY_MARKUP = `markup`; returns the recorded Telegram calls."""
+        Notifier(config(TG_READY_MARKUP=markup), self.telegram).ready(*args, **kwargs)
+        return self.telegram.calls
+
+    def test_ready_replaces_task_id_placeholder_in_markup(self):
+        """AC-P8: {{TASK_ID}} replaced with the task id -> Stop callback_data is STOP:<region>:<task id>"""
+        calls = self.ready_with_markup(READY_MARKUP_WITH_STOP, "203.0.113.7", task_id=TASK_ID)
+
+        self.assertEqual([self.edit(READY, reply_markup=markup_json(
+            LINKS_ROW, [stop_button(TASK_ID), MENU_BUTTON]))], calls)
+
+    def test_ready_accepts_task_id_as_second_positional_argument(self):
+        """AC-P8: `ready(public_ip, task_id)` - task id passed positionally"""
+        calls = self.ready_with_markup(READY_MARKUP_WITH_STOP, "203.0.113.7", TASK_ID)
+
+        self.assertEqual([self.edit(READY, reply_markup=markup_json(
+            LINKS_ROW, [stop_button(TASK_ID), MENU_BUTTON]))], calls)
+
+    def test_ready_replaces_every_task_id_placeholder(self):
+        """AC-P8: every {{TASK_ID}} in the markup is replaced"""
+        markup = markup_json([stop_button(TASK_ID_PLACEHOLDER)], [stop_button(TASK_ID_PLACEHOLDER), MENU_BUTTON])
+
+        calls = self.ready_with_markup(markup, "203.0.113.7", task_id=TASK_ID)
+
+        self.assertEqual([self.edit(READY, reply_markup=markup_json(
+            [stop_button(TASK_ID)], [stop_button(TASK_ID), MENU_BUTTON]))], calls)
+
+    def test_ready_without_task_id_removes_stop_button_only(self):
+        """AC-P8: task_id=None -> Stop button removed; links and Menu untouched"""
+        calls = self.ready_with_markup(READY_MARKUP_WITH_STOP, "203.0.113.7", task_id=None)
+
+        self.assertEqual([self.edit(READY, reply_markup=markup_json(LINKS_ROW, [MENU_BUTTON]))], calls)
+
+    def test_ready_task_id_defaults_to_none(self):
+        """AC-P8: `ready(public_ip)` without a task id -> Stop button removed"""
+        calls = self.ready_with_markup(READY_MARKUP_WITH_STOP, "203.0.113.7")
+
+        self.assertEqual([self.edit(READY, reply_markup=markup_json(LINKS_ROW, [MENU_BUTTON]))], calls)
+
+    def test_ready_without_task_id_drops_rows_left_empty(self):
+        """AC-P8: task_id=None -> a row holding only the Stop button is dropped, other rows keep their order"""
+        markup = markup_json(LINKS_ROW, [stop_button(TASK_ID_PLACEHOLDER)], [MENU_BUTTON])
+
+        calls = self.ready_with_markup(markup, "203.0.113.7", task_id=None)
+
+        self.assertEqual([self.edit(READY, reply_markup=markup_json(LINKS_ROW, [MENU_BUTTON]))], calls)
+
+    def test_ready_without_task_id_removes_every_button_with_placeholder(self):
+        """AC-P8: task_id=None -> every button whose callback_data contains {{TASK_ID}} is removed"""
+        other = {"text": "Details", "callback_data": "USE:eu-central-1:" + TASK_ID_PLACEHOLDER}
+        markup = markup_json([other, MENU_BUTTON], [stop_button(TASK_ID_PLACEHOLDER)])
+
+        calls = self.ready_with_markup(markup, "203.0.113.7", task_id=None)
+
+        self.assertEqual([self.edit(READY, reply_markup=markup_json([MENU_BUTTON]))], calls)
+
+    def test_ready_without_task_id_and_nothing_left_sends_no_markup(self):
+        """AC-P8: task_id=None and only the Stop button -> card edited without reply_markup"""
+        calls = self.ready_with_markup(markup_json([stop_button(TASK_ID_PLACEHOLDER)]), "203.0.113.7",
+                                       task_id=None)
+
+        self.assertEqual(1, len(calls))
+        method, arguments = calls[0]
+        self.assertEqual("edit_message", method)
+        self.assertEqual(READY, arguments["text"])
+        self.assertFalse(arguments["reply_markup"], "no markup is sent when no button is left")
+
+    def test_ready_without_task_id_keeps_markup_without_placeholder(self):
+        """AC-P8: task_id=None and no {{TASK_ID}} in the markup -> markup unchanged"""
+        markup = markup_json(LINKS_ROW, [MENU_BUTTON])
+
+        calls = self.ready_with_markup(markup, "203.0.113.7", task_id=None)
+
+        self.assertEqual([self.edit(READY, reply_markup=markup)], calls)
+
+    def test_ready_with_task_id_and_no_markup(self):
+        """AC-P8: a task id without TG_READY_MARKUP -> card edited without markup"""
+        calls = self.ready_with_markup(None, "203.0.113.7", task_id=TASK_ID)
+
+        self.assertEqual([self.edit(READY)], calls)
 
     # --- idle warning ---
 
