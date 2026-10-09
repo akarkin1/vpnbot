@@ -8,7 +8,7 @@ Living plan for the bot. Each phase gets its own spec in `docs/specs/` and its o
 - **Phase 1 – button UI** (`docs/specs/ui-ux-phase1.md`, PR #17): home message with region buttons,
   one-tap launch with a single progress message, help/error screens, EN/RU texts.
 
-## Phase 2a – node reports itself, speed, metrics (in progress)
+## Phase 2a – node reports itself, speed, metrics (implemented, in review)
 
 Spec: `docs/specs/node-lifecycle-2a.md` · Branch: `feature/node-lifecycle-2a`
 
@@ -29,7 +29,9 @@ Spec: `docs/specs/node-lifecycle-2a.md` · Branch: `feature/node-lifecycle-2a`
    workflows if missing, read by the node agent and by the Lambda (once at start-up, falling back to
    the `BOT_TOKEN` env var for one release).
 
-## Phase 2b – Stop and reuse
+## Phase 2b – Stop and reuse (spec drafted)
+
+Spec: `docs/specs/node-lifecycle-2b.md` · Branch: `feature/node-lifecycle-2b`
 
 1. **🛑 Stop** button: own nodes in one tap; root can stop anyone's node after a confirmation and the
    owner is notified. Ownership is checked server-side against the task's `RunBy` tag. Needs
