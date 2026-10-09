@@ -32,23 +32,23 @@ public record UiAction(Type type, String arg) {
   }
 
   public static UiAction runNew(String regionId) {
-    throw new UnsupportedOperationException("Not implemented yet");
+    return new UiAction(Type.RUN_NEW, regionId);
   }
 
   public static UiAction use(NodeRef node) {
-    throw new UnsupportedOperationException("Not implemented yet");
+    return new UiAction(Type.USE, node.encode());
   }
 
   public static UiAction stop(NodeRef node) {
-    throw new UnsupportedOperationException("Not implemented yet");
+    return new UiAction(Type.STOP, node.encode());
   }
 
   public static UiAction confirmStop(NodeRef node) {
-    throw new UnsupportedOperationException("Not implemented yet");
+    return new UiAction(Type.STOP_CONFIRM, node.encode());
   }
 
   public Optional<NodeRef> nodeRef() {
-    throw new UnsupportedOperationException("Not implemented yet");
+    return hasNodeRef(type) ? NodeRef.parse(arg) : Optional.empty();
   }
 
   public String encode() {
@@ -76,7 +76,15 @@ public record UiAction(Type type, String arg) {
     if (type == null) {
       return false;
     }
-    return type == Type.RUN ? StringUtils.isNotBlank(arg) : arg == null;
+    return switch (type) {
+      case RUN, RUN_NEW -> StringUtils.isNotBlank(arg);
+      case USE, STOP, STOP_CONFIRM -> NodeRef.parse(arg).isPresent();
+      case HOME, HELP -> arg == null;
+    };
+  }
+
+  private static boolean hasNodeRef(Type type) {
+    return type == Type.USE || type == Type.STOP || type == Type.STOP_CONFIRM;
   }
 
 }

@@ -84,6 +84,10 @@ public class UiRouter {
       case HOME -> homeController.refreshHome(context, messageId);
       case HELP -> homeController.showHelp(context, messageId);
       case RUN -> launchController.launch(context, messageId, action.arg());
+      case RUN_NEW -> launchController.launchAnother(context, messageId, action.arg());
+      case USE -> nodeController.use(context, messageId, action.nodeRef().orElseThrow());
+      case STOP -> nodeController.stop(context, messageId, action.nodeRef().orElseThrow());
+      case STOP_CONFIRM -> nodeController.confirmStop(context, messageId, action.nodeRef().orElseThrow());
     }
   }
 

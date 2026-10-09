@@ -1,31 +1,44 @@
 package org.github.akarkin1.ui.screen;
 
-import lombok.RequiredArgsConstructor;
 import org.github.akarkin1.ecs.TaskInfo;
+import org.github.akarkin1.ui.NodeRef;
+import org.github.akarkin1.ui.UiAction;
 
-@RequiredArgsConstructor
+import java.util.List;
+
+import static org.github.akarkin1.ui.screen.CommonButtons.MENU;
+import static org.github.akarkin1.ui.screen.NodeFormat.orDash;
+
 public class NodeScreens {
 
-  private final RegionLabels regionLabels;
-
   public Screen stopping(TaskInfo node) {
-    throw new UnsupportedOperationException("Not implemented yet");
+    return new Screen("🛑 <b>%s</b> ${ui.node.stopping}",
+                      List.of(orDash(node.getHostName())),
+                      List.of(List.of(MENU)));
   }
 
   public Screen confirmStop(TaskInfo node) {
-    throw new UnsupportedOperationException("Not implemented yet");
+    NodeRef nodeRef = new NodeRef(node.getRegion().id(), node.getId());
+    Button yes = Button.action("🛑 ${ui.button.yes-stop}", UiAction.confirmStop(nodeRef));
+    Button cancel = Button.action("↩️ ${ui.button.cancel}", UiAction.home());
+    return new Screen("❓ ${ui.stop.confirm} <b>%s</b> (%s)?",
+                      List.of(orDash(node.getHostName()), "@" + node.getRunBy()),
+                      List.of(List.of(yes, cancel)));
   }
 
   public Screen alreadyStopped() {
-    throw new UnsupportedOperationException("Not implemented yet");
+    return new Screen("⚪ ${ui.node.already-stopped}", List.of(), List.of(List.of(MENU)));
   }
 
   public Screen notAllowed() {
-    throw new UnsupportedOperationException("Not implemented yet");
+    return new Screen("⛔ ${ui.stop.not-allowed}", List.of(), List.of(List.of(MENU)));
   }
 
   public Screen stoppedByAdmin(TaskInfo node) {
-    throw new UnsupportedOperationException("Not implemented yet");
+    Button startAgain = Button.action("🚀 ${ui.button.start-again}", UiAction.run(node.getRegion().id()));
+    return new Screen("🛑 <b>%s</b> ${ui.node.stopped-by-admin}",
+                      List.of(orDash(node.getHostName())),
+                      List.of(List.of(startAgain, MENU)));
   }
 
 }

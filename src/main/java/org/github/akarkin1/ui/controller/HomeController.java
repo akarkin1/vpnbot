@@ -53,9 +53,13 @@ public class HomeController {
     List<String> regionIds = canRunNodes
         ? new ArrayList<>(nodeService.getSupportedRegionIds())
         : List.of();
+    List<String> stoppableTaskIds = nodes.stream()
+        .filter(node -> nodeAccess.canStop(username, node))
+        .map(TaskInfo::getId)
+        .toList();
 
     return new HomeModel(context.firstName(), username, canListNodes, canRunNodes, allNodes,
-                         nodes, regionIds, List.of());
+                         nodes, regionIds, stoppableTaskIds);
   }
 
 }
