@@ -42,7 +42,7 @@ public class UiConfigurer {
         nodeService, authorizer, messenger, launchScreens,
         new NodeNotifications(launchScreens, renderer));
     NodeController nodeController = new NodeController(nodeService, nodeAccess, messenger,
-                                                       new NodeScreens(regionLabels),
+                                                       new NodeScreens(),
                                                        launchScreens);
 
     UiRouter router = new UiRouter(homeController, launchController, nodeController, messenger,

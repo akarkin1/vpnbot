@@ -1,6 +1,5 @@
 package org.github.akarkin1.ui.screen;
 
-import lombok.RequiredArgsConstructor;
 import org.github.akarkin1.ecs.TaskInfo;
 import org.github.akarkin1.ui.NodeRef;
 import org.github.akarkin1.ui.UiAction;
@@ -10,10 +9,7 @@ import java.util.List;
 import static org.github.akarkin1.ui.screen.CommonButtons.MENU;
 import static org.github.akarkin1.ui.screen.NodeFormat.orDash;
 
-@RequiredArgsConstructor
 public class NodeScreens {
-
-  private final RegionLabels regionLabels;
 
   public Screen stopping(TaskInfo node) {
     return new Screen("🛑 <b>%s</b> ${ui.node.stopping}",
