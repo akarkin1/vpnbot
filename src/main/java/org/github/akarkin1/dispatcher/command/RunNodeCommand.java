@@ -6,7 +6,9 @@ import org.github.akarkin1.auth.Permission;
 import org.github.akarkin1.dispatcher.response.EmptyResponse;
 import org.github.akarkin1.message.MessageConsumer;
 import org.github.akarkin1.tailscale.TailscaleNodeService;
+import org.github.akarkin1.tg.TgRequestContext;
 import org.github.akarkin1.ui.NodeLauncher;
+import org.github.akarkin1.ui.UiContext;
 
 import java.util.List;
 
@@ -53,7 +55,12 @@ public final class RunNodeCommand implements BotCommand<EmptyResponse> {
       }
     }
 
-    throw new UnsupportedOperationException("Not implemented yet");
+    UiContext context = new UiContext(TgRequestContext.getChatId(),
+                                      TgRequestContext.getUsername(),
+                                      null,
+                                      TgRequestContext.getLanguageCode());
+    nodeLauncher.launchInNewMessage(context, tailscaleNodeService.toRegionId(userRegion), userHost);
+    return EmptyResponse.NONE;
   }
 
   @Override

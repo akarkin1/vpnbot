@@ -5,7 +5,9 @@ import org.github.akarkin1.ui.UiAction;
 
 import java.util.List;
 
+import static org.github.akarkin1.ui.screen.CommonButtons.LINKS;
 import static org.github.akarkin1.ui.screen.CommonButtons.MENU;
+import static org.github.akarkin1.ui.screen.NodeFormat.orDash;
 
 @RequiredArgsConstructor
 public class LaunchScreens {
@@ -21,23 +23,32 @@ public class LaunchScreens {
   public Screen waiting(String regionId) {
     return new Screen("🚀 ${ui.launch.starting} %s…\n✅ ${ui.launch.step.submitted}\n⏳ ${ui.launch.step.waiting}",
                       List.of(regionLabels.label(regionId)),
-                      List.of());
+                      List.of(List.of(MENU)));
   }
 
   public Screen ready(String hostName, String regionId, String publicIp) {
-    throw new UnsupportedOperationException("Not implemented yet");
+    return new Screen("%s <b>%s</b> · %s\n🌐 <code>%s</code>\n⏱ ${ui.node.auto-stop}\n\n${ui.node.connect-hint}",
+                      List.of("🟢", orDash(hostName), label(regionId), orDash(publicIp)),
+                      List.of(LINKS, List.of(MENU)));
   }
 
   public Screen idleWarning(String hostName) {
-    throw new UnsupportedOperationException("Not implemented yet");
+    return new Screen("⚠️ <b>%s</b> ${ui.node.idle-warning}",
+                      List.of(orDash(hostName)),
+                      List.of());
   }
 
   public Screen stopped(String hostName, String regionId) {
-    throw new UnsupportedOperationException("Not implemented yet");
+    Button startAgain = Button.action("🚀 ${ui.button.start-again}", UiAction.run(regionId));
+    return new Screen("🛑 <b>%s</b> ${ui.node.stopped-idle}",
+                      List.of(orDash(hostName)),
+                      List.of(List.of(startAgain, MENU)));
   }
 
   public Screen stoppedCard(String hostName, String regionId) {
-    throw new UnsupportedOperationException("Not implemented yet");
+    return new Screen("⚪ <b>%s</b> · %s\n🛑 ${ui.node.stopped}",
+                      List.of(orDash(hostName), label(regionId)),
+                      List.of());
   }
 
   public Screen failed(String regionId) {
@@ -53,6 +64,10 @@ public class LaunchScreens {
 
   public Screen notAllowed() {
     return new Screen("⛔ ${ui.launch.not-allowed}", List.of(), List.of(List.of(MENU)));
+  }
+
+  private String label(String regionId) {
+    return orDash(regionId == null ? null : regionLabels.label(regionId));
   }
 
 }
