@@ -1,7 +1,6 @@
 package org.github.akarkin1.dispatcher.command;
 
 import lombok.RequiredArgsConstructor;
-import lombok.extern.log4j.Log4j2;
 import org.github.akarkin1.auth.Permission;
 import org.github.akarkin1.dispatcher.response.EmptyResponse;
 import org.github.akarkin1.message.MessageConsumer;
@@ -12,7 +11,6 @@ import org.github.akarkin1.ui.UiContext;
 
 import java.util.List;
 
-@Log4j2
 @RequiredArgsConstructor
 public final class RunNodeCommand implements BotCommand<EmptyResponse> {
 
