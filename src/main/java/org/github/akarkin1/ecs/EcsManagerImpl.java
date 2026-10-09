@@ -8,6 +8,7 @@ import org.github.akarkin1.config.YamlApplicationConfiguration.EcsConfiguration;
 import org.github.akarkin1.ec2.Ec2ClientPool;
 import org.github.akarkin1.metrics.MetricComponent;
 import org.github.akarkin1.metrics.RequestMetrics;
+import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.ec2.Ec2Client;
 import software.amazon.awssdk.services.ec2.model.DescribeNetworkInterfacesRequest;
@@ -36,6 +37,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -252,12 +254,23 @@ public class EcsManagerImpl implements EcsManager {
     DescribeNetworkInterfacesRequest request = DescribeNetworkInterfacesRequest.builder()
         .networkInterfaceIds(networkInterfaceId)
         .build();
-    DescribeNetworkInterfacesResponse response = ec2Client.describeNetworkInterfaces(request);
-    return response.networkInterfaces().stream()
+    DescribeNetworkInterfacesResponse response;
+    try {
+      response = ec2Client.describeNetworkInterfaces(request);
+    } catch (SdkException e) {
+      log.warn("Failed to describe network interface {} in {}", networkInterfaceId, region, e);
+      return null;
+    }
+    String publicIp = response.networkInterfaces().stream()
         .map(NetworkInterface::association)
+        .filter(Objects::nonNull)
         .map(NetworkInterfaceAssociation::publicIp)
         .findFirst()
         .orElse(null);
+    if (publicIp == null) {
+      log.debug("Network interface {} in {} has no public IP yet", networkInterfaceId, region);
+    }
+    return publicIp;
   }
 
   private static String taskIdFromArn(String taskArn) {
