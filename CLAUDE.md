@@ -20,7 +20,7 @@ Planned work lives in `docs/roadmap.md`.
 ```
 TailscaleVpnLambdaHandler  (API Gateway → Lambda entry point, wiring in a static block)
  ├─ UiRouter (ui)           button taps (callback queries), /start, /menu, plain text
- │   ├─ HomeController, LaunchController (ui.controller)
+ │   ├─ HomeController, LaunchController, NodeController (stop/use) + NodeAccess (ui.controller)
  │   ├─ *Screen classes (ui.screen): pure functions, data → Screen (template + params + buttons)
  │   └─ UiMessenger (ui.messenger): sends/edits Telegram messages, translates, HTML-escapes
  └─ CommandDispatcher       every other "/command" (dispatcher.command.*), plain-text replies
