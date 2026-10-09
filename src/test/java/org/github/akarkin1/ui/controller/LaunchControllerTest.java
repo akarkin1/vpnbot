@@ -235,6 +235,57 @@ class LaunchControllerTest {
   }
 
   @Test
+  @DisplayName("2b D-7: nodes in the region without RunBy or run by another user do not trigger the choice; the node is launched")
+  void foreignOrUntaggedNodesInRegionIgnored() {
+    allowRun();
+    supportRegion();
+    TaskInfo untagged = node("task-4", "legacy-frankfurt-1", Region.EU_CENTRAL_1, null);
+    TaskInfo bobs = node("task-5", "bob-frankfurt-1", Region.EU_CENTRAL_1, "bob");
+    when(nodeService.listTasks("alex")).thenReturn(List.of(untagged, bobs));
+    when(nodeNotifications.build(CONTEXT, MESSAGE_ID, REGION)).thenReturn(ENV);
+    when(nodeService.runNode(REGION, OWNER, null, ENV)).thenReturn(TASK);
+
+    controller.launch(CONTEXT, MESSAGE_ID, REGION);
+
+    verify(nodeService).runNode(REGION, OWNER, null, ENV);
+    verify(messenger).edit(CONTEXT, MESSAGE_ID, WAITING);
+    verify(launchScreens, never()).existingNodes(any(), any());
+  }
+
+  @Test
+  @DisplayName("2b D-7: existingNodes gets only the nodes whose RunBy is the user")
+  void existingNodesOnlyOwnRunBy() {
+    allowRun();
+    supportRegion();
+    TaskInfo untagged = node("task-4", "legacy-frankfurt-1", Region.EU_CENTRAL_1, null);
+    TaskInfo bobs = node("task-5", "bob-frankfurt-1", Region.EU_CENTRAL_1, "bob");
+    when(nodeService.listTasks("alex")).thenReturn(List.of(untagged, OWN_NODE_HERE, bobs));
+    when(launchScreens.existingNodes(REGION, List.of(OWN_NODE_HERE))).thenReturn(EXISTING);
+
+    controller.launch(CONTEXT, MESSAGE_ID, REGION);
+
+    verify(messenger).edit(CONTEXT, MESSAGE_ID, EXISTING);
+    verify(nodeService, never()).runNode(any(), any(), any(), any());
+  }
+
+  @Test
+  @DisplayName("2b D-8: a failing reuse check edits the message to failed and runs no node")
+  void reuseCheckFailureShowsFailed() {
+    allowRun();
+    supportRegion();
+    when(nodeService.listTasks("alex")).thenThrow(new IllegalStateException("ECS down"));
+
+    controller.launch(CONTEXT, MESSAGE_ID, REGION);
+
+    InOrder inOrder = inOrder(messenger);
+    inOrder.verify(messenger).edit(CONTEXT, MESSAGE_ID, STARTING);
+    inOrder.verify(messenger).edit(CONTEXT, MESSAGE_ID, FAILED);
+    verify(nodeService, never()).runNode(any(), any(), any(), any());
+    verify(messenger, never()).edit(CONTEXT, MESSAGE_ID, WAITING);
+    verifyNoInteractions(nodeNotifications);
+  }
+
+  @Test
   @DisplayName("2b AC-6: the reuse check lists only the user's own nodes, also for root")
   void reuseCheckUsesOwnNodesForRoot() {
     allowRun();
@@ -408,11 +459,15 @@ class LaunchControllerTest {
   }
 
   private static TaskInfo node(String id, String hostName, Region region) {
+    return node(id, hostName, region, "alex");
+  }
+
+  private static TaskInfo node(String id, String hostName, Region region, String runBy) {
     return TaskInfo.builder()
         .id(id)
         .hostName(hostName)
         .region(region)
-        .runBy("alex")
+        .runBy(runBy)
         .build();
   }
 
