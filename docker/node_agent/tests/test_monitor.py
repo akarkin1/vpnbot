@@ -54,6 +54,64 @@ class IdleMonitorTest(unittest.TestCase):
 
         self.assertEqual([Action.NONE] * 7 + [Action.WARN, Action.NONE, Action.STOP], actions)
 
+    # --- RESUME (stop-in-place §4.3) ---
+
+    def test_resume_when_peers_come_back_after_warning(self):
+        """AC-P3: active peers right after a WARN -> RESUME"""
+        observe_idle(self.monitor, 8)
+
+        self.assertEqual(Action.RESUME, self.monitor.observe(1))
+
+    def test_resume_when_peers_come_back_later_in_warned_period(self):
+        """AC-P3: WARN, then idle NONE checks, then active peers -> RESUME"""
+        self.assertEqual([Action.NONE] * 7 + [Action.WARN, Action.NONE], observe_idle(self.monitor, 9))
+
+        self.assertEqual(Action.RESUME, self.monitor.observe(3))
+
+    def test_resume_only_once(self):
+        """AC-P3: RESUME exactly once; further checks with active peers -> NONE"""
+        observe_idle(self.monitor, 8)
+
+        actions = [self.monitor.observe(1) for _ in range(3)]
+
+        self.assertEqual([Action.RESUME, Action.NONE, Action.NONE], actions)
+
+    def test_no_resume_without_prior_warning(self):
+        """AC-P3: active peers after an idle period that was not warned about -> NONE"""
+        observe_idle(self.monitor, 7)
+
+        self.assertEqual(Action.NONE, self.monitor.observe(1))
+
+    def test_no_resume_when_always_active(self):
+        """AC-P3: active peers from the start -> never RESUME"""
+        self.assertEqual([Action.NONE] * 3, [self.monitor.observe(1) for _ in range(3)])
+
+    def test_new_idle_period_after_resume_warns_and_stops_again(self):
+        """AC-P3: after RESUME the idle time and the warning reset -> a new idle period warns again"""
+        observe_idle(self.monitor, 8)
+        self.assertEqual(Action.RESUME, self.monitor.observe(1))
+
+        actions = observe_idle(self.monitor, 10)
+
+        self.assertEqual([Action.NONE] * 7 + [Action.WARN, Action.NONE, Action.STOP], actions)
+
+    def test_resume_after_each_warning(self):
+        """AC-P3: every warned idle period ended by peers gives one RESUME"""
+        actions = []
+        for _ in range(2):
+            actions += observe_idle(self.monitor, 8)
+            actions += [self.monitor.observe(1), self.monitor.observe(1)]
+
+        self.assertEqual(2 * ([Action.NONE] * 7 + [Action.WARN, Action.RESUME, Action.NONE]), actions)
+
+    def test_no_resume_after_unwarned_period_following_resume(self):
+        """AC-P3: WARN, RESUME, short idle period without a warning, peers -> NONE"""
+        observe_idle(self.monitor, 8)
+        self.monitor.observe(1)
+        observe_idle(self.monitor, 3)
+
+        self.assertEqual(Action.NONE, self.monitor.observe(1))
+
     def test_stop_wins_over_warning_when_timeout_is_reached(self):
         """AC-P1: idle time >= timeout -> STOP even if never warned"""
         monitor = IdleMonitor(inactivity_timeout=60, check_interval=60)

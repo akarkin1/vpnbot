@@ -60,6 +60,20 @@ class AgentConfigTest(unittest.TestCase):
         self.assertEqual(fakes.STOPPED_MARKUP, config.stopped_markup)
         self.assertEqual(fakes.STOPPED_CARD_TEXT, config.stopped_card_text)
 
+    def test_stopped_card_markup_is_read(self):
+        """stop-in-place §4.3: stopped_card_markup is read from TG_STOPPED_CARD_MARKUP"""
+        config = AgentConfig.from_env(fakes.full_env())
+
+        self.assertEqual(fakes.STOPPED_CARD_MARKUP, config.stopped_card_markup)
+
+    def test_stopped_card_markup_is_none_when_absent(self):
+        """stop-in-place §4.3: TG_STOPPED_CARD_MARKUP is optional (Lambda before stop-in-place)"""
+        env = fakes.full_env()
+        del env["TG_STOPPED_CARD_MARKUP"]
+
+        self.assertIsNone(AgentConfig.from_env(env).stopped_card_markup)
+        self.assertIsNone(AgentConfig.from_env(fakes.required_env()).stopped_card_markup)
+
     def test_invalid_message_id_is_none(self):
         """AC-P5/D-9: an invalid TG_MESSAGE_ID gives None, no exception"""
         for value in ("null", "abc", ""):
