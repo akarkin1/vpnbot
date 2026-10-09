@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.github.akarkin1.auth.Authorizer;
 import org.github.akarkin1.auth.Permission;
+import org.github.akarkin1.ecs.TaskInfo;
 import org.github.akarkin1.tailscale.NodeOwner;
 import org.github.akarkin1.tailscale.TailscaleNodeService;
 import org.github.akarkin1.ui.NodeLauncher;
@@ -12,6 +13,7 @@ import org.github.akarkin1.ui.messenger.NodeNotifications;
 import org.github.akarkin1.ui.messenger.UiMessenger;
 import org.github.akarkin1.ui.screen.LaunchScreens;
 
+import java.util.List;
 import java.util.Map;
 
 @Log4j2
@@ -25,6 +27,15 @@ public class LaunchController implements NodeLauncher {
   private final NodeNotifications nodeNotifications;
 
   public void launch(UiContext context, Integer messageId, String regionId) {
+    launch(context, messageId, regionId, true);
+  }
+
+  public void launchAnother(UiContext context, Integer messageId, String regionId) {
+    launch(context, messageId, regionId, false);
+  }
+
+  private void launch(UiContext context, Integer messageId, String regionId,
+                      boolean offerExistingNodes) {
     String username = context.username();
     if (username == null || !authorizer.hasPermission(username, Permission.RUN_NODES)) {
       messenger.edit(context, messageId, launchScreens.notAllowed());
@@ -32,27 +43,42 @@ public class LaunchController implements NodeLauncher {
     }
 
     messenger.edit(context, messageId, launchScreens.starting(regionId));
-    startNodeInSupportedRegion(context, messageId, regionId, null);
-  }
+    if (!isRegionSupported(context, messageId, regionId)) {
+      return;
+    }
 
-  public void launchAnother(UiContext context, Integer messageId, String regionId) {
-    throw new UnsupportedOperationException("Not implemented yet");
+    if (offerExistingNodes) {
+      List<TaskInfo> existing = ownNodesInRegion(username, regionId);
+      if (!existing.isEmpty()) {
+        messenger.edit(context, messageId, launchScreens.existingNodes(regionId, existing));
+        return;
+      }
+    }
+
+    startNode(context, messageId, regionId, null);
   }
 
   @Override
   public void launchInNewMessage(UiContext context, String regionId, String hostName) {
     Integer messageId = messenger.send(context, launchScreens.starting(regionId));
-    startNodeInSupportedRegion(context, messageId, regionId, hostName);
+    if (isRegionSupported(context, messageId, regionId)) {
+      startNode(context, messageId, regionId, hostName);
+    }
   }
 
-  private void startNodeInSupportedRegion(UiContext context, Integer messageId, String regionId,
-                                          String hostName) {
+  private boolean isRegionSupported(UiContext context, Integer messageId, String regionId) {
     if (!nodeService.getSupportedRegionIds().contains(regionId)) {
       messenger.edit(context, messageId, launchScreens.regionUnavailable());
-      return;
+      return false;
     }
+    return true;
+  }
 
-    startNode(context, messageId, regionId, hostName);
+  private List<TaskInfo> ownNodesInRegion(String username, String regionId) {
+    return nodeService.listTasks(username)
+        .stream()
+        .filter(node -> node.getRegion() != null && regionId.equals(node.getRegion().id()))
+        .toList();
   }
 
   private void startNode(UiContext context, Integer messageId, String regionId, String hostName) {

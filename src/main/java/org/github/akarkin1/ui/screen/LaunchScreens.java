@@ -2,8 +2,10 @@ package org.github.akarkin1.ui.screen;
 
 import lombok.RequiredArgsConstructor;
 import org.github.akarkin1.ecs.TaskInfo;
+import org.github.akarkin1.ui.NodeRef;
 import org.github.akarkin1.ui.UiAction;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.github.akarkin1.ui.screen.CommonButtons.LINKS;
@@ -28,9 +30,10 @@ public class LaunchScreens {
   }
 
   public Screen ready(String hostName, String regionId, String publicIp, String taskId) {
+    Button stop = Button.action("🛑 ${ui.button.stop}", UiAction.stop(new NodeRef(regionId, taskId)));
     return new Screen("%s <b>%s</b> · %s\n🌐 <code>%s</code>\n⏱ ${ui.node.auto-stop}\n\n${ui.node.connect-hint}",
                       List.of("🟢", orDash(hostName), label(regionId), orDash(publicIp)),
-                      List.of(LINKS, List.of(MENU)));
+                      List.of(LINKS, List.of(stop, MENU)));
   }
 
   public Screen idleWarning(String hostName) {
@@ -60,7 +63,20 @@ public class LaunchScreens {
   }
 
   public Screen existingNodes(String regionId, List<TaskInfo> nodes) {
-    throw new UnsupportedOperationException("Not implemented yet");
+    List<List<Button>> keyboard = new ArrayList<>();
+    for (TaskInfo node : nodes) {
+      String label = "📋 ${ui.button.use} " + escapePercent(orDash(node.getHostName()));
+      keyboard.add(List.of(Button.action(label, UiAction.use(new NodeRef(regionId, node.getId())))));
+    }
+    keyboard.add(List.of(Button.action("🚀 ${ui.button.start-another}", UiAction.runNew(regionId))));
+    keyboard.add(List.of(MENU));
+    return new Screen("ℹ️ ${ui.reuse.existing}\n📍 %s",
+                      List.of(regionLabels.label(regionId)),
+                      keyboard);
+  }
+
+  private static String escapePercent(String value) {
+    return value.replace("%", "%%");
   }
 
   public Screen regionUnavailable() {
