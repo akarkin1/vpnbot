@@ -13,6 +13,38 @@ STOPPED_TEXT = "\U0001F6D1 <b>{{HOSTNAME}}</b> was stopped"
 STOPPED_MARKUP = '{"inline_keyboard":[[{"text":"Start again","callback_data":"r"}]]}'
 STOPPED_CARD_TEXT = "⚪ <b>{{HOSTNAME}}</b> · Frankfurt\nStopped"
 
+# --- ready card keyboard with the Stop button (2b §4.5) ---------------------
+
+TASK_ID_PLACEHOLDER = "{{TASK_ID}}"
+TASK_ID = "0123456789abcdef0123456789abcdef"
+TASK_ARN = "arn:aws:ecs:eu-central-1:123456789012:task/vpn-cluster/" + TASK_ID
+LINKS_ROW = [{"text": "\U0001F4D6 Exit node guide", "url": "https://tailscale.com/kb/1103/exit-nodes"},
+             {"text": "⬇️ Get Tailscale", "url": "https://tailscale.com/download"}]
+MENU_BUTTON = {"text": "\U0001F3E0 Menu", "callback_data": "HOME"}
+
+
+def canonical_markup(reply_markup):
+    """A `reply_markup` (JSON string or object) as compact JSON with non-ASCII kept, so that
+    markups Telegram receives as the same object compare equal however they were serialized.
+    Falsy values (no markup, which `TelegramClient` does not send) are returned unchanged."""
+    if not reply_markup:
+        return reply_markup
+    value = json.loads(reply_markup) if isinstance(reply_markup, str) else reply_markup
+    return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+
+
+def stop_button(task_id):
+    return {"text": "\U0001F6D1 Stop", "callback_data": "STOP:eu-central-1:" + task_id}
+
+
+def markup_json(*rows):
+    """An inline keyboard as compact JSON, the form `canonical_markup` produces."""
+    return canonical_markup({"inline_keyboard": [list(row) for row in rows]})
+
+
+# The ready card markup as the Lambda renders it in 2b: links row, then [Stop][Menu].
+READY_MARKUP_WITH_STOP = markup_json(LINKS_ROW, [stop_button(TASK_ID_PLACEHOLDER), MENU_BUTTON])
+
 
 def required_env():
     """Only the variables §5 marks as required."""
@@ -211,7 +243,8 @@ def network_error():
 
 class FakeTelegram:
     """Same method signatures as the `TelegramClient` contract; records calls as dicts of
-    bound arguments (so positional and keyword calls compare equal)."""
+    bound arguments (so positional and keyword calls compare equal), with `reply_markup` in
+    `canonical_markup` form (so a string and an equal object compare equal)."""
 
     def __init__(self, events=None, result=True):
         self.calls = []
@@ -228,6 +261,7 @@ class FakeTelegram:
 
     def _record(self, method, arguments):
         arguments = {k: v for k, v in arguments.items() if k != "self"}
+        arguments["reply_markup"] = canonical_markup(arguments["reply_markup"])
         self.calls.append((method, arguments))
         self.events.append("telegram." + method)
 
