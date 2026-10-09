@@ -11,7 +11,7 @@ public record UiAction(Type type, String arg) {
   private static final int MAX_DATA_BYTES = 64;
   private static final String SEPARATOR = ":";
 
-  public enum Type { HOME, HELP, RUN }
+  public enum Type { HOME, HELP, RUN, RUN_NEW, USE, STOP, STOP_CONFIRM }
 
   public UiAction {
     if (!isValid(type, arg)) {
@@ -29,6 +29,26 @@ public record UiAction(Type type, String arg) {
 
   public static UiAction run(String regionId) {
     return new UiAction(Type.RUN, regionId);
+  }
+
+  public static UiAction runNew(String regionId) {
+    throw new UnsupportedOperationException("Not implemented yet");
+  }
+
+  public static UiAction use(NodeRef node) {
+    throw new UnsupportedOperationException("Not implemented yet");
+  }
+
+  public static UiAction stop(NodeRef node) {
+    throw new UnsupportedOperationException("Not implemented yet");
+  }
+
+  public static UiAction confirmStop(NodeRef node) {
+    throw new UnsupportedOperationException("Not implemented yet");
+  }
+
+  public Optional<NodeRef> nodeRef() {
+    throw new UnsupportedOperationException("Not implemented yet");
   }
 
   public String encode() {

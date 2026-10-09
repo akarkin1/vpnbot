@@ -11,6 +11,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -65,8 +66,9 @@ public class TailscaleEcsNodeService implements TailscaleNodeService {
   }
 
   @Override
-  public TaskInfo runNode(String userRegion, String userTgId, String userHostName,
+  public TaskInfo runNode(String userRegion, NodeOwner owner, String userHostName,
                           Map<String, String> environment) {
+    String userTgId = owner.username();
     Region region = regionByCity.getOrDefault(userRegion, Region.of(userRegion));
 
     String hostName = userHostName;
@@ -80,6 +82,16 @@ public class TailscaleEcsNodeService implements TailscaleNodeService {
         config.getServiceNameTag(), config.getServiceName()
     );
     return ecsManager.startTask(region, hostName, assignedTags, environment);
+  }
+
+  @Override
+  public Optional<TaskInfo> getNode(String regionId, String taskId) {
+    throw new UnsupportedOperationException("Not implemented yet");
+  }
+
+  @Override
+  public void stopNode(String regionId, String taskId, String reason) {
+    throw new UnsupportedOperationException("Not implemented yet");
   }
 
   @Override

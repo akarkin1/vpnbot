@@ -38,6 +38,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -234,6 +235,16 @@ public class EcsManagerImpl implements EcsManager {
     }
 
     return foundTasks;
+  }
+
+  @Override
+  public Optional<TaskInfo> getTask(Region region, String taskId) {
+    throw new UnsupportedOperationException("Not implemented yet");
+  }
+
+  @Override
+  public void stopTask(Region region, String taskId, String reason) {
+    throw new UnsupportedOperationException("Not implemented yet");
   }
 
   private String getTaskPublicIp(Region region, Task task) {

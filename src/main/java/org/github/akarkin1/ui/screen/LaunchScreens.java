@@ -1,6 +1,7 @@
 package org.github.akarkin1.ui.screen;
 
 import lombok.RequiredArgsConstructor;
+import org.github.akarkin1.ecs.TaskInfo;
 import org.github.akarkin1.ui.UiAction;
 
 import java.util.List;
@@ -26,7 +27,7 @@ public class LaunchScreens {
                       List.of(List.of(MENU)));
   }
 
-  public Screen ready(String hostName, String regionId, String publicIp) {
+  public Screen ready(String hostName, String regionId, String publicIp, String taskId) {
     return new Screen("%s <b>%s</b> · %s\n🌐 <code>%s</code>\n⏱ ${ui.node.auto-stop}\n\n${ui.node.connect-hint}",
                       List.of("🟢", orDash(hostName), label(regionId), orDash(publicIp)),
                       List.of(LINKS, List.of(MENU)));
@@ -56,6 +57,10 @@ public class LaunchScreens {
     return new Screen("🔴 ${ui.launch.failed}\n📍 %s",
                       List.of(regionLabels.label(regionId)),
                       List.of(List.of(tryAgain, MENU)));
+  }
+
+  public Screen existingNodes(String regionId, List<TaskInfo> nodes) {
+    throw new UnsupportedOperationException("Not implemented yet");
   }
 
   public Screen regionUnavailable() {

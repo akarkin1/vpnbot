@@ -18,6 +18,7 @@ public class NodeNotifications {
 
   public static final String HOSTNAME_PLACEHOLDER = "{{HOSTNAME}}";
   public static final String PUBLIC_IP_PLACEHOLDER = "{{PUBLIC_IP}}";
+  public static final String TASK_ID_PLACEHOLDER = "{{TASK_ID}}";
 
   private final LaunchScreens launchScreens;
   private final ScreenRenderer renderer;
@@ -27,7 +28,8 @@ public class NodeNotifications {
     environment.put("TG_CHAT_ID", String.valueOf(context.chatId()));
     environment.put("TG_MESSAGE_ID", String.valueOf(messageId));
     put(environment, "TG_READY", context,
-        launchScreens.ready(HOSTNAME_PLACEHOLDER, regionId, PUBLIC_IP_PLACEHOLDER));
+        launchScreens.ready(HOSTNAME_PLACEHOLDER, regionId, PUBLIC_IP_PLACEHOLDER,
+                            TASK_ID_PLACEHOLDER));
     put(environment, "TG_IDLE_WARNING", context, launchScreens.idleWarning(HOSTNAME_PLACEHOLDER));
     put(environment, "TG_STOPPED", context, launchScreens.stopped(HOSTNAME_PLACEHOLDER, regionId));
     put(environment, "TG_STOPPED_CARD", context,

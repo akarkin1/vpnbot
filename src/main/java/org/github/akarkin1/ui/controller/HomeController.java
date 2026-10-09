@@ -19,6 +19,7 @@ public class HomeController {
 
   private final TailscaleNodeService nodeService;
   private final Authorizer authorizer;
+  private final NodeAccess nodeAccess;
   private final UiMessenger messenger;
   private final HomeScreen homeScreen;
   private final HelpScreen helpScreen;
@@ -38,7 +39,8 @@ public class HomeController {
   private HomeModel buildModel(UiContext context) {
     String username = context.username();
     if (username == null) {
-      return new HomeModel(context.firstName(), null, false, false, false, List.of(), List.of());
+      return new HomeModel(context.firstName(), null, false, false, false, List.of(), List.of(),
+                           List.of());
     }
 
     boolean canListNodes = authorizer.hasPermission(username, Permission.LIST_NODES);
@@ -53,7 +55,7 @@ public class HomeController {
         : List.of();
 
     return new HomeModel(context.firstName(), username, canListNodes, canRunNodes, allNodes,
-                         nodes, regionIds);
+                         nodes, regionIds, List.of());
   }
 
 }

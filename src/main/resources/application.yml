@@ -17,6 +17,8 @@ ecs:
   service-name-tag: ServiceName
   host-name-tag: Hostname
   run-by-tag: RunBy
+  chat-id-tag: ChatId
+  language-tag: Lang
 
 aws:
   region-cities:

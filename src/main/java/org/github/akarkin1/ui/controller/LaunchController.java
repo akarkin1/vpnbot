@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.github.akarkin1.auth.Authorizer;
 import org.github.akarkin1.auth.Permission;
+import org.github.akarkin1.tailscale.NodeOwner;
 import org.github.akarkin1.tailscale.TailscaleNodeService;
 import org.github.akarkin1.ui.NodeLauncher;
 import org.github.akarkin1.ui.UiContext;
@@ -34,6 +35,10 @@ public class LaunchController implements NodeLauncher {
     startNodeInSupportedRegion(context, messageId, regionId, null);
   }
 
+  public void launchAnother(UiContext context, Integer messageId, String regionId) {
+    throw new UnsupportedOperationException("Not implemented yet");
+  }
+
   @Override
   public void launchInNewMessage(UiContext context, String regionId, String hostName) {
     Integer messageId = messenger.send(context, launchScreens.starting(regionId));
@@ -52,8 +57,9 @@ public class LaunchController implements NodeLauncher {
 
   private void startNode(UiContext context, Integer messageId, String regionId, String hostName) {
     Map<String, String> environment = nodeNotifications.build(context, messageId, regionId);
+    NodeOwner owner = new NodeOwner(context.username(), context.chatId(), context.languageCode());
     try {
-      nodeService.runNode(regionId, context.username(), hostName, environment);
+      nodeService.runNode(regionId, owner, hostName, environment);
     } catch (RuntimeException e) {
       log.error("Failed to run a node in region {} for user {}", regionId, context.username(), e);
       messenger.edit(context, messageId, launchScreens.failed(regionId));
