@@ -408,4 +408,13 @@ Mixed versions are safe: an old image ignores the `TG_*` vars (user taps Menu); 
 
 ## 13. Decision log
 
-- (empty)
+- D-1 (T5) Missing required agent env vars → `AgentConfig.from_env` raises `ValueError`; `run` returns 1.
+  `chat_id` is kept as a string.
+- D-2 (T5) `Notifier.render` HTML-escapes the hostname and IP (CLAUDE.md rule; normal values unchanged).
+- D-3 (T5) Every `tailscale` CLI call has a 30 s timeout (a hung `status` must not keep a node alive).
+- D-4 (review) `Tailscale.up` also stops after 300 s in total (`Tailscale(..., monotonic=time.monotonic)`
+  injectable), so a node that can't reach the Tailscale control server doesn't run for up to an hour.
+- D-5 (review) If `up` fails, the agent edits the progress message to the stopped card
+  (`notifier.stopped()`) before exiting with 1, so the user isn't left on "waiting".
+- D-6 (T3) Two message keys that were already unused before this phase were removed with the others
+  (`command.assign-roles.usage-note.without-roles`, `common.permissions.action-not-allowed.error`).
