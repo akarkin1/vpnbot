@@ -193,6 +193,20 @@ class RunTest(unittest.TestCase):
         self.assertEqual(0, agent.run(agent_env(TG_MESSAGE_ID=None)))
         self.assertEqual([], self.telegram.calls)
 
+    def test_invalid_message_id_disables_notifications_only(self):
+        """AC-P6/D-9: TG_MESSAGE_ID "null" -> node starts, no notifications, idle stop returns 0"""
+        self.assertEqual(0, agent.run(agent_env(TG_MESSAGE_ID="null")))
+        self.assertEqual([], self.telegram.calls)
+        self.assertEqual(["tailscale.start_daemon", "tailscale.up", "tailscale.logout",
+                          "tailscale.stop_daemon"], self.events)
+
+    def test_blank_chat_id_disables_notifications_only(self):
+        """AC-P6/D-9: blank TG_CHAT_ID -> node starts, no notifications, idle stop returns 0"""
+        self.assertEqual(0, agent.run(agent_env(TG_CHAT_ID="   ")))
+        self.assertEqual([], self.telegram.calls)
+        self.assertEqual(["tailscale.start_daemon", "tailscale.up", "tailscale.logout",
+                          "tailscale.stop_daemon"], self.events)
+
 
 class FetchPublicIpTest(unittest.TestCase):
     """§5 step 6: the IP shown on the node card."""
