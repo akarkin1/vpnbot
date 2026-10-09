@@ -13,6 +13,7 @@ import org.github.akarkin1.auth.RequestAuthenticator;
 import org.github.akarkin1.auth.RequestAuthenticatorConfigurer;
 import org.github.akarkin1.auth.s3.PermissionsService;
 import org.github.akarkin1.auth.s3.PermissionsServiceConfigurer;
+import org.github.akarkin1.config.BotTokenResolver;
 import org.github.akarkin1.deduplication.FSUpdateEventsRegistry;
 import org.github.akarkin1.deduplication.UpdateEventsRegistry;
 import org.github.akarkin1.dispatcher.command.AssignRolesCommand;
@@ -39,12 +40,14 @@ import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.bots.AbsSender;
+import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient;
 
 import java.time.Clock;
 import java.util.Optional;
 
 import static org.github.akarkin1.config.ConfigManager.getAppVersion;
 import static org.github.akarkin1.config.ConfigManager.getBotToken;
+import static org.github.akarkin1.config.ConfigManager.getBotTokenSecretId;
 import static org.github.akarkin1.config.ConfigManager.getBotUsernameEnv;
 import static org.github.akarkin1.config.ConfigManager.getEventRootDir;
 import static org.github.akarkin1.config.ConfigManager.getEventTtlSec;
@@ -70,7 +73,9 @@ public class TailscaleVpnLambdaHandler implements
 
     EVENTS_REGISTRY = new FSUpdateEventsRegistry(getEventTtlSec(), getEventRootDir());
 
-    final AbsSender sender = sender(getBotToken(), getBotUsernameEnv());
+    final String botToken = new BotTokenResolver(SecretsManagerClient.create())
+        .resolve(getBotTokenSecretId(), getBotToken());
+    final AbsSender sender = sender(botToken, getBotUsernameEnv());
     final TailscaleNodeService nodeService = new TailscaleEcsNodeServiceConfigurer().configure(METRICS);
     final PermissionsService permissionsService = new PermissionsServiceConfigurer().configure(METRICS);
     final Authorizer authorizer = new AuthorizerConfigurer().configure(permissionsService);
@@ -108,7 +113,14 @@ public class TailscaleVpnLambdaHandler implements
   public APIGatewayProxyResponseEvent handleRequest(
       APIGatewayProxyRequestEvent gwEvent,
       Context context) {
+    try {
+      return processRequest(gwEvent);
+    } finally {
+      METRICS.finish();
+    }
+  }
 
+  private APIGatewayProxyResponseEvent processRequest(APIGatewayProxyRequestEvent gwEvent) {
     Update update;
     try {
       log.debug("Got request: {}", serializeObject(gwEvent));
@@ -131,6 +143,7 @@ public class TailscaleVpnLambdaHandler implements
           .withStatusCode(201);
     }
 
+    METRICS.start(updateKind(update));
     try {
       handleUpdate(update);
     } catch (Exception e) {
@@ -144,6 +157,16 @@ public class TailscaleVpnLambdaHandler implements
     return new APIGatewayProxyResponseEvent()
         .withBody("{}")
         .withStatusCode(201);
+  }
+
+  private static String updateKind(Update update) {
+    if (update.hasCallbackQuery()) {
+      return "Callback";
+    }
+    boolean isCommand = update.hasMessage()
+                        && update.getMessage().hasText()
+                        && update.getMessage().getText().startsWith("/");
+    return isCommand && !UI_ROUTER.canHandle(update) ? "Command" : "Message";
   }
 
   private static String serializeObject(APIGatewayProxyRequestEvent gwEvent) {
