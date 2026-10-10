@@ -521,7 +521,10 @@ Resources:
         - - integrations
           - !Ref LambdaApiGatewayIntegration
 
-  ApiGatewayDeployment:
+  # CloudFormation never redeploys an HTTP API by itself: a Deployment is a snapshot taken when the
+  # resource is created. Rename this resource (new logical id) whenever the route or integration
+  # changes, otherwise the stage keeps serving the old snapshot (here: the old 0.6 s timeout).
+  ApiGatewayDeployment20261010:
     DependsOn:
       - ApiGatewayRoute
       - LambdaApiGatewayIntegration
@@ -533,11 +536,11 @@ Resources:
 
   ApiGatewayStage:
     DependsOn:
-      - ApiGatewayDeployment
+      - ApiGatewayDeployment20261010
       - LambdaRestApi
     Type: AWS::ApiGatewayV2::Stage
     Properties:
-      DeploymentId: !Ref ApiGatewayDeployment
+      DeploymentId: !Ref ApiGatewayDeployment20261010
       Description: TG Bot Vpn Configurer Lambda API v0
       ApiId: !Ref LambdaRestApi
       StageName: "v0"
