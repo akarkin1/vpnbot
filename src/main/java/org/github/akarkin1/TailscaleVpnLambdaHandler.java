@@ -29,6 +29,7 @@ import org.github.akarkin1.dynamodb.ConfigTables;
 import org.github.akarkin1.metrics.EmfRequestMetrics;
 import org.github.akarkin1.metrics.RequestMetrics;
 import org.github.akarkin1.startup.SnapStartPrimer;
+import org.github.akarkin1.tailscale.NodeServices;
 import org.github.akarkin1.tailscale.TailscaleEcsNodeServiceConfigurer;
 import org.github.akarkin1.tailscale.TailscaleNodeService;
 import org.github.akarkin1.tg.BotCommunicator;
@@ -83,8 +84,9 @@ public class TailscaleVpnLambdaHandler implements
     final String botToken = new BotTokenResolver(SecretsManagerClient.create())
         .resolve(getBotTokenSecretId());
     final AbsSender sender = sender(botToken, getBotUsernameEnv());
-    final TailscaleNodeService nodeService = new TailscaleEcsNodeServiceConfigurer()
+    final NodeServices nodeServices = new TailscaleEcsNodeServiceConfigurer()
         .configure(configTables.regions(), METRICS);
+    final TailscaleNodeService nodeService = nodeServices.nodeService();
     final PermissionsService permissionsService = new PermissionsServiceConfigurer()
         .configure(configTables.users(), METRICS);
     final Authorizer authorizer = new AuthorizerConfigurer().configure(permissionsService);
@@ -117,7 +119,8 @@ public class TailscaleVpnLambdaHandler implements
     COMMAND_DISPATCHER.registerCommand("/listRegisteredUsers",
                                        new ListUsersCommand(permissionsService));
 
-    new SnapStartPrimer(nodeService, permissionsService, EVENTS_REGISTRY, sender).prime();
+    new SnapStartPrimer(nodeService, nodeServices.ec2ClientPool(), permissionsService,
+                        EVENTS_REGISTRY, sender).prime();
   }
 
   @Override

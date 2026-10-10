@@ -2,6 +2,7 @@ package org.github.akarkin1.startup;
 
 import org.github.akarkin1.auth.PermissionsService;
 import org.github.akarkin1.deduplication.UpdateEventsRegistry;
+import org.github.akarkin1.ec2.Ec2ClientPool;
 import org.github.akarkin1.tailscale.TailscaleNodeService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -32,6 +33,8 @@ class SnapStartPrimerTest {
   @Mock
   private TailscaleNodeService nodeService;
   @Mock
+  private Ec2ClientPool ec2ClientPool;
+  @Mock
   private PermissionsService permissionsService;
   @Mock
   private UpdateEventsRegistry eventsRegistry;
@@ -42,7 +45,8 @@ class SnapStartPrimerTest {
 
   @BeforeEach
   void setUp() {
-    primer = new SnapStartPrimer(nodeService, permissionsService, eventsRegistry, sender);
+    primer = new SnapStartPrimer(nodeService, ec2ClientPool, permissionsService, eventsRegistry,
+                                 sender);
   }
 
   @Test
@@ -53,6 +57,7 @@ class SnapStartPrimerTest {
     InOrder inOrder = inOrder(permissionsService, nodeService, eventsRegistry, sender);
     inOrder.verify(permissionsService).getUserPermissions();
     inOrder.verify(nodeService).listTasks(SnapStartPrimer.PRIMER_USER);
+    inOrder.verify(nodeService).getSupportedRegionIds();
     ArgumentCaptor<Update> update = ArgumentCaptor.forClass(Update.class);
     inOrder.verify(eventsRegistry).register(update.capture());
     inOrder.verify(sender).execute(any(GetMe.class));

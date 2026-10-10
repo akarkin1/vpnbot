@@ -21,8 +21,7 @@ public class TailscaleEcsNodeServiceConfigurer {
 
   private static final int ECS_THREADS = 8;
 
-  public TailscaleNodeService configure(DynamoDbTable<RegionRecord> regions,
-                                        RequestMetrics metrics) {
+  public NodeServices configure(DynamoDbTable<RegionRecord> regions, RequestMetrics metrics) {
     YamlApplicationConfiguration appConfig = ConfigManager.getApplicationYaml();
 
     TaskConfigService configService = configureTaskConfigService(regions, metrics);
@@ -35,7 +34,9 @@ public class TailscaleEcsNodeServiceConfigurer {
                                                appConfig.getAws().getRegionCities(),
                                                executor, metrics);
 
-    return new TailscaleEcsNodeService(ecsManager, appConfig.getEcs(), appConfig.getAws());
+    TailscaleNodeService nodeService = new TailscaleEcsNodeService(ecsManager, appConfig.getEcs(),
+                                                                   appConfig.getAws());
+    return new NodeServices(nodeService, ec2ClientPool);
   }
 
   TaskConfigService configureTaskConfigService(DynamoDbTable<RegionRecord> regions,
