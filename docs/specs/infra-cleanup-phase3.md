@@ -328,9 +328,9 @@ The static block runs once, before the snapshot. Check and keep it safe:
 
 ### 8.4 Deploy C checklist (owner)
 
-0. Before: confirm Deploy B left nothing behind – `aws ec2 describe-vpcs --region eu-central-1
-   --filters Name=tag:Name,Values=vpn-configurer-vpc` returns no VPC (Deploy C removes the role's
-   network-interface permissions, D-17). If the VPC is still there, delete its leftovers first.
+0. ~~Before: confirm the VPC is gone; if not, delete its leftovers first.~~ **Withdrawn (D-21):** the VPC
+   still holds the TradingBot's resources and must not be touched; see the roadmap incident note. The
+   vpnbot has nothing left in that VPC, so removing the role's network-interface permissions is safe.
 1. "Deploy VPN Configurer Lambda Resources" from the branch. The first published version is taken by
    CloudFormation; its snapshot takes 1–3 min, during which the alias may answer "function is Pending"
    (Telegram re-delivers; one-off, first deploy only). The workflow then publishes a second version.
@@ -451,3 +451,16 @@ Deploy C:
 - D-20 (C) `AWS::Lambda::Version` is created once (CloudFormation never republishes it); the workflows
   publish all later versions, and the Lambda deploy workflow always ends with a publish, so a
   CloudFormation reset of the alias is corrected in the same run.
+- D-21 (incident 2026-10-10) The Lambda stack's VPC was shared with the TradingBot (its Lambda, ENIs,
+  security group, DynamoDB endpoint, and the NAT as its internet route). Deploy B's deletion of the
+  NAT, internet gateway and route tables cut the TradingBot off (its route became a blackhole). The
+  owner isolates the TradingBot with its own NAT into a separate stack; `vpn-tgbot-cfn` must not be
+  deployed until then (CloudFormation retries the `DELETE_FAILED` VPC/subnet on the next update).
+  `cloudformation/vpn-configurer-vpc-recovery.yml` holds the deleted network definitions.
+- D-22 (C, validated 2026-10-10) Deploy C works (alias `live` → v2, `Restore Duration` 758 ms, no
+  errors). Cold request 4.5 s vs 5.0–6.6 s before (1 sample): the restore replaced a 3.2–4.0 s init,
+  but the first request after restore took 3.7 s (DynamoDB 886 ms, ECS 720 ms, Telegram 236 ms,
+  normally ~50 ms each): the SDK/HTTP client code paths are first exercised after the restore, so their
+  class loading and connection setup are not in the snapshot. Follow-up: prime those paths at init.
+  Warm requests ≈ 140 ms (baseline 334 ms, mostly from 1 region instead of 6); node start/stop
+  1.5–3 s, all in ECS.

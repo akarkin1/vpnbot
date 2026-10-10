@@ -48,7 +48,7 @@ User feedback: a stopped node edits its own message into a stopped card with
 `[🚀 Start again] [🏠 Menu]` instead of sending a new message; the silent idle warning is deleted
 when the node stops or a device connects again.
 
-## Phase 3 – Config in DynamoDB, no Lambda VPC, SnapStart (A and B deployed, C on hold – see incident below)
+## Phase 3 – Config in DynamoDB, no Lambda VPC, SnapStart (A, B, C deployed; node log retention and SnapStart priming open)
 
 Spec: `docs/specs/infra-cleanup-phase3.md` · Branch: `feature/infra-cleanup`
 
