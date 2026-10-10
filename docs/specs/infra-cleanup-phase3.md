@@ -30,8 +30,8 @@ verified by the owner before the next one starts.
 
 | Deploy | Content | Rollback |
 |---|---|---|
-| **A – DynamoDB** | table, Lambda reads/writes DynamoDB, workflows write the table (and still S3), one-off migration | run "VPN Bot Lambda CI-CD" from the last commit before A: S3 files and EFS are untouched |
-| **B – No VPC** | Lambda out of the VPC; delete network + EFS resources; drop S3 from the Lambda and workflows; remove `BOT_TOKEN`; timeouts/retention | revert the template commit and redeploy the stack (resources are recreated empty – the DynamoDB data stays) |
+| **A – DynamoDB** | table, Lambda reads/writes DynamoDB, workflows write only the table (no S3 config any more), one-off migration | run "VPN Bot Lambda CI-CD" from the last commit before A; if config changed since A, bring the S3 files up to date by hand (a local sync script can be written then – not part of this phase) |
+| **B – No VPC** | Lambda out of the VPC; delete network + EFS resources; remove `BOT_TOKEN`; timeouts/retention | revert the template commit and redeploy the stack (resources are recreated empty – the DynamoDB data stays) |
 | **C – SnapStart** | published versions + alias `live`, API Gateway → alias, workflows publish versions | revert the template commit and redeploy |
 
 ## 5. Data model
@@ -78,7 +78,8 @@ No caches: every request reads what it needs (≈ 5–10 ms per call; changes ta
   `TimeToLiveSpecification { AttributeName: expiresAt, Enabled: true }`, `DeletionPolicy: Retain`,
   `UpdateReplacePolicy: Retain`.
 - `LambdaRole`: allow `dynamodb:GetItem`, `dynamodb:PutItem`, `dynamodb:DeleteItem`, `dynamodb:Query`
-  on `!GetAtt ConfigTable.Arn`. S3/EFS/VPC statements stay (rollback).
+  on `!GetAtt ConfigTable.Arn`. The S3, EFS and VPC statements stay until Deploy B (the old code keeps
+  working between the stack deploy and the code deploy of §6.4).
 - Lambda env var `CONFIG_TABLE_NAME: !Ref ConfigTable`.
 - Update the `EnvConfigCacheTtlSec` description: "…caches the webhook secret read from Secrets Manager".
 - The Lambda stays in the VPC; it reaches DynamoDB through the NAT instance.
@@ -158,16 +159,18 @@ All table writes use `--table-name vpnbot --region ${{ vars.CONFIG_BASE_REGION }
 - New script `.github/scripts/region-item.sh <region> <stack-outputs.json>`: prints the DynamoDB item
   JSON of §5 (uses `jq`; `updatedAt` = current UTC time); exits non-zero if any of the four outputs
   (`EcsClusterName`, `EcsTaskDefinitionArn`, `SubnetId`, `SecurityGroupId`) is missing or empty.
-- `deploy-vpn-ecs-resources.yml`, step "Update Task Configuration" (same `if`): after saving the stack
-  outputs, `aws dynamodb put-item --item "$(.github/scripts/region-item.sh …)"`. The S3 writes stay
-  until Deploy B.
+- `deploy-vpn-ecs-resources.yml`, step "Update Task Configuration" → "Register region in DynamoDB"
+  (same `if`): read the stack outputs into a local file and
+  `aws dynamodb put-item --item "$(.github/scripts/region-item.sh …)"`. The S3 writes
+  (`stack-outputs.json`, `supported-regions.txt`) and their env vars are removed.
 - `delete-ecs-vpn-resources.yml`: new **first** step after credentials, "Remove region from DynamoDB":
   `aws dynamodb delete-item --key '{"pk":{"S":"REGION"},"sk":{"S":"<region>"}}'` (idempotent), so
-  the bot stops offering the region before its stack goes. S3 cleanup stays until Deploy B.
+  the bot stops offering the region before its stack goes. The S3 cleanup step and its env vars are removed.
 - `deploy-tgbot-lambda.yml`: after the stack deploy, "Bootstrap root user in DynamoDB":
   `put-item` of `(USER, $TG_ROOT_USERNAME, permissions SS ["ROOT_ACCESS"])` with
   `--condition-expression 'attribute_not_exists(pk)'`; a `ConditionalCheckFailedException` is
-  success (user exists). S3 bootstrap steps stay until Deploy B.
+  success (user exists). The S3 bootstrap steps (`user-permissions.json`, `supported-regions.txt`)
+  and their env vars are removed.
 - New `migrate-config-to-dynamodb.yml` (`workflow_dispatch`, no inputs), idempotent:
   for each region in `supported-regions.txt` → read `<dir>/<region>/<stack outputs file>` →
   `region-item.sh` → `put-item`; for each entry of `user-permissions.json` with a non-empty list →
@@ -212,10 +215,7 @@ All table writes use `--table-name vpnbot --region ${{ vars.CONFIG_BASE_REGION }
 
 ### 7.4 Workflows
 
-- `deploy-tgbot-lambda.yml`: drop `EnvTgBotToken=…` from the parameter overrides, the S3 bootstrap
-  steps (`user-permissions.json`, `supported-regions.txt`) and their env vars.
-- `deploy-vpn-ecs-resources.yml`: drop the S3 writes (`stack-outputs.json`, `supported-regions.txt`).
-- `delete-ecs-vpn-resources.yml`: drop the S3 cleanup step and its env vars.
+- `deploy-tgbot-lambda.yml`: drop `EnvTgBotToken=…` from the parameter overrides.
 - Delete `migrate-config-to-dynamodb.yml`.
 - `ci-cd.yml` keeps uploading the jar to the S3 bucket (the bucket stays; only its config folder goes).
 
@@ -224,8 +224,9 @@ All table writes use `--table-name vpnbot --region ${{ vars.CONFIG_BASE_REGION }
 1. "Deploy VPN Configurer Lambda Resources", then "VPN Bot Lambda CI-CD" (both from the branch).
 2. Run "Deploy Tailscale ECS Resources" for each region with CloudFormation on, Docker off (retention).
 3. Verify as in §6.4 plus: Lambda has no VPC config; no NAT instance/EIP/EFS in the account.
-4. Manual cleanup once B is verified: delete the S3 config folder files (`supported-regions.txt`,
-   per-region stack outputs, `user-permissions.json`) and the legacy `vpntgbot-s3` bucket.
+4. Manual cleanup (any time after A is verified; nothing reads them any more): delete the S3 config
+   folder files (`supported-regions.txt`, per-region stack outputs, `user-permissions.json`) and the
+   legacy `vpntgbot-s3` bucket.
 
 ## 8. Deploy C – SnapStart
 
@@ -323,3 +324,7 @@ Deploy C:
 - D-2 (review) Lock record type is `TG_UPDATE_LOCK` (written before processing, so "processed" would
   be wrong).
 - D-3 (review) Config caches removed: ≈ 10 ms per request, changes visible immediately.
+- D-4 (review) Workflows switch to DynamoDB in Deploy A – no dual writes to S3. Rolling back to
+  pre-A code means updating the S3 files by hand (a local sync script only if that is ever needed).
+  The Lambda's S3 permission is removed only in Deploy B, so the old code keeps working during the
+  Deploy A rollout.
