@@ -48,7 +48,7 @@ User feedback: a stopped node edits its own message into a stopped card with
 `[🚀 Start again] [🏠 Menu]` instead of sending a new message; the silent idle warning is deleted
 when the node stops or a device connects again.
 
-## Phase 3 – Config in DynamoDB, no Lambda VPC, SnapStart (A and B deployed, C ready)
+## Phase 3 – Config in DynamoDB, no Lambda VPC, SnapStart (A and B deployed, C on hold – see incident below)
 
 Spec: `docs/specs/infra-cleanup-phase3.md` · Branch: `feature/infra-cleanup`
 
@@ -92,10 +92,19 @@ EC2 instance that needs AMI patching.
 - No maximum node lifetime: overnight downloads are a valid use case.
 - Running several nodes in the same region stays allowed (2b offers a choice, never a block).
 - SnapStart is not compatible with EFS; deferred to Phase 3.
-- The Lambda stack's NAT instance only serves the Lambda (its private subnet); VPN nodes egress via
-  their own public IP and internet gateway, and Tailscale userspace networking needs no NAT.
-  History: the NAT's fixed Elastic IP existed for another bot (crypto trading, exchange IP allow-list)
-  that shared the VPC and is gone; the VPN bot itself never needed a fixed egress IP.
+- The VPN bot itself never needed the Lambda stack's VPC or NAT: VPN nodes egress via their own
+  public IP and internet gateway, Tailscale userspace networking needs no NAT, and the Lambda has no
+  fixed-IP requirement. **But the VPC and NAT instance were shared with the TradingBot** (crypto
+  trading, exchange IP allow-list on the NAT's Elastic IP), which is active (daily and monthly
+  schedules) and is not going to be retired.
+- **Incident 2026-10-10 (Phase 3, Deploy B):** the `vpn-tgbot-cfn` update deleted the shared network
+  (internet gateway, route tables, public subnet, NAT instance, its ENI and Elastic IP) and broke the
+  TradingBot's infrastructure; the VPC and the subnet holding TradingBot resources survived
+  (`DELETE_FAILED`). The TradingBot is being isolated, with its own NAT, into a separate stack by the
+  owner. Until then `vpn-tgbot-cfn` must not be deployed: CloudFormation retries the deletion of the
+  `DELETE_FAILED` VPC/subnet on the next update. Leftovers of the old VPC are decided afterwards.
+  Lesson: before deleting shared-looking infrastructure, list what else lives in it
+  (`describe-network-interfaces` on the VPC) and never trust a "nothing else uses it" assumption.
 - Metrics use EMF (no API calls); `PutMetricData` and X-Ray were rejected (latency/complexity).
 - The node agent uses `requests` directly instead of a Telegram library (only two API calls);
   reconsider if it grows.
