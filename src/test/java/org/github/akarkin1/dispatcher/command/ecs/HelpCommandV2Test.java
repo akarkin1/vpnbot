@@ -2,7 +2,7 @@ package org.github.akarkin1.dispatcher.command.ecs;
 
 import org.github.akarkin1.auth.Authorizer;
 import org.github.akarkin1.auth.Permission;
-import org.github.akarkin1.auth.s3.PermissionsService;
+import org.github.akarkin1.auth.PermissionsService;
 import org.github.akarkin1.dispatcher.command.AssignRolesCommand;
 import org.github.akarkin1.dispatcher.CommandDispatcher;
 import org.github.akarkin1.dispatcher.command.DeleteUsersCommand;

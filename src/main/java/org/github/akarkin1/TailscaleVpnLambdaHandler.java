@@ -11,10 +11,10 @@ import org.github.akarkin1.auth.Authorizer;
 import org.github.akarkin1.auth.AuthorizerConfigurer;
 import org.github.akarkin1.auth.RequestAuthenticator;
 import org.github.akarkin1.auth.RequestAuthenticatorConfigurer;
-import org.github.akarkin1.auth.s3.PermissionsService;
-import org.github.akarkin1.auth.s3.PermissionsServiceConfigurer;
+import org.github.akarkin1.auth.PermissionsService;
+import org.github.akarkin1.auth.PermissionsServiceConfigurer;
 import org.github.akarkin1.config.BotTokenResolver;
-import org.github.akarkin1.deduplication.FSUpdateEventsRegistry;
+import org.github.akarkin1.deduplication.DynamoDbUpdateEventsRegistry;
 import org.github.akarkin1.deduplication.UpdateEventsRegistry;
 import org.github.akarkin1.dispatcher.command.AssignRolesCommand;
 import org.github.akarkin1.dispatcher.CommandDispatcher;
@@ -25,6 +25,7 @@ import org.github.akarkin1.dispatcher.command.ListUsersCommand;
 import org.github.akarkin1.dispatcher.command.RunNodeCommand;
 import org.github.akarkin1.dispatcher.command.SupportedRegionCommand;
 import org.github.akarkin1.dispatcher.command.VersionCommand;
+import org.github.akarkin1.dynamodb.ConfigTables;
 import org.github.akarkin1.metrics.EmfRequestMetrics;
 import org.github.akarkin1.metrics.RequestMetrics;
 import org.github.akarkin1.tailscale.TailscaleEcsNodeServiceConfigurer;
@@ -40,6 +41,8 @@ import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.bots.AbsSender;
+import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient;
 
 import java.time.Clock;
@@ -49,8 +52,7 @@ import static org.github.akarkin1.config.ConfigManager.getAppVersion;
 import static org.github.akarkin1.config.ConfigManager.getBotToken;
 import static org.github.akarkin1.config.ConfigManager.getBotTokenSecretId;
 import static org.github.akarkin1.config.ConfigManager.getBotUsernameEnv;
-import static org.github.akarkin1.config.ConfigManager.getEventRootDir;
-import static org.github.akarkin1.config.ConfigManager.getEventTtlSec;
+import static org.github.akarkin1.config.ConfigManager.getConfigTableName;
 import static org.github.akarkin1.config.ConfigManager.isMetricsEnabled;
 import static org.github.akarkin1.tg.TelegramBotFactory.sender;
 
@@ -71,13 +73,20 @@ public class TailscaleVpnLambdaHandler implements
     METRICS = new EmfRequestMetrics(isMetricsEnabled(), Clock.systemUTC(), System.out::println);
     REQUEST_AUTHENTICATOR = new RequestAuthenticatorConfigurer().configure();
 
-    EVENTS_REGISTRY = new FSUpdateEventsRegistry(getEventTtlSec(), getEventRootDir());
+    final DynamoDbEnhancedClient dynamoDb = DynamoDbEnhancedClient.builder()
+        .dynamoDbClient(DynamoDbClient.create())
+        .build();
+    final ConfigTables configTables = ConfigTables.create(dynamoDb, getConfigTableName());
+    EVENTS_REGISTRY = new DynamoDbUpdateEventsRegistry(configTables.updateLocks(),
+                                                       Clock.systemUTC(), METRICS);
 
     final String botToken = new BotTokenResolver(SecretsManagerClient.create())
         .resolve(getBotTokenSecretId(), getBotToken());
     final AbsSender sender = sender(botToken, getBotUsernameEnv());
-    final TailscaleNodeService nodeService = new TailscaleEcsNodeServiceConfigurer().configure(METRICS);
-    final PermissionsService permissionsService = new PermissionsServiceConfigurer().configure(METRICS);
+    final TailscaleNodeService nodeService = new TailscaleEcsNodeServiceConfigurer()
+        .configure(configTables.regions(), METRICS);
+    final PermissionsService permissionsService = new PermissionsServiceConfigurer()
+        .configure(configTables.users(), METRICS);
     final Authorizer authorizer = new AuthorizerConfigurer().configure(permissionsService);
 
     final Translator translator = new ResourceBasedTranslator();
@@ -178,14 +187,12 @@ public class TailscaleVpnLambdaHandler implements
   }
 
   private void handleUpdate(Update update) {
-    if (EVENTS_REGISTRY.hasAlreadyProcessed(update)) {
+    if (!EVENTS_REGISTRY.register(update)) {
       log.info("Skipping duplicated event: {}", update);
       return;
     }
 
     TgRequestContext.initContext(update);
-    log.info("Saving event to the registry (deduplication logic). Update: {}", update);
-    EVENTS_REGISTRY.registerEvent(update);
 
     if (UI_ROUTER.canHandle(update)) {
       UI_ROUTER.handle(update);

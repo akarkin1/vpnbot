@@ -42,7 +42,7 @@ class EmfRequestMetricsTest {
     EmfRequestMetrics metrics = new EmfRequestMetrics(true, clock, lines::add);
 
     metrics.start("Callback");
-    metrics.time(MetricComponent.S3, () -> clock.advance(Duration.ofMillis(5)));
+    metrics.time(MetricComponent.DYNAMODB, () -> clock.advance(Duration.ofMillis(5)));
     String ecsResult = metrics.time(MetricComponent.ECS, () -> {
       clock.advance(Duration.ofMillis(7));
       return "tasks";
@@ -69,13 +69,13 @@ class EmfRequestMetricsTest {
     assertEquals("vpnbot", directive.get("Namespace").asText());
     assertEquals(mapper.readTree("[[\"UpdateKind\"]]"), directive.get("Dimensions"));
     assertEquals(mapper.readTree("""
-        [{"Name":"TotalMs","Unit":"Milliseconds"},{"Name":"S3Ms","Unit":"Milliseconds"},
+        [{"Name":"TotalMs","Unit":"Milliseconds"},{"Name":"DynamoDbMs","Unit":"Milliseconds"},
          {"Name":"EcsMs","Unit":"Milliseconds"},{"Name":"TelegramMs","Unit":"Milliseconds"}]"""),
                  directive.get("Metrics"));
 
     assertEquals("Callback", json.get("UpdateKind").asText());
     assertEquals(25, json.get("TotalMs").asLong());
-    assertEquals(5, json.get("S3Ms").asLong());
+    assertEquals(5, json.get("DynamoDbMs").asLong());
     assertEquals(7, json.get("EcsMs").asLong());
     assertEquals(3, json.get("TelegramMs").asLong());
   }
@@ -91,7 +91,7 @@ class EmfRequestMetricsTest {
     JsonNode json = mapper.readTree(lines.getFirst());
     assertEquals("Message", json.get("UpdateKind").asText());
     assertEquals(0, json.get("TotalMs").asLong());
-    assertEquals(0, json.get("S3Ms").asLong());
+    assertEquals(0, json.get("DynamoDbMs").asLong());
     assertEquals(0, json.get("EcsMs").asLong());
     assertEquals(0, json.get("TelegramMs").asLong());
   }
@@ -115,7 +115,7 @@ class EmfRequestMetricsTest {
     assertEquals("Command", json.get("UpdateKind").asText());
     assertEquals(10, json.get("TelegramMs").asLong());
     assertEquals(3, json.get("EcsMs").asLong());
-    assertEquals(0, json.get("S3Ms").asLong());
+    assertEquals(0, json.get("DynamoDbMs").asLong());
     assertEquals(13, json.get("TotalMs").asLong());
   }
 
@@ -126,7 +126,7 @@ class EmfRequestMetricsTest {
     AtomicBoolean ran = new AtomicBoolean();
 
     metrics.start("Callback");
-    metrics.time(MetricComponent.S3, () -> ran.set(true));
+    metrics.time(MetricComponent.DYNAMODB, () -> ran.set(true));
     String result = metrics.time(MetricComponent.ECS, () -> "value");
     metrics.finish();
 
@@ -140,7 +140,7 @@ class EmfRequestMetricsTest {
   void finishWithoutStart() {
     EmfRequestMetrics metrics = new EmfRequestMetrics(true, clock, lines::add);
 
-    metrics.time(MetricComponent.S3, () -> clock.advance(Duration.ofMillis(5)));
+    metrics.time(MetricComponent.DYNAMODB, () -> clock.advance(Duration.ofMillis(5)));
     metrics.finish();
 
     assertEquals(List.of(), lines);
@@ -154,7 +154,7 @@ class EmfRequestMetricsTest {
 
     metrics.start("Callback");
     IllegalStateException thrown = assertThrows(IllegalStateException.class,
-        () -> metrics.time(MetricComponent.S3, (Runnable) () -> {
+        () -> metrics.time(MetricComponent.DYNAMODB, (Runnable) () -> {
           throw failure;
         }));
 
@@ -179,7 +179,7 @@ class EmfRequestMetricsTest {
           ready.countDown();
           ready.await();
           for (int j = 0; j < timingsPerThread; j++) {
-            metrics.time(MetricComponent.S3, () -> perThreadClock.advance(Duration.ofMillis(1)));
+            metrics.time(MetricComponent.DYNAMODB, () -> perThreadClock.advance(Duration.ofMillis(1)));
           }
           return null;
         }));
@@ -193,7 +193,7 @@ class EmfRequestMetricsTest {
     }
 
     JsonNode json = mapper.readTree(lines.getFirst());
-    assertEquals(threads * timingsPerThread, json.get("S3Ms").asLong());
+    assertEquals(threads * timingsPerThread, json.get("DynamoDbMs").asLong());
   }
 
   /** Each thread sees its own time, so every timed action lasts exactly what it advances. */

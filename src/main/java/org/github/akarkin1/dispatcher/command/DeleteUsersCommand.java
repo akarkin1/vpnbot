@@ -3,7 +3,7 @@ package org.github.akarkin1.dispatcher.command;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.github.akarkin1.auth.Permission;
-import org.github.akarkin1.auth.s3.PermissionsService;
+import org.github.akarkin1.auth.PermissionsService;
 import org.github.akarkin1.dispatcher.response.EmptyResponse;
 import org.github.akarkin1.message.MessageConsumer;
 import org.github.akarkin1.util.UserNameUtil;

@@ -17,16 +17,16 @@ public class ConfigManager {
 
   private static final String APP_CONFIG_YAML = "application.yml";
 
-  private static final String EVENT_ROOT_DIR = "/mnt/efs/eventIds";
   private static final String BOT_TOKEN_ENV = "BOT_TOKEN";
   private static final String BOT_USERNAME_ENV = "BOT_USERNAME";
   private static final String BOT_SECRET_TOKEN_ID_ENV = "BOT_SECRET_TOKEN_ID";
   private static final String STATUS_CHECK_PAUSE_MS_ENV = "STATUS_CHECK_PAUSE_MS";
   private static final String OP_WAIT_TIMEOUT_SEC_ENV = "OPERATION_WAIT_TIMEOUT_SEC";
   private static final String RESTART_SLEEP_TIME_SEC_ENV = "RESTART_SLEEP_TIME_SEC";
-  private static final String REGISTERED_EVENT_EXPIRATION_TIME_SEC_ENV = "REGISTERED_EVENT_EXPIRATION_TIME_SEC";
   private static final String USED_REGIONS_ENV = "USED_REGIONS";
   private static final String CONFIG_CACHE_TTL_SEC_ENV = "CONFIG_CACHE_TTL_SEC";
+  private static final String CONFIG_CACHE_ENABLED_ENV = "CONFIG_CACHE_ENABLED";
+  private static final String CONFIG_TABLE_NAME_ENV = "CONFIG_TABLE_NAME";
   private static final String METRICS_ENABLED_ENV = "METRICS_ENABLED";
   private static final String BOT_TOKEN_SECRET_ID_ENV = "BOT_TOKEN_SECRET_ID";
 
@@ -39,16 +39,6 @@ public class ConfigManager {
 
   public static String getBotUsernameEnv() {
     return getenv(BOT_USERNAME_ENV);
-  }
-
-  public static String getEventRootDir() {
-    return EVENT_ROOT_DIR;
-  }
-
-  public static Long getEventTtlSec() {
-    String envVarVal = envOrDefault(REGISTERED_EVENT_EXPIRATION_TIME_SEC_ENV, "360");
-    long longValSec = Long.parseLong(envVarVal);
-    return TimeUnit.SECONDS.toMillis(longValSec);
   }
 
   public static String getAppVersion() {
@@ -85,6 +75,14 @@ public class ConfigManager {
   public static Duration getConfigCacheTtl() {
     String envValSec = envOrDefault(CONFIG_CACHE_TTL_SEC_ENV, "300");
     return Duration.ofSeconds(Long.parseLong(envValSec));
+  }
+
+  public static boolean isConfigCacheEnabled() {
+    return "true".equalsIgnoreCase(envOrDefault(CONFIG_CACHE_ENABLED_ENV, "false"));
+  }
+
+  public static String getConfigTableName() {
+    return envOrDefault(CONFIG_TABLE_NAME_ENV, "vpnbot");
   }
 
   public static boolean isMetricsEnabled() {
