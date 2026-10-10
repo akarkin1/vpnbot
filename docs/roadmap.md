@@ -48,7 +48,7 @@ User feedback: a stopped node edits its own message into a stopped card with
 `[🚀 Start again] [🏠 Menu]` instead of sending a new message; the silent idle warning is deleted
 when the node stops or a device connects again.
 
-## Phase 3 – Config in DynamoDB, no Lambda VPC, SnapStart (A, B, C deployed; node log retention and SnapStart priming open)
+## Phase 3 – Config in DynamoDB, no Lambda VPC, SnapStart (A, B, C and priming deployed; node log retention open)
 
 Spec: `docs/specs/infra-cleanup-phase3.md` · Branch: `feature/infra-cleanup`
 
@@ -100,9 +100,10 @@ EC2 instance that needs AMI patching.
 - **Incident 2026-10-10 (Phase 3, Deploy B):** the `vpn-tgbot-cfn` update deleted the shared network
   (internet gateway, route tables, public subnet, NAT instance, its ENI and Elastic IP) and broke the
   TradingBot's infrastructure; the VPC and the subnet holding TradingBot resources survived
-  (`DELETE_FAILED`). The TradingBot is being isolated, with its own NAT, into a separate stack by the
-  owner. Until then `vpn-tgbot-cfn` must not be deployed: CloudFormation retries the deletion of the
-  `DELETE_FAILED` VPC/subnet on the next update. Leftovers of the old VPC are decided afterwards.
+  (`DELETE_FAILED`). **Resolved the same day by the owner:** the TradingBot now has its own VPC and
+  Elastic IP in a separate stack, the old `vpn-configurer-vpc` is gone, and the vpnbot stacks share
+  nothing with other projects any more (validated 2026-10-10 16:00 UTC). `vpn-tgbot-cfn` can be
+  deployed again.
   Lesson: before deleting shared-looking infrastructure, list what else lives in it
   (`describe-network-interfaces` on the VPC) and never trust a "nothing else uses it" assumption.
 - Metrics use EMF (no API calls); `PutMetricData` and X-Ray were rejected (latency/complexity).

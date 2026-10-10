@@ -515,3 +515,12 @@ cold requests (`Restore Duration` + first-request `TotalMs`) with D-22's 4.5 s; 
 - D-25 (§13) The primer catches `Exception` per step (checked `TelegramApiException` and runtime
   exceptions alike) and measures its duration with `System.nanoTime()` (no `Clock` in the contract).
   AC-P2 is four tests instead of a parameterised one (`junit-jupiter-params` is not a dependency).
+- D-26 (§13, validated 2026-10-10, v3) Priming works for the primed paths: cold button tap 2.5 s
+  (restore 0.8 s + first request 1.7 s) vs 4.5 s before and ≈ 5.4 s baseline; DynamoDB 114 ms and
+  ECS 82 ms on the first request (were 886/720 ms). Not primed yet: `DescribeTasks` + EC2
+  `DescribeNetworkInterfaces` (only reached when a node is running – 3.1 s on a cold text command
+  with a running node) and `RunTask`. ≈ 0.6–1.0 s per cold request remains outside the handler's
+  timing (request parsing/routing on first use); left as is. Lambda also re-runs the init on its own
+  (snapshot refresh / pre-start): each run repeats the priming calls, which is harmless.
+- D-27 (incident) Resolved: the TradingBot was moved to its own VPC/EIP by the owner; the old VPC is
+  gone; nothing is shared any more. `vpn-tgbot-cfn` may be deployed again.
