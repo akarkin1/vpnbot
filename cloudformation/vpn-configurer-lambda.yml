@@ -33,8 +33,12 @@ Parameters:
     Default: "true"
   EnvConfigCacheTtlSec:
     Type: String
-    Description: How long in seconds the lambda caches configuration and secrets read from S3 / Secret Manager.
+    Description: TTL in seconds of the config cache (when enabled) and of the webhook secret read from Secrets Manager.
     Default: "300"
+  EnvConfigCacheEnabled:
+    Type: String
+    Description: Whether the lambda caches regions and permissions read from DynamoDB for EnvConfigCacheTtlSec.
+    Default: "false"
   EnvPauseBetweenStatusCheckMs:
     Type: Number
     Description: Pause between status check of EC2 instance in milliseconds.
@@ -350,12 +354,43 @@ Resources:
                   - "elasticfilesystem:DescribeAccessPoints"
                 Effect: Allow
                 Resource: "*"
+              # Config table: regions, user permissions, Telegram update locks
+              - Action:
+                  - "dynamodb:GetItem"
+                  - "dynamodb:PutItem"
+                  - "dynamodb:DeleteItem"
+                  - "dynamodb:Query"
+                Effect: Allow
+                Resource: !GetAtt ConfigTable.Arn
               - Action:
                   - 'secretsmanager:GetSecretValue'
                 Effect: Allow
                 Resource:
                   - !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${EnvTgBotSecretTokenId}*"
                   - !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${EnvTgBotTokenSecretId}*"
+
+  # Regions (pk REGION), user permissions (pk USER) and Telegram update locks (pk TG_UPDATE_LOCK).
+  # Retained when the stack is deleted or the table replaced: it holds the bot's configuration.
+  ConfigTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: vpnbot
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: expiresAt
+        Enabled: true
 
   LambdaEfsStorage:
     Type: 'AWS::EFS::FileSystem'
@@ -414,6 +449,8 @@ Resources:
           BOT_TOKEN_SECRET_ID: !Ref EnvTgBotTokenSecretId
           METRICS_ENABLED: !Ref EnvMetricsEnabled
           CONFIG_CACHE_TTL_SEC: !Ref EnvConfigCacheTtlSec
+          CONFIG_CACHE_ENABLED: !Ref EnvConfigCacheEnabled
+          CONFIG_TABLE_NAME: !Ref ConfigTable
 #          STATUS_CHECK_PAUSE_MS: !Ref EnvPauseBetweenStatusCheckMs
 #          OPERATION_WAIT_TIMEOUT_SEC: !Ref EnvOperationWaitTimeoutSec
 #          RESTART_SLEEP_TIME_SEC_ENV: !Ref EnvRestartSleepTimeSec
