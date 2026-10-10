@@ -427,3 +427,7 @@ Deploy C:
   and made `ConfigManager` fail to initialise in tests; replaced with a minimal valid file.
 - D-14 (A2) `FakeTable` (test helper) answers every `DynamoDbTable` overload and records whether each
   call/page fetch ran inside `metrics.time(...)`, so tests don't depend on which overload is used.
+- D-15 (B1) `BotTokenResolver` no longer logs (the fallback log line was its only one); a blank secret id
+  throws `IllegalStateException("BOT_TOKEN_SECRET_ID is not set")`, Secrets Manager errors propagate unchanged.
+- D-16 (tech lead) Deploy A verified in production by the owner (2026-10-10); the migration script is
+  removed in Deploy B as planned.
