@@ -10,6 +10,7 @@ import org.github.akarkin1.ui.screen.RegionLabels;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Set;
 
@@ -41,13 +42,13 @@ class NodeNotificationsTest {
   }
 
   @Test
-  @DisplayName("2a AC-5: build returns exactly the env keys of §4.4; *_MARKUP only for screens with buttons")
+  @DisplayName("2a AC-5, stop-in-place AC-3: build returns exactly the env keys; *_MARKUP only for screens with buttons, now also TG_STOPPED_CARD_MARKUP")
   void exactKeys() {
     Map<String, String> env = notifications.build(RU_CONTEXT, MESSAGE_ID, REGION);
 
     assertEquals(Set.of("TG_CHAT_ID", "TG_MESSAGE_ID", "TG_READY_TEXT", "TG_READY_MARKUP",
                         "TG_IDLE_WARNING_TEXT", "TG_STOPPED_TEXT", "TG_STOPPED_MARKUP",
-                        "TG_STOPPED_CARD_TEXT"),
+                        "TG_STOPPED_CARD_TEXT", "TG_STOPPED_CARD_MARKUP"),
                  env.keySet());
   }
 
@@ -61,13 +62,13 @@ class NodeNotificationsTest {
   }
 
   @Test
-  @DisplayName("2a AC-5: texts are rendered in the context language (ru) with the placeholders as host and IP")
+  @DisplayName("2a AC-5, stop-in-place AC-3: texts are rendered in the context language (ru) with the placeholders as host and IP")
   void russianTexts() {
     assertTexts(RU_CONTEXT, "ru");
   }
 
   @Test
-  @DisplayName("2a AC-5: texts are rendered in the context language (en) with the placeholders as host and IP")
+  @DisplayName("2a AC-5, stop-in-place AC-3: texts are rendered in the context language (en) with the placeholders as host and IP")
   void englishTexts() {
     assertTexts(EN_CONTEXT, "en-US");
   }
@@ -99,25 +100,43 @@ class NodeNotificationsTest {
   }
 
   @Test
-  @DisplayName("2a AC-5: stopped markup JSON has inline_keyboard with start-again (RUN:<id>) and menu")
+  @DisplayName("2a AC-5, stop-in-place AC-3: stopped markup JSON has inline_keyboard with start-again (RUN:<id>) and menu")
   void stoppedMarkup() throws Exception {
-    Map<String, String> env = notifications.build(RU_CONTEXT, MESSAGE_ID, REGION);
-
-    JsonNode rows = inlineKeyboard(env.get("TG_STOPPED_MARKUP"));
-    assertEquals(1, rows.size());
-    assertEquals(2, rows.get(0).size());
-    assertCallbackButton(rows.get(0).get(0), "🚀 " + ru("ui.button.start-again"), "RUN:" + REGION);
-    assertCallbackButton(rows.get(0).get(1), "🏠 " + ru("ui.button.menu"), "HOME");
+    assertStartAgainAndMenu("TG_STOPPED_MARKUP");
   }
 
   @Test
-  @DisplayName("2a AC-5, 2b AC-11: total size of all keys and values stays below 8192 characters")
+  @DisplayName("stop-in-place AC-3: stopped card markup JSON has inline_keyboard with start-again (RUN:<region>) and menu")
+  void stoppedCardMarkup() throws Exception {
+    assertStartAgainAndMenu("TG_STOPPED_CARD_MARKUP");
+  }
+
+  @Test
+  @DisplayName("stop-in-place AC-3: the idle-stop text is the stopped card with the new English reason")
+  void englishStoppedText() {
+    Map<String, String> env = notifications.build(EN_CONTEXT, MESSAGE_ID, REGION);
+
+    assertEquals("⚪ <b>{{HOSTNAME}}</b> · 🇩🇪 Frankfurt\n🛑 Stopped: no devices were connected for 10 minutes.",
+                 env.get("TG_STOPPED_TEXT"));
+  }
+
+  @Test
+  @DisplayName("stop-in-place AC-3: the idle-stop text is the stopped card with the new Russian reason")
+  void russianStoppedText() {
+    Map<String, String> env = notifications.build(RU_CONTEXT, MESSAGE_ID, REGION);
+
+    assertEquals("⚪ <b>{{HOSTNAME}}</b> · 🇩🇪 Frankfurt\n🛑 Остановлен: 10 минут без подключённых устройств.",
+                 env.get("TG_STOPPED_TEXT"));
+  }
+
+  @Test
+  @DisplayName("2a AC-5, 2b AC-11, stop-in-place AC-3: total size of all keys and values stays below 8192 bytes (UTF-8)")
   void totalSize() {
     for (UiContext context : new UiContext[]{RU_CONTEXT, EN_CONTEXT}) {
       Map<String, String> env = notifications.build(context, MESSAGE_ID, REGION);
 
       int size = env.entrySet().stream()
-          .mapToInt(entry -> entry.getKey().length() + entry.getValue().length())
+          .mapToInt(entry -> utf8Length(entry.getKey()) + utf8Length(entry.getValue()))
           .sum();
       assertTrue(size < 8192, "env size " + size + " for " + context.languageCode());
     }
@@ -131,10 +150,28 @@ class NodeNotificationsTest {
                  env.get("TG_READY_TEXT"));
     assertEquals("⚠️ <b>" + HOST + "</b> " + value(lang, "ui.node.idle-warning"),
                  env.get("TG_IDLE_WARNING_TEXT"));
-    assertEquals("🛑 <b>" + HOST + "</b> " + value(lang, "ui.node.stopped-idle"),
+    assertEquals("⚪ <b>" + HOST + "</b> · " + LABEL + "\n🛑 " + value(lang, "ui.node.stopped-idle"),
                  env.get("TG_STOPPED_TEXT"));
     assertEquals("⚪ <b>" + HOST + "</b> · " + LABEL + "\n🛑 " + value(lang, "ui.node.stopped"),
                  env.get("TG_STOPPED_CARD_TEXT"));
+  }
+
+  private void assertStartAgainAndMenu(String markupKey) throws Exception {
+    for (UiContext context : new UiContext[]{RU_CONTEXT, EN_CONTEXT}) {
+      Map<String, String> env = notifications.build(context, MESSAGE_ID, REGION);
+      String lang = context.languageCode();
+
+      JsonNode rows = inlineKeyboard(env.get(markupKey));
+      assertEquals(1, rows.size(), markupKey);
+      assertEquals(2, rows.get(0).size(), markupKey);
+      assertCallbackButton(rows.get(0).get(0), "🚀 " + value(lang, "ui.button.start-again"),
+                           "RUN:" + REGION);
+      assertCallbackButton(rows.get(0).get(1), "🏠 " + value(lang, "ui.button.menu"), "HOME");
+    }
+  }
+
+  private static int utf8Length(String value) {
+    return value.getBytes(StandardCharsets.UTF_8).length;
   }
 
   private JsonNode inlineKeyboard(String markupJson) throws Exception {

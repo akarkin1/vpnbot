@@ -108,26 +108,50 @@ class LaunchScreensTest {
   }
 
   @Test
-  @DisplayName("2a AC-4: stopped shows the host with start-again (RUN:<id>) and menu buttons")
+  @DisplayName("stop-in-place AC-1: stopped is a card with host and region label, the idle-stop reason, start-again (RUN:<region>) and menu in one row")
   void stopped() {
     Screen screen = screens.stopped("node-1", REGION);
 
-    assertEquals("🛑 <b>%s</b> ${ui.node.stopped-idle}", screen.template());
-    assertEquals(List.of("node-1"), screen.params());
-    assertEquals(List.of(List.of(new Button("🚀 ${ui.button.start-again}", "RUN:eu-central-1", null), MENU)),
-                 screen.keyboard());
-    assertEquals(List.of("—"), screens.stopped(null, REGION).params());
+    assertEquals("⚪ <b>%s</b> · %s\n🛑 ${ui.node.stopped-idle}", screen.template());
+    assertEquals(List.of("node-1", "🇩🇪 Frankfurt"), screen.params());
+    assertEquals(List.of(List.of(startAgain("RUN:eu-central-1"), MENU)), screen.keyboard());
   }
 
   @Test
-  @DisplayName("2a AC-4: stoppedCard shows the host and region label, no keyboard")
+  @DisplayName("stop-in-place AC-1: stopped shows — for a missing host")
+  void stoppedWithMissingValues() {
+    assertEquals(List.of("—", "🇩🇪 Frankfurt"), screens.stopped(null, REGION).params());
+    assertEquals(List.of("—", "🇩🇪 Frankfurt"), screens.stopped(" ", REGION).params());
+  }
+
+  @Test
+  @DisplayName("stop-in-place AC-1: stopped with the {{HOSTNAME}} placeholder keeps it as the host param")
+  void stoppedWithHostnamePlaceholder() {
+    Screen screen = screens.stopped("{{HOSTNAME}}", REGION);
+
+    assertEquals(List.of("{{HOSTNAME}}", "🇩🇪 Frankfurt"), screen.params());
+    assertEquals(List.of(List.of(startAgain("RUN:eu-central-1"), MENU)), screen.keyboard());
+  }
+
+  @Test
+  @DisplayName("stop-in-place AC-2: stoppedCard keeps its template and params, now with start-again (RUN:<region>) and menu in one row")
   void stoppedCard() {
     Screen screen = screens.stoppedCard("node-1", REGION);
 
     assertEquals("⚪ <b>%s</b> · %s\n🛑 ${ui.node.stopped}", screen.template());
     assertEquals(List.of("node-1", "🇩🇪 Frankfurt"), screen.params());
-    assertEquals(List.of(), screen.keyboard());
+    assertEquals(List.of(List.of(startAgain("RUN:eu-central-1"), MENU)), screen.keyboard());
     assertEquals(List.of("—", "🇩🇪 Frankfurt"), screens.stoppedCard("", REGION).params());
+  }
+
+  @Test
+  @DisplayName("stop-in-place AC-1, AC-2: stopped and stoppedCard have the same keyboard, also for another region")
+  void stoppedScreensShareKeyboard() {
+    Screen stopped = screens.stopped("node-1", "eu-west-2");
+    Screen stoppedCard = screens.stoppedCard("node-1", "eu-west-2");
+
+    assertEquals(List.of(List.of(startAgain("RUN:eu-west-2"), MENU)), stopped.keyboard());
+    assertEquals(stopped.keyboard(), stoppedCard.keyboard());
   }
 
   @Test
@@ -169,7 +193,7 @@ class LaunchScreensTest {
   }
 
   @Test
-  @DisplayName("2a AC-4, 2b AC-7: launch templates' placeholders match params for every screen, no null params")
+  @DisplayName("2a AC-4, 2b AC-7, stop-in-place AC-1: launch templates' placeholders match params for every screen, no null params")
   void placeholdersMatchParams() {
     List.of(screens.starting(REGION),
             screens.starting("unknown-1"),
@@ -188,6 +212,10 @@ class LaunchScreensTest {
             screens.regionUnavailable(),
             screens.notAllowed())
         .forEach(ScreenTestSupport::assertPlaceholdersMatchParams);
+  }
+
+  private static Button startAgain(String callbackData) {
+    return new Button("🚀 ${ui.button.start-again}", callbackData, null);
   }
 
   private static Button stop(String callbackData) {

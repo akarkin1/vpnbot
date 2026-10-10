@@ -4,12 +4,13 @@ from node_agent.config import AgentConfig
 from node_agent.notifier import Notifier
 from tests import fakes
 from tests.fakes import (LINKS_ROW, MENU_BUTTON, READY_MARKUP_WITH_STOP, TASK_ID, TASK_ID_PLACEHOLDER,
-                         FakeTelegram, markup_json, stop_button)
+                         FakeTelegram, canonical_markup, markup_json, stop_button)
 
 READY = "\U0001F7E2 <b>fra-node-1</b> · Frankfurt\n<code>203.0.113.7</code>"
 IDLE_WARNING = "⚠️ <b>fra-node-1</b> will stop in 2 minutes"
-STOPPED = "\U0001F6D1 <b>fra-node-1</b> was stopped"
+STOPPED = "⚪ <b>fra-node-1</b> · Frankfurt\n\U0001F6D1 Stopped: no devices were connected for 10 minutes."
 STOPPED_CARD = "⚪ <b>fra-node-1</b> · Frankfurt\nStopped"
+WARNING_ID = FakeTelegram.FIRST_MESSAGE_ID
 
 
 def config(**overrides):
@@ -37,6 +38,18 @@ class NotifierTest(unittest.TestCase):
     def edit(self, text, reply_markup=None):
         return ("edit_message",
                 {"chat_id": self.config.chat_id, "message_id": 42, "text": text, "reply_markup": reply_markup})
+
+    def delete(self, message_id=WARNING_ID):
+        return ("delete_message", {"chat_id": self.config.chat_id, "message_id": message_id})
+
+    def warning_sent(self):
+        return self.send(IDLE_WARNING, silent=True)
+
+    def stopped_idle_edit(self):
+        return self.edit(STOPPED, reply_markup=canonical_markup(fakes.STOPPED_MARKUP))
+
+    def stopped_card_edit(self):
+        return self.edit(STOPPED_CARD, reply_markup=canonical_markup(fakes.STOPPED_CARD_MARKUP))
 
     # --- render ---
 
@@ -212,36 +225,254 @@ class NotifierTest(unittest.TestCase):
 
         self.assertEqual([], self.telegram.calls)
 
-    # --- stopped after idle ---
+    def test_idle_warning_send_failure_is_swallowed(self):
+        """stop-in-place §4.3: a failing or raising warning send does not raise"""
+        for telegram in (FakeTelegram(failing={"send_message"}), FakeTelegram(raising={"send_message"})):
+            with self.subTest(failing=telegram.failing, raising=telegram.raising):
+                Notifier(self.config, telegram).idle_warning()
 
-    def test_stopped_idle_sends_message_then_edits_card(self):
-        """AC-P4: stopped_idle = send TG_STOPPED_TEXT + markup (not silent), then edit card"""
+                self.assertEqual(["send_message"], telegram.methods())
+
+    # --- stopped after idle (stop-in-place §4.3) ---
+
+    def test_stopped_idle_edits_node_message_with_stopped_text_and_markup(self):
+        """AC-P4: stopped_idle = one edit of TG_MESSAGE_ID with TG_STOPPED_TEXT + TG_STOPPED_MARKUP"""
         self.notifier.stopped_idle()
 
-        self.assertEqual([self.send(STOPPED, reply_markup=fakes.STOPPED_MARKUP, silent=False),
-                          self.edit(STOPPED_CARD)], self.telegram.calls)
+        self.assertEqual([self.stopped_idle_edit()], self.telegram.calls)
 
-    def test_stopped_idle_edits_card_even_if_send_fails(self):
-        """AC-P4: Telegram errors are swallowed; the card is still edited"""
-        telegram = FakeTelegram(result=False)
+    def test_stopped_idle_sends_no_message(self):
+        """AC-P4: stopped_idle sends no new message, also after a warning"""
+        self.notifier.idle_warning()
 
-        Notifier(self.config, telegram).stopped_idle()
+        self.notifier.stopped_idle()
 
-        self.assertEqual(["send_message", "edit_message"], [method for method, _ in telegram.calls])
+        self.assertEqual(1, self.telegram.methods().count("send_message"), "only the warning is sent")
+        self.assertEqual("edit_message", self.telegram.methods()[-1])
 
-    # --- stopped (SIGTERM) ---
+    def test_stopped_idle_deletes_sent_warning_first(self):
+        """AC-P4: a sent warning is deleted (by its message id), then the node message is edited"""
+        self.notifier.idle_warning()
 
-    def test_stopped_only_edits_card(self):
-        """AC-P4: SIGTERM -> stopped edits the card with TG_STOPPED_CARD_TEXT only"""
+        self.notifier.stopped_idle()
+
+        self.assertEqual([self.warning_sent(), self.delete(WARNING_ID), self.stopped_idle_edit()],
+                         self.telegram.calls)
+
+    def test_stopped_idle_without_warning_deletes_nothing(self):
+        """AC-P4: no warning was sent (no TG_IDLE_WARNING_TEXT) -> no delete"""
+        notifier = Notifier(config(TG_IDLE_WARNING_TEXT=None), self.telegram)
+        notifier.idle_warning()
+
+        notifier.stopped_idle()
+
+        self.assertEqual([self.stopped_idle_edit()], self.telegram.calls)
+
+    def test_stopped_idle_no_delete_when_warning_send_failed(self):
+        """AC-P4: the warning send failed (None) or raised -> no delete, the node message is edited"""
+        for telegram in (FakeTelegram(failing={"send_message"}), FakeTelegram(raising={"send_message"})):
+            with self.subTest(failing=telegram.failing, raising=telegram.raising):
+                notifier = Notifier(self.config, telegram)
+                notifier.idle_warning()
+
+                notifier.stopped_idle()
+
+                self.assertEqual(["send_message", "edit_message"], telegram.methods())
+                self.assertEqual(self.stopped_idle_edit(), telegram.calls[-1])
+
+    def test_stopped_idle_edits_even_if_delete_fails(self):
+        """AC-P4: a failing or raising delete never prevents the edit"""
+        for telegram in (FakeTelegram(failing={"delete_message"}), FakeTelegram(raising={"delete_message"})):
+            with self.subTest(failing=telegram.failing, raising=telegram.raising):
+                notifier = Notifier(self.config, telegram)
+                notifier.idle_warning()
+
+                notifier.stopped_idle()
+
+                self.assertEqual([self.warning_sent(), self.delete(), self.stopped_idle_edit()], telegram.calls)
+
+    def test_stopped_idle_edit_failure_is_swallowed(self):
+        """AC-P4: every Telegram call is wrapped; a raising edit does not raise"""
+        for telegram in (FakeTelegram(result=False), FakeTelegram(raising={"send_message", "delete_message",
+                                                                             "edit_message"})):
+            with self.subTest(result=telegram.result, raising=telegram.raising):
+                notifier = Notifier(self.config, telegram)
+                notifier.idle_warning()
+
+                notifier.stopped_idle()
+
+                self.assertEqual("edit_message", telegram.methods()[-1])
+
+    def test_stopped_idle_without_stopped_markup(self):
+        """AC-P4: TG_STOPPED_TEXT without TG_STOPPED_MARKUP -> edit without markup"""
+        Notifier(config(TG_STOPPED_MARKUP=None), self.telegram).stopped_idle()
+
+        self.assertEqual([self.edit(STOPPED)], self.telegram.calls)
+
+    def test_stopped_idle_falls_back_to_stopped_card(self):
+        """AC-P4: without TG_STOPPED_TEXT -> stopped(): card text + card markup"""
+        Notifier(config(TG_STOPPED_TEXT=None), self.telegram).stopped_idle()
+
+        self.assertEqual([self.stopped_card_edit()], self.telegram.calls)
+
+    def test_stopped_idle_fallback_deletes_warning_once(self):
+        """AC-P4: without TG_STOPPED_TEXT, a sent warning is deleted once, then the card is edited"""
+        notifier = Notifier(config(TG_STOPPED_TEXT=None), self.telegram)
+        notifier.idle_warning()
+
+        notifier.stopped_idle()
+
+        self.assertEqual([self.warning_sent(), self.delete(), self.stopped_card_edit()], self.telegram.calls)
+
+    # --- stopped (🛑 tap / SIGTERM, Tailscale failure) ---
+
+    def test_stopped_edits_card_with_card_text_and_markup(self):
+        """AC-P5: stopped edits TG_MESSAGE_ID with TG_STOPPED_CARD_TEXT + TG_STOPPED_CARD_MARKUP"""
         self.notifier.stopped()
+
+        self.assertEqual([self.stopped_card_edit()], self.telegram.calls)
+
+    def test_stopped_without_card_markup_edits_without_markup(self):
+        """AC-P5: no TG_STOPPED_CARD_MARKUP (Lambda before stop-in-place) -> edit without markup"""
+        Notifier(config(TG_STOPPED_CARD_MARKUP=None), self.telegram).stopped()
 
         self.assertEqual([self.edit(STOPPED_CARD)], self.telegram.calls)
 
+    def test_stopped_deletes_sent_warning_first(self):
+        """AC-P5: a sent warning is deleted, then the card is edited"""
+        self.notifier.idle_warning()
+
+        self.notifier.stopped()
+
+        self.assertEqual([self.warning_sent(), self.delete(), self.stopped_card_edit()], self.telegram.calls)
+
+    def test_stopped_no_delete_when_warning_send_failed(self):
+        """AC-P5: the warning send failed -> no delete"""
+        telegram = FakeTelegram(failing={"send_message"})
+        notifier = Notifier(self.config, telegram)
+        notifier.idle_warning()
+
+        notifier.stopped()
+
+        self.assertEqual(["send_message", "edit_message"], telegram.methods())
+
+    def test_stopped_edits_even_if_delete_fails(self):
+        """AC-P5: a failing or raising delete never prevents the edit"""
+        for telegram in (FakeTelegram(failing={"delete_message"}), FakeTelegram(raising={"delete_message"})):
+            with self.subTest(failing=telegram.failing, raising=telegram.raising):
+                notifier = Notifier(self.config, telegram)
+                notifier.idle_warning()
+
+                notifier.stopped()
+
+                self.assertEqual([self.warning_sent(), self.delete(), self.stopped_card_edit()], telegram.calls)
+
     def test_stopped_without_card_text_is_no_op(self):
-        """AC-P4: stopped is a no-op without TG_STOPPED_CARD_TEXT"""
+        """AC-P5: stopped makes no call without TG_STOPPED_CARD_TEXT (and no warning)"""
         Notifier(config(TG_STOPPED_CARD_TEXT=None), self.telegram).stopped()
 
         self.assertEqual([], self.telegram.calls)
+
+    def test_stopped_without_card_text_still_deletes_warning(self):
+        """AC-P5/§1.2: the warning is deleted when the node stops, even without TG_STOPPED_CARD_TEXT"""
+        notifier = Notifier(config(TG_STOPPED_CARD_TEXT=None), self.telegram)
+        notifier.idle_warning()
+
+        notifier.stopped()
+
+        self.assertEqual([self.warning_sent(), self.delete()], self.telegram.calls)
+
+    # --- activity resumed (stop-in-place §4.3) ---
+
+    def test_activity_resumed_deletes_warning(self):
+        """AC-P6: activity_resumed deletes the sent warning, nothing else"""
+        self.notifier.idle_warning()
+
+        self.notifier.activity_resumed()
+
+        self.assertEqual([self.warning_sent(), self.delete(WARNING_ID)], self.telegram.calls)
+
+    def test_activity_resumed_twice_deletes_once(self):
+        """AC-P6: a second activity_resumed does nothing"""
+        self.notifier.idle_warning()
+
+        self.notifier.activity_resumed()
+        self.notifier.activity_resumed()
+
+        self.assertEqual([self.warning_sent(), self.delete()], self.telegram.calls)
+
+    def test_activity_resumed_without_warning_does_nothing(self):
+        """AC-P6: no warning sent -> no Telegram call"""
+        self.notifier.activity_resumed()
+
+        self.assertEqual([], self.telegram.calls)
+
+    def test_activity_resumed_after_failed_warning_does_nothing(self):
+        """AC-P6: the warning send failed (None) or raised -> no delete"""
+        for telegram in (FakeTelegram(failing={"send_message"}), FakeTelegram(raising={"send_message"})):
+            with self.subTest(failing=telegram.failing, raising=telegram.raising):
+                notifier = Notifier(self.config, telegram)
+                notifier.idle_warning()
+
+                notifier.activity_resumed()
+
+                self.assertEqual(["send_message"], telegram.methods())
+
+    def test_activity_resumed_forgets_warning_even_if_delete_fails(self):
+        """AC-P6: a failing or raising delete is swallowed and the warning is forgotten"""
+        for telegram in (FakeTelegram(failing={"delete_message"}), FakeTelegram(raising={"delete_message"})):
+            with self.subTest(failing=telegram.failing, raising=telegram.raising):
+                notifier = Notifier(self.config, telegram)
+                notifier.idle_warning()
+
+                notifier.activity_resumed()
+                notifier.activity_resumed()
+
+                self.assertEqual(["send_message", "delete_message"], telegram.methods())
+
+    def test_stop_after_activity_resumed_deletes_nothing(self):
+        """AC-P6: the deleted warning is forgotten -> a later stop only edits the node message"""
+        self.notifier.idle_warning()
+        self.notifier.activity_resumed()
+
+        self.notifier.stopped_idle()
+
+        self.assertEqual([self.warning_sent(), self.delete(), self.stopped_idle_edit()], self.telegram.calls)
+
+    def test_next_warning_is_deleted_by_its_own_id(self):
+        """AC-P6: warn, resume, warn again, stop -> each warning is deleted by its own message id"""
+        self.notifier.idle_warning()
+        self.notifier.activity_resumed()
+        self.notifier.idle_warning()
+
+        self.notifier.stopped_idle()
+
+        self.assertEqual([self.warning_sent(), self.delete(WARNING_ID),
+                          self.warning_sent(), self.delete(WARNING_ID + 1),
+                          self.stopped_idle_edit()], self.telegram.calls)
+
+    # --- disabled notifier (stop-in-place) ---
+
+    def test_disabled_notifier_makes_no_telegram_calls(self):
+        """AC-P8: no token / chat id / message id -> warning, resume and both stops make no Telegram call"""
+        cases = (
+            ("no token", self.config, None),
+            ("no chat id", config(TG_CHAT_ID=None), self.telegram),
+            ("no message id", config(TG_MESSAGE_ID=None), self.telegram),
+            ("invalid message id", config(TG_MESSAGE_ID="null"), self.telegram),
+        )
+        for name, agent_config, telegram in cases:
+            with self.subTest(name):
+                notifier = Notifier(agent_config, telegram)
+
+                notifier.idle_warning()
+                notifier.activity_resumed()
+                notifier.idle_warning()
+                notifier.stopped_idle()
+                notifier.stopped()
+
+                self.assertFalse(notifier.enabled)
+                self.assertEqual([], self.telegram.calls)
 
 
 if __name__ == "__main__":

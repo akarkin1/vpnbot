@@ -44,16 +44,20 @@ public class LaunchScreens {
   }
 
   public Screen stopped(String hostName, String regionId) {
-    Button startAgain = Button.action("🚀 ${ui.button.start-again}", UiAction.run(regionId));
-    return new Screen("🛑 <b>%s</b> ${ui.node.stopped-idle}",
-                      List.of(orDash(hostName)),
-                      List.of(List.of(startAgain, MENU)));
+    return new Screen("⚪ <b>%s</b> · %s\n🛑 ${ui.node.stopped-idle}",
+                      List.of(orDash(hostName), label(regionId)),
+                      stoppedKeyboard(regionId));
   }
 
   public Screen stoppedCard(String hostName, String regionId) {
     return new Screen("⚪ <b>%s</b> · %s\n🛑 ${ui.node.stopped}",
                       List.of(orDash(hostName), label(regionId)),
-                      List.of());
+                      stoppedKeyboard(regionId));
+  }
+
+  private static List<List<Button>> stoppedKeyboard(String regionId) {
+    Button startAgain = Button.action("🚀 ${ui.button.start-again}", UiAction.run(regionId));
+    return List.of(List.of(startAgain, MENU));
   }
 
   public Screen failed(String regionId) {
