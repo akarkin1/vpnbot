@@ -31,18 +31,6 @@ Parameters:
     Type: String
     Description: Whether the lambda caches regions and permissions read from DynamoDB for EnvConfigCacheTtlSec.
     Default: "false"
-  EnvPauseBetweenStatusCheckMs:
-    Type: Number
-    Description: Pause between status check of EC2 instance in milliseconds.
-    Default: 500
-  EnvOperationWaitTimeoutSec:
-    Type: Number
-    Description: How much wait in seconds for EC2 operation to complete until timeout.
-    Default: 300
-  EnvRestartSleepTimeSec:
-    Type: Number
-    Description: Pause between stop and start operation of EC2 in seconds for /restartServer command.
-    Default: 30
 
 Resources:
   LambdaRole:
@@ -148,9 +136,6 @@ Resources:
           CONFIG_CACHE_TTL_SEC: !Ref EnvConfigCacheTtlSec
           CONFIG_CACHE_ENABLED: !Ref EnvConfigCacheEnabled
           CONFIG_TABLE_NAME: !Ref ConfigTable
-#          STATUS_CHECK_PAUSE_MS: !Ref EnvPauseBetweenStatusCheckMs
-#          OPERATION_WAIT_TIMEOUT_SEC: !Ref EnvOperationWaitTimeoutSec
-#          RESTART_SLEEP_TIME_SEC_ENV: !Ref EnvRestartSleepTimeSec
       Code:
         S3Bucket: !Ref LambdaConfigBucketName
         S3Key: !Sub

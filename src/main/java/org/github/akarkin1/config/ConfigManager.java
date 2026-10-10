@@ -4,9 +4,7 @@ import lombok.experimental.UtilityClass;
 import lombok.extern.log4j.Log4j2;
 
 import java.time.Duration;
-import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 import static java.lang.System.getenv;
@@ -19,10 +17,6 @@ public class ConfigManager {
 
   private static final String BOT_USERNAME_ENV = "BOT_USERNAME";
   private static final String BOT_SECRET_TOKEN_ID_ENV = "BOT_SECRET_TOKEN_ID";
-  private static final String STATUS_CHECK_PAUSE_MS_ENV = "STATUS_CHECK_PAUSE_MS";
-  private static final String OP_WAIT_TIMEOUT_SEC_ENV = "OPERATION_WAIT_TIMEOUT_SEC";
-  private static final String RESTART_SLEEP_TIME_SEC_ENV = "RESTART_SLEEP_TIME_SEC";
-  private static final String USED_REGIONS_ENV = "USED_REGIONS";
   private static final String CONFIG_CACHE_TTL_SEC_ENV = "CONFIG_CACHE_TTL_SEC";
   private static final String CONFIG_CACHE_ENABLED_ENV = "CONFIG_CACHE_ENABLED";
   private static final String CONFIG_TABLE_NAME_ENV = "CONFIG_TABLE_NAME";
@@ -38,28 +32,6 @@ public class ConfigManager {
 
   public static String getAppVersion() {
     return APP_CONFIG.getVersion();
-  }
-
-  public static long getStatusCheckWaitIntervalMs() {
-    String envValMs = envOrDefault(STATUS_CHECK_PAUSE_MS_ENV, "500");
-    return Long.parseLong(envValMs);
-  }
-
-  public static long getOperationTimeoutMs() {
-    String envValSec = envOrDefault(OP_WAIT_TIMEOUT_SEC_ENV, "120");
-    long longValSec = Long.parseLong(envValSec);
-    return TimeUnit.SECONDS.toMillis(longValSec);
-  }
-
-  public static long getRestartPauseMs() {
-    String envValSec = envOrDefault(RESTART_SLEEP_TIME_SEC_ENV, "30");
-    long longValSec = Long.parseLong(envValSec);
-    return TimeUnit.SECONDS.toMillis(longValSec);
-  }
-
-  public static List<String> getUsedRegions() {
-    String envValStr = envOrDefault(USED_REGIONS_ENV, "");
-    return List.of(envValStr.split(","));
   }
 
   public static String getSecretTokenId() {

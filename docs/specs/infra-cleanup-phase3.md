@@ -552,3 +552,13 @@ cold requests (`Restore Duration` + first-request `TotalMs`) with D-22's 4.5 s; 
 - D-28 (§13.1a) `RunTask`/`StopTask` stay unprimed: no read-only request exists, and a deliberately
   invalid one would log an error at every publish. `DescribeTasks` priming loads the shared ECS
   request machinery; a cold node start is measured afterwards and revisited only if still slow.
+- D-29 (review) The beans' key annotations sit on Lombok-generated getters (`@Getter(onMethod_ = ...)`)
+  instead of hand-written ones; the Log4j plugin-cache compiler pass in `pom.xml` now also runs Lombok,
+  since javac rejects the Lombok-only attribute without it.
+- D-30 (§13.1a tests) Per-region steps are one loop with `getNode` then `prime` per region, regions
+  sorted; `Ec2ClientPool.prime` must use the filter, not `networkInterfaceIds` (which would be a
+  not-found error instead of an empty result).
+- D-31 (review, approved) Dead code from the EC2-era bot removed: the template parameters
+  `EnvPauseBetweenStatusCheckMs`/`EnvOperationWaitTimeoutSec`/`EnvRestartSleepTimeSec` with their
+  commented env vars, and `ConfigManager`'s unused getters (`getStatusCheckWaitIntervalMs`,
+  `getOperationTimeoutMs`, `getRestartPauseMs`, `getUsedRegions`).
