@@ -82,9 +82,9 @@ Admins = users whose permissions include `USER_MANAGEMENT` or `ROOT_ACCESS`. A p
 equals the user id, so the notification goes to chat id = admin user id with the admin's language
 (the user record has none → the bot's default, D-4). The message:
 `🙋 <b>First Last</b> (@username, id) ${ui.access.asks}` with rows
-`[🚀 ${ui.role.node-admin}] [👀 ${ui.role.read-only}]` and `[✖ ${ui.button.decline}]`
-(`UiAction.grant(userId, UserRole)` → `GRANT:<id>:<ROLE>`, `UiAction.decline(userId)` →
-`DECLINE:<id>`; `USER_ADMIN` is not offered as a button – it stays a text-command role).
+`[🚀 ${ui.role.node-admin}] [👀 ${ui.role.read-only}]`, `[🛠 ${ui.role.user-admin}]` and
+`[✖ ${ui.button.decline}]` (`UiAction.grant(userId, UserRole)` → `GRANT:<id>:<ROLE>`,
+`UiAction.decline(userId)` → `DECLINE:<id>`).
 
 Grant/decline tap → `AccessController.decide(context, messageId, userId, Optional<UserRole>)`:
 1. Caller must have `USER_MANAGEMENT` (or root), else edit to `accessScreens.notAllowed()`.
@@ -113,28 +113,24 @@ callback of this screen (`<key>` below), so pending users can be edited and remo
 **User card** – `UsersController.showUser(context, messageId, key)` → `usersScreen.user(row)`:
 `👤 <b>@username</b> (id or ${ui.users.pending})\n<roles>` and, unless the target is a root user or the caller:
 - role toggles, one row `[✅|☐ ${ui.role.node-admin}] [✅|☐ ${ui.role.read-only}]` and one row
-  `[✅|☐ ${ui.role.user-admin}]` plus, **for root callers only**, `[✅|☐ ${ui.role.root}]`
-  (`UiAction.toggleRole(key, role)` → `USER_ROLE:<key>:<ROLE>`, `ROLE` ∈ `UserRole` or `ROOT`); a role
-  is ticked when its permission set is a subset of the user's permissions (`ROOT` = `ROOT_ACCESS`);
+  `[✅|☐ ${ui.role.user-admin}]` (`UiAction.toggleRole(key, role)` → `USER_ROLE:<key>:<ROLE>`,
+  `ROLE` ∈ `UserRole`); a role is ticked when its permission set is a subset of the user's permissions;
 - `[🗑 ${ui.button.remove}]` (`USER_DEL:<key>`), only for callers with `DELETE_USERS` (or root), as
   `/deleteUsers` requires;
 - `[◀ ${ui.button.users}]` (`USERS`).
-For the caller the card has only the back button. For another root user it has only the back button
-unless the caller is root too (then the Root toggle and Remove are shown, so a root can demote or
-remove another root but never themselves).
+For the caller and for a root user the card has only the back button (root is a single user by
+design and is never edited from the UI).
 
 Toggle → `UsersController.toggleRole(context, messageId, key, role)`: permission check
-(`USER_MANAGEMENT`; the `ROOT` toggle additionally requires the caller to be root); refuse for the
-caller, and for a root target unless the caller is root (card unchanged); compute the ticked set after
-the toggle; if it is empty → `usersScreen.confirmDelete(row)` (same as 🗑); else write the union of
-the ticked roles' permissions (`ROOT` → `ROOT_ACCESS`) via `updateUserPermissions`, replacing the
-previous permissions, and show the card again. The affected user is not notified (D-8).
+(`USER_MANAGEMENT`); refuse for the caller and for a root target (card unchanged); compute the ticked
+set after the toggle; if it is empty → `usersScreen.confirmDelete(row)` (same as 🗑); else
+`assignRolesToUser(row.user(), tickedRoles)` (the union of the roles' permissions, replacing the
+previous permissions) and show the card again. The affected user is not notified (D-8).
 
 🗑 → `usersScreen.confirmDelete(row)`: `${ui.users.confirm-delete}` with
 `[✅ ${ui.button.confirm-delete}]` (`USER_DEL_CONFIRM:<key>`) `[✖ ${ui.button.cancel}]` (`USER:<key>`).
-Confirm → `UsersController.delete(...)`: permission check (`DELETE_USERS` or root), refuse self and –
-for non-root callers – root targets even on a forged callback, `deleteUser(row.user())`, back to the
-list.
+Confirm → `UsersController.delete(...)`: permission check (`DELETE_USERS` or root), refuse self and
+root targets even on a forged callback, `deleteUser(row.user())`, back to the list.
 
 ### 4.5 Routing
 
@@ -165,7 +161,7 @@ or `@username (pending): roles` for a pending user. A numeric id is accepted too
 | `ui.access.granted` | Access granted: %s. Welcome! | Доступ выдан: %s. Добро пожаловать! |
 | `ui.access.declined` | Your access request was declined. | Ваш запрос на доступ отклонён. |
 | `ui.button.decline` | Decline | Отклонить |
-| `ui.role.node-admin` | VPN user | Пользователь VPN |
+| `ui.role.node-admin` | Node admin | Администратор VPN-серверов |
 | `ui.role.read-only` | Read-only | Только просмотр |
 | `ui.role.user-admin` | User admin | Администратор пользователей |
 | `ui.role.root` | Root | Root |
@@ -257,12 +253,11 @@ NodeOwner(long userId, String username, Long chatId, String languageCode); TaskI
 - AC-5 `AccessController.decide`: permission check; missing record → already handled; grant assigns the
   role and notifies in the requester's language; decline notifies; the record is deleted either way;
   a failing requester notification doesn't fail the decision.
-- AC-6 `UsersController`: list sorted with one button per user; the card shows toggles for editable
-  users (not the caller; root targets only for root callers), the Root toggle only for root callers,
-  Remove only with `DELETE_USERS`/root; a toggle replaces the permissions with the union of the ticked
-  roles (ticked = role's permissions ⊆ user's); unticking the last role asks for confirmation; confirm →
-  delete → list; non-admin → not allowed; editing self, or root without being root, is refused even on
-  a forged callback.
+- AC-6 `UsersController`: list sorted with one button per user; the card shows toggles only for
+  editable users (not the caller, not root) and Remove only with `DELETE_USERS`/root; a toggle replaces
+  the permissions with the union of the ticked roles (ticked = role's permissions ⊆ user's); unticking
+  the last role asks for confirmation; confirm → delete → list; non-admin → not allowed; editing self or
+  root is refused even on a forged callback.
 - AC-7 Screens: templates/params/buttons of §4.2–4.4; callback data < 64 bytes for a 10-digit id;
   `%s` = params; dynamic values escaped.
 - AC-8 `UiAction` round-trips for the eight new types; `UiRouter` dispatches them.
@@ -313,15 +308,14 @@ Order: H1 → T1/T2 (deploy, observe the migration) → T3/T4 (deploy).
   the fallback in a later phase.
 - D-4 Admins are notified at chat id = their user id (private chats); no `ADMIN_CHAT_ID` setting.
   An admin who never started the bot (impossible for root) would not be reachable – logged.
-- D-5 Roles offered on the admin buttons: VPN user (`NODE_ADMIN`) and Read-only; `USER_ADMIN` only
-  via `/assignRoles`.
+- D-5 The admin's request message offers the bot's three roles (Node admin, Read-only, User admin),
+  named as `/describeRoles` names them.
 - D-6 Access requests expire after 7 days (TTL); a second tap while pending is refused.
 - D-7 Roles are edited from the user card with toggles (union of the ticked roles) instead of a
   separate "change role" flow; `/assignRoles` stays for scripting.
 - D-9 The username-takeover window that id-keying closes remains open for pending users until their
   first contact – the same exposure as today, limited to that window.
-- D-10 Root is a fourth toggle on the user card, shown and usable by root callers only; a root can
-  make or unmake another root, never themselves.
+- D-10 Root is out of scope: a single user by design, never granted or edited from the UI.
 - D-11 Remove on the user card requires `DELETE_USERS` like `/deleteUsers`. Today no `UserRole`
   grants it, so only root can remove users – decide whether `USER_ADMIN` should include
   `DELETE_USERS` (a change to an existing role) or stay as is.
