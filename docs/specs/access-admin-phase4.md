@@ -99,24 +99,38 @@ Grant/decline tap → `AccessController.decide(context, messageId, userId, Optio
 Home screen: for users with `USER_MANAGEMENT` (or root) a row `[👥 ${ui.button.users}]`
 (`UiAction.users()`, `USERS`) between the stop rows and Refresh/Help.
 
-`UsersController.show(context, messageId)` → `usersScreen.list(model)`: title `${ui.users.title}`,
-one line per user sorted by username then id: `@username · <roles>` (or `id · <roles>` without
-username); roles = the `UserRole`s whose permission sets are covered, else the permission names
-(`NodeFormat`-style helper `RoleFormat.describe(permissions)`); root shows `${ui.role.root}`.
-One `[🗑 @username]` button per user (`UiAction.deleteUser(id)` → `USER_DEL:<id>`) except root users
-and the caller; then `[🔄 ${ui.button.refresh}]`? – no: `[🏠 Menu]` only (the list refreshes on
-re-open).
+**List** – `UsersController.show(context, messageId)` → `usersScreen.list(model)`: title
+`${ui.users.title}`, one button per user, sorted by username then id, labelled
+`@username · <roles>` (or `id · <roles>` without a username; `RoleFormat.describe`: the `UserRole`s
+whose permission sets are covered, root → `${ui.role.root}`, otherwise the permission names), each
+`UiAction.user(id)` (`USER:<id>`); last row `[🏠 Menu]`.
 
-Tap 🗑 → `usersScreen.confirmDelete(user)` with `[✅ ${ui.button.confirm-delete}]`
-(`USER_DEL_CONFIRM:<id>`) `[✖ ${ui.button.cancel}]` (`USERS`). Confirm → re-check permission and that
-the target is neither root nor the caller → `deleteUser(TgUser(id, username))` → back to the list.
+**User card** – `UsersController.showUser(context, messageId, userId)` → `usersScreen.user(row)`:
+`👤 <b>@username</b> (id)\n<roles>` and, unless the target is a root user or the caller:
+- role toggles, one row `[✅|☐ ${ui.role.node-admin}] [✅|☐ ${ui.role.read-only}]` and one row
+  `[✅|☐ ${ui.role.user-admin}]` (`UiAction.toggleRole(id, role)` → `USER_ROLE:<id>:<ROLE>`); a role is
+  ticked when its permission set is a subset of the user's permissions;
+- `[🗑 ${ui.button.remove}]` (`USER_DEL:<id>`);
+- `[◀ ${ui.button.users}]` (`USERS`).
+For a root user or the caller the card has only the back button.
+
+Toggle → `UsersController.toggleRole(context, messageId, userId, role)`: permission check; refuse for
+root users and the caller (card unchanged); compute the ticked set after the toggle; if it is empty →
+`usersScreen.confirmDelete(row)` (same as 🗑); else `assignRolesToUser(TgUser(id, username),
+tickedRoles)` (the union of the roles' permissions, replacing the previous permissions) and show the
+card again. The affected user is not notified (D-8).
+
+🗑 → `usersScreen.confirmDelete(row)`: `${ui.users.confirm-delete}` with
+`[✅ ${ui.button.confirm-delete}]` (`USER_DEL_CONFIRM:<id>`) `[✖ ${ui.button.cancel}]` (`USER:<id>`).
+Confirm → `UsersController.delete(...)`: permission check, refuse root/self even on a forged callback,
+`deleteUser(TgUser(id, username))`, back to the list.
 
 ### 4.5 Routing
 
-`UiAction.Type` += `REQUEST_ACCESS, GRANT, DECLINE, USERS, USER_DEL, USER_DEL_CONFIRM`;
+`UiAction.Type` += `REQUEST_ACCESS, GRANT, DECLINE, USERS, USER, USER_ROLE, USER_DEL, USER_DEL_CONFIRM`;
 `UiAction.userId()` (`Optional<Long>`) and `UiAction.role()` (`Optional<UserRole>`) for the typed
 ones. `UiRouter` dispatches them to `AccessController` / `UsersController`. Callback data stays under
-64 bytes (`GRANT:9999999999:NODE_ADMIN` = 27).
+64 bytes (`USER_ROLE:9999999999:NODE_ADMIN` = 31).
 
 ### 4.6 Text commands (existing, adapted – approved change)
 
@@ -149,6 +163,7 @@ this is the ask – see D-1.)
 | `ui.users.title` | Users | Пользователи |
 | `ui.users.confirm-delete` | Remove %s from the bot? | Удалить %s из бота? |
 | `ui.button.confirm-delete` | Yes, remove | Да, удалить |
+| `ui.button.remove` | Remove | Удалить |
 | `ui.button.cancel` | Cancel | Отмена |
 | `ui.users.not-allowed` | You are not allowed to manage users. | Вы не можете управлять пользователями. |
 | `command.user-unknown` | has not used the bot yet (ask them to open it first) | ещё не пользовался ботом (попросите его открыть бота) |
@@ -203,15 +218,15 @@ public final class RoleFormat { public static String describe(List<Permission> p
 
 // ui
 UiContext(Long chatId, Long userId, String username, String firstName, String languageCode) + TgUser user()
-UiAction: requestAccess(), grant(long userId, UserRole role), decline(long userId), users(), deleteUser(long), confirmDeleteUser(long)
+UiAction: requestAccess(), grant(long userId, UserRole role), decline(long userId), users(), user(long), toggleRole(long, UserRole), deleteUser(long), confirmDeleteUser(long)
          + Optional<Long> userId(), Optional<UserRole> role()
 // ui.controller
 public class AccessController { request(UiContext, Integer messageId); decide(UiContext, Integer messageId, long userId, Optional<UserRole> role); }
-public class UsersController  { show(UiContext, Integer messageId); confirmDelete(UiContext, Integer messageId, long userId); delete(UiContext, Integer messageId, long userId); }
+public class UsersController  { show(UiContext, Integer messageId); showUser(UiContext, Integer messageId, long userId); toggleRole(UiContext, Integer messageId, long userId, UserRole role); confirmDelete(UiContext, Integer messageId, long userId); delete(UiContext, Integer messageId, long userId); }
 // ui.screen
 public class AccessScreens { requested(); alreadyRequested(); adminRequest(AccessRequest); granted(AccessRequest, UserRole); declined(AccessRequest); alreadyHandled(); accessGranted(UserRole); accessDeclined(); notAllowed(); }
-public class UsersScreen   { list(UsersModel); confirmDelete(UserRow); notAllowed(); }
-public record UsersModel(List<UserRow> users) {}   public record UserRow(long id, String username, List<Permission> permissions, boolean deletable) {}
+public class UsersScreen   { list(UsersModel); user(UserRow); confirmDelete(UserRow); notAllowed(); }
+public record UsersModel(List<UserRow> users) {}   public record UserRow(long id, String username, List<Permission> permissions, boolean editable) {}   // editable = not root, not the caller
 HomeModel: + boolean canManageUsers, boolean hasAccess
 // tailscale / ecs
 NodeOwner(long userId, String username, Long chatId, String languageCode); TaskInfo + runByName; EcsConfiguration + runByNameTag
@@ -231,11 +246,14 @@ NodeOwner(long userId, String username, Long chatId, String languageCode); TaskI
 - AC-5 `AccessController.decide`: permission check; missing record → already handled; grant assigns the
   role and notifies in the requester's language; decline notifies; the record is deleted either way;
   a failing requester notification doesn't fail the decision.
-- AC-6 `UsersController`: list sorted; no 🗑 for root users and the caller; confirm → delete → list;
-  non-admin → not allowed; deleting root or self is refused even if the callback is forged.
+- AC-6 `UsersController`: list sorted with one button per user; the card shows toggles and Remove only
+  for editable users (not root, not the caller); a toggle replaces the permissions with the union of the
+  ticked roles (ticked = role's permissions ⊆ user's); unticking the last role asks for confirmation;
+  confirm → delete → list; non-admin → not allowed; editing root or self is refused even on a forged
+  callback.
 - AC-7 Screens: templates/params/buttons of §4.2–4.4; callback data < 64 bytes for a 10-digit id;
   `%s` = params; dynamic values escaped.
-- AC-8 `UiAction` round-trips for the six new types; `UiRouter` dispatches them.
+- AC-8 `UiAction` round-trips for the eight new types; `UiRouter` dispatches them.
 - AC-9 `NodeAccess.isOwner` matches id, and username during the transition; `runNode` tags `RunBy` =
   id and `RunByName` = username; `getTask`/`listTasks` map `RunByName`.
 - AC-10 Text commands accept `@name` and ids; unknown name → the error text with `command.user-unknown`.
@@ -283,6 +301,10 @@ Order: H1 → T1/T2 (deploy, observe the migration) → T3/T4 (deploy).
 - D-5 Roles offered on the admin buttons: VPN user (`NODE_ADMIN`) and Read-only; `USER_ADMIN` only
   via `/assignRoles`.
 - D-6 Access requests expire after 7 days (TTL); a second tap while pending is refused.
+- D-7 Roles are edited from the user card with toggles (union of the ticked roles) instead of a
+  separate "change role" flow; `/assignRoles` stays for scripting.
+- D-8 A user whose roles change from the Users screen is not notified (only access requests are);
+  can be added later if wanted.
 
 ## 13. Decision log
 
