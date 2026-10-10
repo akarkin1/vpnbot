@@ -61,6 +61,9 @@ jobs:
           no-fail-on-empty-changeset: "1"
           capabilities: CAPABILITY_IAM,CAPABILITY_NAMED_IAM
           parameter-overrides: 'LambdaConfigBucketName=${{ env.S3_CONFIG_BUCKET_NAME }},LambdaSourceVersion=${{ github.event.inputs.lambda-source-version }},EnvTgBotUsername=${{ env.TG_BOT_USERNAME }},EnvTgBotSecretTokenId=${{ env.TG_SECRET_TOKEN_ID }},EnvTgBotTokenSecretId=${{ env.TG_BOT_TOKEN_SECRET_ID }},EnvMetricsEnabled=${{ env.METRICS_ENABLED }},EnvConfigCacheTtlSec=${{ env.CONFIG_CACHE_TTL_SEC }},EnvConfigCacheEnabled=${{ env.CONFIG_CACHE_ENABLED }}'
+      # A published version freezes the configuration too, so configuration changes go live only with a new one
+      - name: Publish Version And Point Alias `live`
+        run: .github/scripts/publish-live-version.sh vpnbot live
       - name: Bootstrap Root User In DynamoDB
         id: bootstrap-root-user
         run: |

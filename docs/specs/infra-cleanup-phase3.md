@@ -328,9 +328,18 @@ The static block runs once, before the snapshot. Check and keep it safe:
 
 ### 8.4 Deploy C checklist (owner)
 
-1. "Deploy VPN Configurer Lambda Resources", then "VPN Bot Lambda CI-CD".
-2. Verify: alias `live` points to the newest version; requests work; cold starts log `Restore Duration`
-   instead of `Init Duration`. Compare cold-request time with the 2026-10-09 baseline (4.4–6.6 s).
+0. Before: confirm Deploy B left nothing behind – `aws ec2 describe-vpcs --region eu-central-1
+   --filters Name=tag:Name,Values=vpn-configurer-vpc` returns no VPC (Deploy C removes the role's
+   network-interface permissions, D-17). If the VPC is still there, delete its leftovers first.
+1. "Deploy VPN Configurer Lambda Resources" from the branch. The first published version is taken by
+   CloudFormation; its snapshot takes 1–3 min, during which the alias may answer "function is Pending"
+   (Telegram re-delivers; one-off, first deploy only). The workflow then publishes a second version.
+2. "VPN Bot Lambda CI-CD" from the branch (publishes a version and moves the alias).
+3. Verify: `aws lambda get-alias --function-name vpnbot --name live` points to the newest version;
+   requests work; cold starts log `Restore Duration` instead of `Init Duration`. Compare cold-request
+   time with the 2026-10-09 baseline (4.4–6.6 s).
+4. Still open from Deploy B: "Deploy Tailscale ECS Resources" for each region (CloudFormation on,
+   Docker off) for the 7-day node log retention.
 
 ## 9. Acceptance criteria
 
@@ -434,3 +443,11 @@ Deploy C:
 - D-17 (tech lead) Deploy B keeps the role's EC2 network-interface permissions: Lambda uses the
   execution role to delete the interfaces of its former VPC (up to ~20 min after `VpcConfig` is
   removed); without them the subnet/security group deletion would fail for good. Removed in Deploy C.
+- D-18 (C) API Gateway's role gets `lambda:InvokeFunction` on the function and the alias instead of
+  `lambda:*` on the function (an alias ARN needs its own entry; invoking is all the API does).
+- D-19 (C) `publish-live-version.sh` waits for the published version to be `Active` before moving the
+  alias: with SnapStart a version is `Pending` until its snapshot exists, and a failed snapshot (e.g. an
+  exception in the static block, which now runs at publish time) leaves the alias on the previous version.
+- D-20 (C) `AWS::Lambda::Version` is created once (CloudFormation never republishes it); the workflows
+  publish all later versions, and the Lambda deploy workflow always ends with a publish, so a
+  CloudFormation reset of the alias is corrected in the same run.

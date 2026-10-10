@@ -13,8 +13,10 @@ Planned work lives in `docs/roadmap.md`.
   (production code in `docker/node_agent/src/node_agent`, tests in `docker/node_agent/tests`)
 - The build rewrites `dependency-reduced-pom.xml`; never commit that change
   (`git checkout dependency-reduced-pom.xml`).
-- Shell script test (needs `jq`): `.github/scripts/region-item-test.sh`.
-- Deployment is manual via GitHub Actions (`.github/workflows/deploy-*.yml`).
+- Shell script tests (need `jq`): `.github/scripts/region-item-test.sh`, `.github/scripts/publish-live-version-test.sh`.
+- Deployment is manual via GitHub Actions (`.github/workflows/deploy-*.yml`). API Gateway invokes the
+  Lambda alias `live` (SnapStart): every code/config deploy ends with `publish-live-version.sh`, which
+  publishes a version and moves the alias. The static block runs at publish time, not on first request.
 
 ## Architecture
 

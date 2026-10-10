@@ -56,4 +56,8 @@ jobs:
     - name: Update AWS Lambda
       run: |
         aws lambda update-function-code --function-name vpnbot --s3-bucket ${{ env.S3_CONFIG_BUCKET_NAME }} --s3-key "${{ steps.src-upload.outputs.src_s3_key }}"
+
+    # API Gateway invokes the alias, so the new code is live only once a version is published
+    - name: Publish Version And Point Alias `live`
+      run: .github/scripts/publish-live-version.sh vpnbot live
       

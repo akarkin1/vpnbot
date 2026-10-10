@@ -75,18 +75,6 @@ Resources:
                   - "logs:PutLogEvents"
                 Effect: Allow
                 Resource: "*"
-              # Lambda deletes the network interfaces of its former VPC with the function's role,
-              # which can take ~20 min after the VPC config is removed. Keep until the VPC is gone.
-              - Action:
-                  - "ec2:DescribeSubnets"
-                  - "ec2:DescribeVpcs"
-                  - "ec2:DescribeSecurityGroups"
-                  - "ec2:CreateNetworkInterface"
-                  - "ec2:DeleteNetworkInterface"
-                  - "ec2:AssignPrivateIpAddresses"
-                  - "ec2:UnassignPrivateIpAddresses"
-                Effect: Allow
-                Resource: "*"
               # Permissions to manage ECS instances
               - Action:
                   - "ecs:RunTask"
@@ -148,6 +136,9 @@ Resources:
       MemorySize: 1024
       # API Gateway gives up after 29 s
       Timeout: 30
+      # Snapshot of the initialised JVM per published version; the alias below is what is invoked
+      SnapStart:
+        ApplyOn: PublishedVersions
       Environment:
         Variables:
           BOT_USERNAME: !Ref EnvTgBotUsername
@@ -165,6 +156,23 @@ Resources:
         S3Key: !Sub
           - 'vpntgbot/vpnbot-${LambdaSourceVersion}.jar'
           - LambdaSourceVersion: !Ref LambdaSourceVersion
+
+  # The first published version (a snapshot of the code deployed when the stack is created or this
+  # resource is renamed). Later versions are published by the workflows, which also move the alias.
+  VpnConfigurerLambdaVersion:
+    Type: AWS::Lambda::Version
+    Properties:
+      FunctionName: !Ref VpnConfigurerLambda
+      Description: Published by CloudFormation
+
+  # API Gateway invokes this alias. CloudFormation only sets its first version; every code or
+  # configuration deploy publishes a new version and points the alias at it (publish-live-version.sh).
+  VpnConfigurerLambdaAlias:
+    Type: AWS::Lambda::Alias
+    Properties:
+      FunctionName: !Ref VpnConfigurerLambda
+      FunctionVersion: !GetAtt VpnConfigurerLambdaVersion.Version
+      Name: live
 
   LambdaLogGroup:
     DependsOn: VpnConfigurerLambda
@@ -202,8 +210,10 @@ Resources:
             Version: "2012-10-17"
             Statement:
               - Effect: "Allow"
-                Action: "lambda:*"
-                Resource: !GetAtt VpnConfigurerLambda.Arn
+                Action: "lambda:InvokeFunction"
+                Resource:
+                  - !GetAtt VpnConfigurerLambda.Arn
+                  - !Ref VpnConfigurerLambdaAlias
         - PolicyName: ApiGatewayAwsLoggingPolicy
           PolicyDocument:
             Version: '2012-10-17'
@@ -228,7 +238,7 @@ Resources:
     DependsOn:
       - ApiGatewayIamRole
       - LambdaRestApi
-      - VpnConfigurerLambda
+      - VpnConfigurerLambdaAlias
     Type: AWS::ApiGatewayV2::Integration
     Properties:
       ApiId: !Ref LambdaRestApi
@@ -240,7 +250,7 @@ Resources:
       IntegrationMethod: POST
       IntegrationType: AWS_PROXY
       PayloadFormatVersion: "2.0"
-      IntegrationUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${VpnConfigurerLambda.Arn}/invocations"
+      IntegrationUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${VpnConfigurerLambdaAlias}/invocations"
 
   ApiGatewayRoute:
     Type: AWS::ApiGatewayV2::Route
@@ -258,8 +268,9 @@ Resources:
 
   # CloudFormation never redeploys an HTTP API by itself: a Deployment is a snapshot taken when the
   # resource is created. Rename this resource (new logical id) whenever the route or integration
-  # changes, otherwise the stage keeps serving the old snapshot (here: the old 0.6 s timeout).
-  ApiGatewayDeployment20261010:
+  # changes, otherwise the stage keeps serving the old snapshot (2026-10-10: the old 0.6 s timeout;
+  # 2026-10-10b: the integration now targets the alias).
+  ApiGatewayDeployment20261010b:
     DependsOn:
       - ApiGatewayRoute
       - LambdaApiGatewayIntegration
@@ -271,11 +282,11 @@ Resources:
 
   ApiGatewayStage:
     DependsOn:
-      - ApiGatewayDeployment20261010
+      - ApiGatewayDeployment20261010b
       - LambdaRestApi
     Type: AWS::ApiGatewayV2::Stage
     Properties:
-      DeploymentId: !Ref ApiGatewayDeployment20261010
+      DeploymentId: !Ref ApiGatewayDeployment20261010b
       Description: TG Bot Vpn Configurer Lambda API v0
       ApiId: !Ref LambdaRestApi
       StageName: "v0"
