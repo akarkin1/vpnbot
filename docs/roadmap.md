@@ -70,6 +70,16 @@ EC2 instance that needs AMI patching, and removes the NAT hop from every Lambda 
 5. **Optional**: Lambda SnapStart (impossible while EFS is mounted). Decide with Phase 2a metrics;
    low traffic limits its benefit.
 
+## Small follow-ups (from the 2026-10-09 prod validation)
+
+- Lambda `Timeout` 600 s → ~30 s (API Gateway gives up after 29 s anyway); together with Phase 3.
+- Node log group retention 1 day → 7 days (`cloudformation/ecs-vpn-server.yml`), so a week can be reviewed.
+- Node image runs Python 3.9, which boto3 no longer supports (deprecation warning at start-up):
+  move to `python3.11` from the Amazon Linux 2023 repos and re-pin `docker/requirements.txt`.
+- Cold start: Init ≈ 3.7 s + ≈ 0.75 s first-invocation work, warm requests ≈ 0.3 s. Levers: SnapStart
+  (Phase 3, needs EFS gone) and/or more memory (CPU scales with memory; 1024 MB today).
+- Clean up the stale per-region stack-output files and the legacy `vpntgbot-s3` bucket (manual, once).
+
 ## Later
 
 - **Phase 4 – access & admin**: "Request access" flow for unknown users (admin gets role buttons that
@@ -92,3 +102,7 @@ EC2 instance that needs AMI patching, and removes the NAT hop from every Lambda 
 - The node agent uses `requests` directly instead of a Telegram library (only two API calls);
   reconsider if it grows.
 - Region-list cache: TTL (default 5 min) instead of no cache; staleness of a few minutes is acceptable.
+- Prod metrics (2026-10-09): warm button taps 250–400 ms (ECS calls dominate), taps that start/stop a
+  node 1.1–2.1 s, S3 is cached as intended; Fargate needs ≈ 20 s from RunTask to container start,
+  Tailscale is up 1–2 s later.
+- HTTP API deployments are snapshots: CloudFormation does not redeploy them on change (see 2a D-14).
