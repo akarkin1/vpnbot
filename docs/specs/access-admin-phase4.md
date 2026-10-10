@@ -81,21 +81,33 @@ Tap → `AccessController.request(context, messageId)`:
 Admins = users whose permissions include `USER_MANAGEMENT` or `ROOT_ACCESS`. A private chat's id
 equals the user id, so the notification goes to chat id = admin user id with the admin's language
 (the user record has none → the bot's default, D-4). The message:
-`🙋 <b>First Last</b> (@username, id) ${ui.access.asks}` with rows
-`[🚀 ${ui.role.node-admin}] [👀 ${ui.role.read-only}]`, `[🛠 ${ui.role.user-admin}]` and
-`[✖ ${ui.button.decline}]` (`UiAction.grant(userId, UserRole)` → `GRANT:<id>:<ROLE>`,
-`UiAction.decline(userId)` → `DECLINE:<id>`).
+`🙋 <b>First Last</b> (@username, id) ${ui.access.asks}` with role **checkboxes** and two actions:
+`[☐ ${ui.role.node-admin}] [☐ ${ui.role.read-only}]`, `[☐ ${ui.role.user-admin}]`,
+`[✅ ${ui.button.grant}] [✖ ${ui.button.decline}]`.
 
-Grant/decline tap → `AccessController.decide(context, messageId, userId, Optional<UserRole>)`:
+The selection lives in the callback data, not in the table (D-5): every button of the message carries
+the current selection as a bitmask `m` of `UserRole` bits (`RoleSet.encode/decode`,
+`NODE_ADMIN = 1, READ_ONLY = 2, USER_ADMIN = 4`):
+- role tap → `UiAction.accessToggle(userId, m, role)` (`ACCESS_TOGGLE:<id>:<m>:<ROLE>`) →
+  `AccessController.toggle(...)`: permission check (`USER_MANAGEMENT` or root); if the request record is
+  gone → `alreadyHandled()`; else redraw the same message with the role flipped (✅/☐) and the new
+  mask on every button. Nothing is written.
+- `[✅ Grant]` → `UiAction.accessGrant(userId, m)` (`ACCESS_GRANT:<id>:<m>`); with `m = 0` the tap only
+  answers the callback (nothing changes); otherwise `AccessController.decide(..., Optional.of(roles))`.
+- `[✖ Decline]` → `UiAction.accessDecline(userId)` (`ACCESS_DECLINE:<id>`) → `decide(..., empty)`.
+Each admin's message keeps its own selection; the first decision wins (see step 2 below).
+
+`AccessController.decide(context, messageId, userId, Optional<Set<UserRole>> roles)`:
 1. Caller must have `USER_MANAGEMENT` (or root), else edit to `accessScreens.notAllowed()`.
 2. Read the request record; if missing → edit to `accessScreens.alreadyHandled()`
    (`${ui.access.already-handled}`), done.
-3. Grant: `assignRolesToUser(TgUser(userId, request.username), Set.of(role))`; decline: nothing.
-4. Delete the request record; edit the admin's message to `accessScreens.granted(request, role)` /
+3. Grant: `assignRolesToUser(TgUser(userId, request.username), roles)` (union of the roles'
+   permissions); decline: nothing.
+4. Delete the request record; edit the admin's message to `accessScreens.granted(request, roles)` /
    `accessScreens.declined(request)` (no buttons); send the requester (chat id = user id, language
-   from the record) `accessScreens.accessGranted(role)` (`${ui.access.granted}` + `[🏠 Menu]`) or
-   `accessScreens.accessDeclined()` (`${ui.access.declined}`, no buttons). A failing requester
-   notification is logged, not an error.
+   from the record) `accessScreens.accessGranted(roles)` (`${ui.access.granted}` with the role names
+   joined by ", " + `[🏠 Menu]`) or `accessScreens.accessDeclined()` (`${ui.access.declined}`, no
+   buttons). A failing requester notification is logged, not an error.
 
 ### 4.4 Users screen
 
@@ -134,10 +146,11 @@ root targets even on a forged callback, `deleteUser(row.user())`, back to the li
 
 ### 4.5 Routing
 
-`UiAction.Type` += `REQUEST_ACCESS, GRANT, DECLINE, USERS, USER, USER_ROLE, USER_DEL, USER_DEL_CONFIRM`;
-`UiAction.userId()` (`Optional<Long>`) and `UiAction.role()` (`Optional<UserRole>`) for the typed
-ones. `UiRouter` dispatches them to `AccessController` / `UsersController`. Callback data stays under
-64 bytes (`USER_ROLE:@<32-char username>:NODE_ADMIN` = 54, the longest).
+`UiAction.Type` += `REQUEST_ACCESS, ACCESS_TOGGLE, ACCESS_GRANT, ACCESS_DECLINE, USERS, USER, USER_ROLE, USER_DEL, USER_DEL_CONFIRM`;
+`UiAction.userId()` (`Optional<Long>`), `UiAction.roleMask()` (`OptionalInt`) and `UiAction.role()`
+(`Optional<UserRole>`) for the typed ones. `UiRouter` dispatches them to `AccessController` / `UsersController`. Callback data stays under
+64 bytes (`USER_ROLE:@<32-char username>:NODE_ADMIN` = 54 and `ACCESS_TOGGLE:9999999999:7:USER_ADMIN`
+= 37 are the longest).
 
 ### 4.6 Text commands (existing, behaviour unchanged)
 
@@ -160,6 +173,7 @@ or `@username (pending): roles` for a pending user. A numeric id is accepted too
 | `ui.access.declined-admin` | declined. | отклонён. |
 | `ui.access.granted` | Access granted: %s. Welcome! | Доступ выдан: %s. Добро пожаловать! |
 | `ui.access.declined` | Your access request was declined. | Ваш запрос на доступ отклонён. |
+| `ui.button.grant` | Grant | Выдать доступ |
 | `ui.button.decline` | Decline | Отклонить |
 | `ui.role.node-admin` | Node admin | Администратор VPN-серверов |
 | `ui.role.read-only` | Read-only | Только просмотр |
@@ -224,13 +238,14 @@ public final class RoleFormat { public static String describe(List<Permission> p
 
 // ui
 UiContext(Long chatId, Long userId, String username, String firstName, String languageCode) + TgUser user()
-UiAction: requestAccess(), grant(long userId, UserRole role), decline(long userId), users(), user(String key), toggleRole(String key, UserRole), deleteUser(String key), confirmDeleteUser(String key)
-         + Optional<Long> userId(), Optional<String> userKey(), Optional<UserRole> role()
+UiAction: requestAccess(), accessToggle(long userId, int mask, UserRole role), accessGrant(long userId, int mask), accessDecline(long userId), users(), user(String key), toggleRole(String key, UserRole), deleteUser(String key), confirmDeleteUser(String key)
+         + Optional<Long> userId(), Optional<String> userKey(), OptionalInt roleMask(), Optional<UserRole> role()
+public final class RoleSet { static int encode(Set<UserRole>); static Set<UserRole> decode(int); }   // auth
 // ui.controller
-public class AccessController { request(UiContext, Integer messageId); decide(UiContext, Integer messageId, long userId, Optional<UserRole> role); }
+public class AccessController { request(UiContext, Integer messageId); toggle(UiContext, Integer messageId, long userId, int mask, UserRole role); decide(UiContext, Integer messageId, long userId, Optional<Set<UserRole>> roles); }
 public class UsersController  { show(UiContext, Integer messageId); showUser(UiContext, Integer messageId, String key); toggleRole(UiContext, Integer messageId, String key, UserRole role); confirmDelete(UiContext, Integer messageId, String key); delete(UiContext, Integer messageId, String key); }
 // ui.screen
-public class AccessScreens { requested(); alreadyRequested(); adminRequest(AccessRequest); granted(AccessRequest, UserRole); declined(AccessRequest); alreadyHandled(); accessGranted(UserRole); accessDeclined(); notAllowed(); }
+public class AccessScreens { requested(); alreadyRequested(); adminRequest(AccessRequest, Set<UserRole> selected); granted(AccessRequest, Set<UserRole>); declined(AccessRequest); alreadyHandled(); accessGranted(Set<UserRole>); accessDeclined(); notAllowed(); }
 public class UsersScreen   { list(UsersModel); user(UserRow); confirmDelete(UserRow); notAllowed(); }
 public record UsersModel(List<UserRow> users) {}   public record UserRow(TgUser user, List<Permission> permissions, boolean editable) { boolean pending(); }   // editable = not root, not the caller
 HomeModel: + boolean canManageUsers, boolean hasAccess
@@ -250,9 +265,12 @@ NodeOwner(long userId, String username, Long chatId, String languageCode); TaskI
   delete on empty permissions.
 - AC-4 `AccessController.request`: the three branches of §4.2; the admin notification goes to each
   admin's user id as chat id, not to non-admins; records the request with `expiresAt` = +7 days.
-- AC-5 `AccessController.decide`: permission check; missing record → already handled; grant assigns the
-  role and notifies in the requester's language; decline notifies; the record is deleted either way;
-  a failing requester notification doesn't fail the decision.
+- AC-5 `AccessController.toggle`: redraws with the flipped role and the new mask on every button,
+  writes nothing, permission check, missing record → already handled. `decide`: permission check;
+  missing record → already handled; grant with the selected roles assigns their union and notifies in
+  the requester's language naming the roles; an empty mask on Grant changes nothing; decline
+  notifies; the record is deleted on grant/decline; a failing requester notification doesn't fail the
+  decision. `RoleSet` round-trips every subset of `UserRole`.
 - AC-6 `UsersController`: list sorted with one button per user; the card shows toggles only for
   editable users (not the caller, not root) and Remove only with `DELETE_USERS`/root; a toggle replaces
   the permissions with the union of the ticked roles (ticked = role's permissions ⊆ user's); unticking
@@ -260,7 +278,7 @@ NodeOwner(long userId, String username, Long chatId, String languageCode); TaskI
   root is refused even on a forged callback.
 - AC-7 Screens: templates/params/buttons of §4.2–4.4; callback data < 64 bytes for a 10-digit id;
   `%s` = params; dynamic values escaped.
-- AC-8 `UiAction` round-trips for the eight new types; `UiRouter` dispatches them.
+- AC-8 `UiAction` round-trips for the nine new types; `UiRouter` dispatches them.
 - AC-9 `NodeAccess.isOwner` matches id, and username during the transition; `runNode` tags `RunBy` =
   id and `RunByName` = username; `getTask`/`listTasks` map `RunByName`.
 - AC-10 Text commands: `/assignRoles @unknown ROLE` creates a pending record; known users are updated
@@ -308,8 +326,9 @@ Order: H1 → T1/T2 (deploy, observe the migration) → T3/T4 (deploy).
   the fallback in a later phase.
 - D-4 Admins are notified at chat id = their user id (private chats); no `ADMIN_CHAT_ID` setting.
   An admin who never started the bot (impossible for root) would not be reachable – logged.
-- D-5 The admin's request message offers the bot's three roles (Node admin, Read-only, User admin),
-  named as `/describeRoles` names them.
+- D-5 The admin's request message offers the bot's three roles as checkboxes plus Grant/Decline, so
+  several roles can be granted at once; the selection is carried in the callback data (a bitmask), so
+  toggling writes nothing and each admin's message has its own selection.
 - D-6 Access requests expire after 7 days (TTL); a second tap while pending is refused.
 - D-7 Roles are edited from the user card with toggles (union of the ticked roles) instead of a
   separate "change role" flow; `/assignRoles` stays for scripting.
