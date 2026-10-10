@@ -510,3 +510,8 @@ cold requests (`Restore Duration` + first-request `TotalMs`) with D-22's 4.5 s; 
   1.5–3 s, all in ECS.
 - D-23 (follow-up) SnapStart priming at init (§13) instead of CRaC `beforeCheckpoint` hooks: same
   effect for our case (init runs right before the snapshot), no new dependency.
+- D-24 (§13) Confirmed: `EmfRequestMetrics.start()` resets the per-request totals and the primer never
+  calls `start()`, so priming writes no EMF line and its timings never appear in the first request.
+- D-25 (§13) The primer catches `Exception` per step (checked `TelegramApiException` and runtime
+  exceptions alike) and measures its duration with `System.nanoTime()` (no `Clock` in the contract).
+  AC-P2 is four tests instead of a parameterised one (`junit-jupiter-params` is not a dependency).
