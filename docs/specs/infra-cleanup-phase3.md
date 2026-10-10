@@ -413,3 +413,17 @@ Deploy C:
   reflection at init adds to cold starts; after C it is part of the snapshot.
 - D-7 (review) Attribute names in camelCase (the Enhanced Client default: no per-field mapping);
   keys `pk`/`sk` in lower case.
+- D-8 (A1) `getTaskRuntimeParameters` treats a blank attribute like a missing one (same
+  `IllegalStateException`); `region-item.sh` never writes empty values anyway.
+- D-9 (A1) `TailscaleEcsNodeServiceConfigurer` has a package-private `configureTaskConfigService(regions,
+  metrics)` so the cache wiring can be tested without building the ECS client pools.
+- D-10 (A1/tech lead) The unused `config.model.CfnStackOutputParameter` and `StackOutputParameters` are
+  deleted; `JsonUtilsTest` uses its own record instead.
+- D-11 (A2) Not unit-tested: AC-A6 (the handler wires everything in its static block) and the
+  "flag on → cached" wiring (env vars can't be set in tests); covered by the Deploy A checklist.
+  Only the defaults of `getConfigTableName()` / `isConfigCacheEnabled()` are tested.
+- D-12 (A2) Permissions are written with a plain `putItem` (no condition – it replaces the record).
+- D-13 (A2) `src/test/resources/application.yml` was invalid (`auth.white-list-enabled` doesn't exist)
+  and made `ConfigManager` fail to initialise in tests; replaced with a minimal valid file.
+- D-14 (A2) `FakeTable` (test helper) answers every `DynamoDbTable` overload and records whether each
+  call/page fetch ran inside `metrics.time(...)`, so tests don't depend on which overload is used.
