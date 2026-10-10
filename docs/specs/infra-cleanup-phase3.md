@@ -404,6 +404,50 @@ Deploy C:
 | DynamoDB (≈ 1 WRU + 1–2 RRU per request, ≈ 330 requests/month) | – | ≈ $0.0003 |
 | SnapStart (no charge for Java) | – | $0 |
 
+## 13. Deploy C follow-up – SnapStart priming (approved 2026-10-10)
+
+Validation (D-22): the restore is fast (0.76 s) but the first request after it takes ≈ 3.7 s because
+the DynamoDB, ECS/EC2 and Telegram request paths run for the first time after the restore. Priming
+runs each path once at init, so their class loading and client setup are in the snapshot.
+
+### 13.1 Behaviour
+
+New `org.github.akarkin1.startup.SnapStartPrimer` (`TailscaleNodeService nodeService,
+PermissionsService permissionsService, UpdateEventsRegistry eventsRegistry, AbsSender sender`),
+`public void prime()`, called at the end of the handler's static block (last statement). Steps, in
+this order, each wrapped so that a failure is logged (`log.warn("Priming step {} failed", ...)`) and
+the next step still runs; `prime()` never throws:
+
+1. `permissionsService.getUserPermissions()` – DynamoDB query (`USER`).
+2. `nodeService.listTasks(PRIMER_USER)` with `PRIMER_USER = "snapstart-primer"` (matches no node) –
+   DynamoDB region query + per-region parameters, ECS list/describe and EC2 interface lookups in all
+   supported regions, through the parallel executor.
+3. `eventsRegistry.register(update)` with an `Update` whose `updateId` is `PRIMER_UPDATE_ID = -1`
+   (Telegram ids are positive, so it never collides) – conditional put path; the lock record expires
+   after 24 h like any other; a `false` (already present) result is fine.
+4. `sender.execute(new GetMe())` – Telegram HTTP client path.
+
+Results are discarded. `prime()` logs one info line with the total duration. No feature flag: the
+static block only runs at publish time (SnapStart), where ≈ 3 s of priming is acceptable.
+
+Metrics: the primer's calls go through `RequestMetrics.time(...)` like any other; the implementer
+checks that the first real request after a restore does not report the primer's times (the
+per-request totals must be reset when a request starts) and records the finding in the decision log.
+
+### 13.2 Acceptance criteria
+
+- AC-P1 `prime()` calls the four steps in order with exactly the arguments above.
+- AC-P2 A step that throws (each of the four, in turn) is logged and the remaining steps still run;
+  `prime()` returns normally.
+- AC-P3 `PRIMER_UPDATE_ID` is negative; `PRIMER_USER` is non-blank.
+- AC-P4 The handler's static block ends with the primer call (checked by reading the handler).
+
+### 13.3 Deploy and measure
+
+"VPN Bot Lambda CI-CD" from the branch (publishes a version → the init with priming runs at publish
+time; the priming calls hit DynamoDB, ECS, EC2 and Telegram once per publish). Then compare several
+cold requests (`Restore Duration` + first-request `TotalMs`) with D-22's 4.5 s; expected ≈ 1–1.5 s.
+
 ## 12. Decision log
 
 - D-1 (review) One table with the record type as partition key instead of three tables: identical
@@ -464,3 +508,5 @@ Deploy C:
   class loading and connection setup are not in the snapshot. Follow-up: prime those paths at init.
   Warm requests ≈ 140 ms (baseline 334 ms, mostly from 1 region instead of 6); node start/stop
   1.5–3 s, all in ECS.
+- D-23 (follow-up) SnapStart priming at init (§13) instead of CRaC `beforeCheckpoint` hooks: same
+  effect for our case (init runs right before the snapshot), no new dependency.
