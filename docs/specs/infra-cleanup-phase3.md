@@ -171,16 +171,22 @@ All table writes use `--table-name vpnbot --region ${{ vars.CONFIG_BASE_REGION }
   `--condition-expression 'attribute_not_exists(pk)'`; a `ConditionalCheckFailedException` is
   success (user exists). The S3 bootstrap steps (`user-permissions.json`, `supported-regions.txt`)
   and their env vars are removed.
-- New `migrate-config-to-dynamodb.yml` (`workflow_dispatch`, no inputs), idempotent:
-  for each region in `supported-regions.txt` → read `<dir>/<region>/<stack outputs file>` →
-  `region-item.sh` → `put-item`; for each entry of `user-permissions.json` with a non-empty list →
-  `put-item (USER, name, permissions SS)`. Prints what it wrote. Deleted in Deploy B.
+- One-off migration is a **local script** the owner runs once (no workflow):
+  `scripts/migrate-config-to-dynamodb.sh [--dry-run]` (needs the AWS CLI and `jq`; settings from env
+  vars with defaults: `CONFIG_BUCKET=ecs-mgmt-tg-bot-euc1-s3`, `CONFIG_DIR=ecs-tailscale-node/config`,
+  `ECS_STACK_NAME=vpn-ecs-resources-cfn`, `CONFIG_TABLE_NAME=vpnbot`, `CONFIG_TABLE_REGION=eu-central-1`).
+  For each region in `supported-regions.txt`: reads the stack outputs with
+  `aws cloudformation describe-stacks` in that region (the source of truth, not the S3 copy) →
+  `region-item.sh` → `put-item`. For each entry of `user-permissions.json` with a non-empty list:
+  `put-item (USER, name, permissions SS)`. Idempotent; prints every item; `--dry-run` prints without
+  writing. Deleted in Deploy B.
 
 ### 6.4 Deploy A checklist (owner)
 
 1. "Deploy VPN Configurer Lambda Resources" from `feature/infra-cleanup` (creates the table, IAM,
    env var; bootstraps root user).
-2. "Migrate Config To DynamoDB" → check the table in the console (1 region, all users).
+2. Run `scripts/migrate-config-to-dynamodb.sh --dry-run`, then without `--dry-run`; check the table
+   in the console (1 region, all users).
 3. "VPN Bot Lambda CI-CD" from `feature/infra-cleanup` (new code).
 4. Verify: home screen lists the regions; start/stop a node; `/supportedRegions`; an admin command
    that changes permissions; `DynamoDbMs` appears in metrics; no `S3Ms`; re-deliveries (if any)
@@ -216,7 +222,7 @@ All table writes use `--table-name vpnbot --region ${{ vars.CONFIG_BASE_REGION }
 ### 7.4 Workflows
 
 - `deploy-tgbot-lambda.yml`: drop `EnvTgBotToken=…` from the parameter overrides.
-- Delete `migrate-config-to-dynamodb.yml`.
+- Delete `scripts/migrate-config-to-dynamodb.sh`.
 - `ci-cd.yml` keeps uploading the jar to the S3 bucket (the bucket stays; only its config folder goes).
 
 ### 7.5 Deploy B checklist (owner)
@@ -283,6 +289,9 @@ Deploy A:
 - AC-A8 `ConfigManager.getConfigTableName()` reads `CONFIG_TABLE_NAME`, default `vpnbot`.
 - AC-A9 `region-item.sh`: valid outputs → item with all §5 attributes; a missing/empty output →
   non-zero exit and no item (tested with a small bash test script, `.github/scripts/region-item-test.sh`).
+- AC-A11 `migrate-config-to-dynamodb.sh --dry-run` against a fake `aws` (test script
+  `scripts/migrate-config-to-dynamodb-test.sh`): prints one region item per listed region and one user
+  item per non-empty user, writes nothing; without `--dry-run` it calls `put-item` for each.
 - AC-A10 No reference to S3 or EFS remains in `src/main/java`; `pom.xml` has `dynamodb`, not `s3`.
 
 Deploy B:
@@ -301,7 +310,7 @@ Deploy C:
 |---|---|
 | A1 Java implementation | `src/main/java/**`, `src/main/resources/application.yml`, `pom.xml` |
 | A2 Java tests (independent, TDD) | `src/test/java/**`, `src/test/resources/**` |
-| A3 Infra + workflows (tech lead) | `cloudformation/vpn-configurer-lambda.yml`, `.github/workflows/*`, `.github/scripts/*` |
+| A3 Infra + workflows + scripts (tech lead) | `cloudformation/vpn-configurer-lambda.yml`, `.github/workflows/*`, `.github/scripts/*`, `scripts/*` |
 | B1 Java + infra + workflows | `BotTokenResolver`, `ConfigManager`, handler, templates, workflows; tests in `src/test/java/**` |
 | C1 Infra + workflows | `cloudformation/vpn-configurer-lambda.yml`, `ci-cd.yml`, `deploy-tgbot-lambda.yml` |
 | Docs (tech lead) | this spec's decision log, `docs/roadmap.md`, `CLAUDE.md` |
@@ -324,6 +333,7 @@ Deploy C:
 - D-2 (review) Lock record type is `TG_UPDATE_LOCK` (written before processing, so "processed" would
   be wrong).
 - D-3 (review) Config caches removed: ≈ 10 ms per request, changes visible immediately.
+- D-5 (review) The migration is a local script, not a workflow (run once by the owner).
 - D-4 (review) Workflows switch to DynamoDB in Deploy A – no dual writes to S3. Rolling back to
   pre-A code means updating the S3 files by hand (a local sync script only if that is ever needed).
   The Lambda's S3 permission is removed only in Deploy B, so the old code keeps working during the
