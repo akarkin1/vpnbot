@@ -4,11 +4,15 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.github.akarkin1.auth.PermissionsService;
 import org.github.akarkin1.deduplication.UpdateEventsRegistry;
+import org.github.akarkin1.ec2.Ec2ClientPool;
 import org.github.akarkin1.tailscale.TailscaleNodeService;
 import org.telegram.telegrambots.meta.api.methods.GetMe;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.bots.AbsSender;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.TreeSet;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -25,7 +29,11 @@ public class SnapStartPrimer {
   /** Telegram update ids are positive, so the primer's lock record never collides with one. */
   public static final int PRIMER_UPDATE_ID = -1;
 
+  /** A valid task id (32 hex digits) that no task has: ECS reports it as missing. */
+  public static final String PRIMER_TASK_ID = "00000000000000000000000000000000";
+
   private final TailscaleNodeService nodeService;
+  private final Ec2ClientPool ec2ClientPool;
   private final PermissionsService permissionsService;
   private final UpdateEventsRegistry eventsRegistry;
   private final AbsSender sender;
@@ -34,6 +42,12 @@ public class SnapStartPrimer {
     long begin = System.nanoTime();
     runStep("permissions", permissionsService::getUserPermissions);
     runStep("nodes", () -> nodeService.listTasks(PRIMER_USER));
+    List<String> regionIds = new ArrayList<>();
+    runStep("regions", () -> regionIds.addAll(new TreeSet<>(nodeService.getSupportedRegionIds())));
+    for (String regionId : regionIds) {
+      runStep("node " + regionId, () -> nodeService.getNode(regionId, PRIMER_TASK_ID));
+      runStep("ec2 " + regionId, () -> ec2ClientPool.prime(regionId));
+    }
     runStep("updateLock", () -> eventsRegistry.register(primerUpdate()));
     runStep("telegram", () -> sender.execute(new GetMe()));
     log.info("SnapStart priming finished in {} ms",
