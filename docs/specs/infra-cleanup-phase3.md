@@ -15,7 +15,7 @@ Status: draft for review · Branch: `feature/infra-cleanup` (based on `main`) ·
 
 - No UI, text-command, node-agent (Python) or node-stack changes, except the node log retention (§7.2).
 - No new features (Phase 4/5), no change to permissions semantics or roles.
-- No new dependencies beyond swapping the AWS SDK module `s3` for `dynamodb` (approved).
+- No new dependencies beyond swapping the AWS SDK module `s3` for `dynamodb-enhanced` (approved).
 - No refactoring beyond what this spec lists.
 
 ## 3. Ground rules
@@ -95,36 +95,74 @@ doesn't pay off:
 
 ### 6.2 Java
 
-New package `org.github.akarkin1.dynamodb`:
+DynamoDB access uses the **Enhanced Client** (`software.amazon.awssdk:dynamodb-enhanced`): one bean
+class per record type, each a typed view (`DynamoDbTable<T>`) of the same physical table. Attribute
+names are the bean property names (camelCase); only the keys are renamed to `pk`/`sk`.
+
+New package `org.github.akarkin1.dynamodb` – persistence beans (mutable JavaBeans as the Enhanced Client
+requires; an agreed exception to "records for small values"). They never leave the DynamoDB services,
+which map them to the existing domain types.
 
 ```java
-public final class ConfigTable {           // names shared by all DynamoDB code
-  public static final String PK = "pk", SK = "sk";
-  public static final String REGION = "REGION", USER = "USER", TG_UPDATE_LOCK = "TG_UPDATE_LOCK";
-  public static final String ECS_CLUSTER_NAME = "ecsClusterName",
-      ECS_TASK_DEFINITION_ARN = "ecsTaskDefinitionArn", SUBNET_ID = "subnetId",
-      SECURITY_GROUP_ID = "securityGroupId", UPDATED_AT = "updatedAt",
-      PERMISSIONS = "permissions", EXPIRES_AT = "expiresAt", RECEIVED_AT = "receivedAt";
-  private ConfigTable() {}
+@DynamoDbBean @Data @NoArgsConstructor
+public class RegionRecord {
+  public static final String TYPE = "REGION";
+  private String type = TYPE;                 // stored as "pk"
+  private String regionId;                    // stored as "sk"
+  private String ecsClusterName;
+  private String ecsTaskDefinitionArn;
+  private String subnetId;
+  private String securityGroupId;
+  private String updatedAt;
+
+  @DynamoDbPartitionKey @DynamoDbAttribute("pk") public String getType() { return type; }
+  @DynamoDbSortKey @DynamoDbAttribute("sk") public String getRegionId() { return regionId; }
+}
+
+@DynamoDbBean @Data @NoArgsConstructor
+public class UserRecord {
+  public static final String TYPE = "USER";
+  private String type = TYPE;                 // "pk"
+  private String username;                    // "sk"
+  private Set<String> permissions;            // String Set of Permission names, never empty
+  // key getters annotated as in RegionRecord
+}
+
+@DynamoDbBean @Data @NoArgsConstructor
+public class TgUpdateLock {
+  public static final String TYPE = "TG_UPDATE_LOCK";
+  private String type = TYPE;                 // "pk"
+  private String updateId;                    // "sk", Telegram update_id as a decimal string
+  private Long expiresAt;                      // epoch seconds, TTL attribute
+  private Long receivedAt;                    // epoch millis
+  // key getters annotated as in RegionRecord
+}
+
+/** The typed views of the config table; built once at init (schema creation uses reflection). */
+public record ConfigTables(DynamoDbTable<RegionRecord> regions,
+                           DynamoDbTable<UserRecord> users,
+                           DynamoDbTable<TgUpdateLock> updateLocks) {
+  public static ConfigTables create(DynamoDbEnhancedClient client, String tableName);  // TableSchema.fromBean(...)
 }
 ```
 
 Regions – `org.github.akarkin1.config.DynamoDbTaskConfigService implements TaskConfigService`
-(`DynamoDbClient client, String tableName, RequestMetrics metrics`):
-- `getSupportedRegions()`: `Query pk = REGION` (paginated); region ids that are not known to the AWS
+(`DynamoDbTable<RegionRecord> regions, RequestMetrics metrics`):
+- `getSupportedRegions()`: query `pk = REGION` (all pages); region ids that are not known to the AWS
   SDK are skipped with a warning (same `KNOWN_REGIONS` logic as `S3TaskConfigService` today, moved here).
-- `getTaskRuntimeParameters(Region)`: `GetItem (REGION, region.id())` → `TaskRuntimeParameters`
+- `getTaskRuntimeParameters(Region)`: `getItem (REGION, region.id())` → `TaskRuntimeParameters`
   (`ecsClusterName`, `ecsTaskDefinition` ← `ecsTaskDefinitionArn`, `subnetId`, `securityGroupId`).
   Missing item or attribute → `IllegalStateException("Region <id> is not configured")`.
-- Every DynamoDB call runs inside `metrics.time(MetricComponent.DYNAMODB, …)`.
+- Every DynamoDB call runs inside `metrics.time(MetricComponent.DYNAMODB, …)`; query results are
+  collected into a list inside `time(...)` (the Enhanced Client's iterables fetch pages lazily).
 
 Permissions – move `PermissionsService` and `PermissionsServiceConfigurer` from `auth.s3` to `auth`
 (the `auth.s3` package is deleted). New `org.github.akarkin1.auth.DynamoDbPermissionsService
-implements PermissionsService` (`DynamoDbClient client, String tableName, RequestMetrics metrics`):
-- `getUserPermissions()`: `Query pk = USER` (paginated) → `Map<username, List<Permission>>`; unknown
+implements PermissionsService` (`DynamoDbTable<UserRecord> users, RequestMetrics metrics`):
+- `getUserPermissions()`: query `pk = USER` (all pages) → `Map<username, List<Permission>>`; unknown
   permission names are skipped with a warning.
-- `updateUserPermissions(username, permissions)`: null/empty → `DeleteItem (USER, username)`;
-  otherwise `PutItem` with `permissions` = the set's enum names (replaces the record).
+- `updateUserPermissions(username, permissions)`: null/empty → `deleteItem (USER, username)`;
+  otherwise `putItem` of a `UserRecord` with the set's enum names (replaces the record).
 - Calls timed with `MetricComponent.DYNAMODB`.
 
 Deduplication – `UpdateEventsRegistry` becomes one atomic method:
@@ -137,19 +175,20 @@ public interface UpdateEventsRegistry {
 ```
 
 `org.github.akarkin1.deduplication.DynamoDbUpdateEventsRegistry implements UpdateEventsRegistry`
-(`DynamoDbClient client, String tableName, Clock clock, RequestMetrics metrics`):
-- `PutItem (TG_UPDATE_LOCK, String.valueOf(updateId))`, `expiresAt` = now + 24 h (epoch s),
-  `receivedAt` = now (epoch ms), `ConditionExpression attribute_not_exists(pk)`.
+(`DynamoDbTable<TgUpdateLock> updateLocks, Clock clock, RequestMetrics metrics`):
+- `putItem(PutItemEnhancedRequest)` of a `TgUpdateLock` (`updateId` = `String.valueOf(update_id)`,
+  `expiresAt` = now + 24 h in epoch s, `receivedAt` = now in epoch ms) with
+  `conditionExpression("attribute_not_exists(pk)")`.
 - `ConditionalCheckFailedException` → `false`. Any other exception → logged as error, `true`
   (fail open, as the file registry does today: a failing lock must not block the bot).
 - `TailscaleVpnLambdaHandler.handleUpdate`: `if (!EVENTS_REGISTRY.register(update)) { log "Skipping
   duplicated event"; return; }` replaces the `hasAlreadyProcessed` + `registerEvent` pair.
 
 Wiring:
-- The handler's static block creates one `DynamoDbClient` (`DynamoDbClient.create()`, region from the
-  Lambda's `AWS_REGION`) and passes it, with `ConfigManager.getConfigTableName()`, to
-  `TailscaleEcsNodeServiceConfigurer.configure(…)`, `PermissionsServiceConfigurer.configure(…)` and
-  the registry.
+- The handler's static block creates `ConfigTables` once (`DynamoDbClient.create()` – region from the
+  Lambda's `AWS_REGION` – → `DynamoDbEnhancedClient` → `ConfigTables.create(…, getConfigTableName())`)
+  and passes the views to `TailscaleEcsNodeServiceConfigurer.configure(…)`,
+  `PermissionsServiceConfigurer.configure(…)` and the registry.
 - `ConfigManager`: add `getConfigTableName()` (env `CONFIG_TABLE_NAME`, default `vpnbot`) and
   `isConfigCacheEnabled()` (env `CONFIG_CACHE_ENABLED`, `true`/`false`, default `false`, parsed like
   `isMetricsEnabled()`); remove `getEventRootDir()`, `getEventTtlSec()` and their constants.
@@ -164,7 +203,8 @@ Metrics: `MetricComponent.S3` → `DYNAMODB`, EMF metric name `S3Ms` → `Dynamo
 
 Delete: `S3TaskConfigService`, `auth.s3.S3PermissionsService`, `s3.S3ConfigManager`, `config.exception.S3DownloadFailureException`,
 `deduplication.FSUpdateEventsRegistry`, `YamlApplicationConfiguration.S3Configuration` + the `s3:`
-section of `application.yml` (main and test), and their tests. `pom.xml`: `s3` → `dynamodb`.
+section of `application.yml` (main and test), and their tests. `pom.xml`: `s3` → `dynamodb-enhanced`
+(which brings `dynamodb`; version from the existing AWS SDK BOM).
 
 ### 6.3 Workflows
 
@@ -283,6 +323,8 @@ The static block runs once, before the snapshot. Check and keep it safe:
 - SDK clients created at init reconnect after restore (AWS SDK v2 retries on stale connections);
   the Telegram client must not open connections during init.
 - Time-based state (webhook-secret TTL cache) is computed per request with `Clock`.
+- The Enhanced Client table schemas are built at init (reflection, ≈ hundreds of ms on a cold JVM) and
+  are therefore part of the snapshot.
 
 ### 8.4 Deploy C checklist (owner)
 
@@ -316,7 +358,10 @@ Deploy A:
   DynamoDB services unwrapped; on → wrapped. `CachingPermissionsService`: second read within the TTL
   hits no delegate, after the TTL it does, an update invalidates; `CachedTaskConfigService` tests
   keep passing after the rename.
-- AC-A10 No reference to S3 or EFS remains in `src/main/java`; `pom.xml` has `dynamodb`, not `s3`.
+- AC-A13 Beans: `TableSchema.fromBean` maps each bean to exactly the §5 attribute names (`pk`, `sk`,
+  camelCase attributes, `permissions` as `SS`) and back (`itemToMap` / `mapToItem` round trip).
+  Service tests mock `DynamoDbTable<T>`; queries return `PageIterable.create(() -> List.of(Page.create(items)).iterator())`.
+- AC-A10 No reference to S3 or EFS remains in `src/main/java`; `pom.xml` has `dynamodb-enhanced`, not `s3`.
 
 Deploy B:
 - AC-B1 `BotTokenResolver`: reads the secret; blank id → `IllegalStateException`.
@@ -358,8 +403,13 @@ Deploy C:
   be wrong).
 - D-3 (review) Config caches kept behind `CONFIG_CACHE_ENABLED` (default off) to measure their benefit
   with `DynamoDbMs`; retire them later if they don't pay off. The permissions cache gets a TTL.
-- D-5 (review) The migration is a local script, not a workflow (run once by the owner).
 - D-4 (review) Workflows switch to DynamoDB in Deploy A – no dual writes to S3. Rolling back to
   pre-A code means updating the S3 files by hand (a local sync script only if that is ever needed).
   The Lambda's S3 permission is removed only in Deploy B, so the old code keeps working during the
   Deploy A rollout.
+- D-5 (review) The migration is a local script, not a workflow (run once by the owner).
+- D-6 (review) DynamoDB Enhanced Client with one bean per record type over the single table, instead
+  of the low-level client and a constants class. Cost until SnapStart (Deploy C): schema creation by
+  reflection at init adds to cold starts; after C it is part of the snapshot.
+- D-7 (review) Attribute names in camelCase (the Enhanced Client default: no per-field mapping);
+  keys `pk`/`sk` in lower case.
