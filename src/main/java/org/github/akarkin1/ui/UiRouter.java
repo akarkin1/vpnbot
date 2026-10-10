@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.github.akarkin1.ui.controller.HomeController;
 import org.github.akarkin1.ui.controller.LaunchController;
+import org.github.akarkin1.ui.controller.NodeController;
 import org.github.akarkin1.ui.messenger.UiMessenger;
 import org.github.akarkin1.ui.screen.ErrorScreen;
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
@@ -21,6 +22,7 @@ public class UiRouter {
 
   private final HomeController homeController;
   private final LaunchController launchController;
+  private final NodeController nodeController;
   private final UiMessenger messenger;
   private final ErrorScreen errorScreen;
 
@@ -82,6 +84,10 @@ public class UiRouter {
       case HOME -> homeController.refreshHome(context, messageId);
       case HELP -> homeController.showHelp(context, messageId);
       case RUN -> launchController.launch(context, messageId, action.arg());
+      case RUN_NEW -> launchController.launchAnother(context, messageId, action.arg());
+      case USE -> nodeController.use(context, messageId, action.nodeRef().orElseThrow());
+      case STOP -> nodeController.stop(context, messageId, action.nodeRef().orElseThrow());
+      case STOP_CONFIRM -> nodeController.confirmStop(context, messageId, action.nodeRef().orElseThrow());
     }
   }
 

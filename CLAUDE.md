@@ -20,7 +20,7 @@ Planned work lives in `docs/roadmap.md`.
 ```
 TailscaleVpnLambdaHandler  (API Gateway → Lambda entry point, wiring in a static block)
  ├─ UiRouter (ui)           button taps (callback queries), /start, /menu, plain text
- │   ├─ HomeController, LaunchController (ui.controller)
+ │   ├─ HomeController, LaunchController, NodeController (stop/use) + NodeAccess (ui.controller)
  │   ├─ *Screen classes (ui.screen): pure functions, data → Screen (template + params + buttons)
  │   └─ UiMessenger (ui.messenger): sends/edits Telegram messages, translates, HTML-escapes
  └─ CommandDispatcher       every other "/command" (dispatcher.command.*), plain-text replies
@@ -32,8 +32,9 @@ Metrics:  RequestMetrics → one CloudWatch EMF line per request on stdout (METR
 
 Node lifecycle: LaunchController starts the ECS task with TG_* env vars rendered by NodeNotifications
 (texts already translated, with {{HOSTNAME}}/{{PUBLIC_IP}} placeholders) and returns. The node agent
-(docker/node_agent) brings Tailscale up, edits the progress message into the node card, warns before
-the idle stop and reports the stop itself via the Telegram Bot API.
+(docker/node_agent) brings Tailscale up, edits the progress message into the node card, sends a silent
+warning before the idle stop (deleted on stop or when a device connects) and, on any stop, edits the
+same message into the stopped card – all via the Telegram Bot API.
 ```
 
 ## Conventions

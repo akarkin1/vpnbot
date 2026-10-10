@@ -9,6 +9,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.TreeSet;
@@ -44,6 +45,29 @@ class UiMessagesTest {
       "ui.help.title", "ui.help.body",
       "ui.node.idle-warning", "ui.node.stopped-idle", "ui.node.stopped", "ui.button.start-again");
 
+  /** Keys added by Phase 2b (§4.9) with their English and Russian values. */
+  private static final Map<String, List<String>> PHASE_2B_KEYS = Map.ofEntries(
+      Map.entry("ui.button.stop", List.of("Stop", "Остановить")),
+      Map.entry("ui.button.yes-stop", List.of("Yes, stop", "Да, остановить")),
+      Map.entry("ui.button.cancel", List.of("Cancel", "Отмена")),
+      Map.entry("ui.button.use", List.of("Use", "Использовать")),
+      Map.entry("ui.button.start-another", List.of("Start another", "Запустить ещё один")),
+      Map.entry("ui.reuse.existing", List.of("You already have a VPN server running in this region.",
+                                             "У вас уже запущен VPN-сервер в этом регионе.")),
+      Map.entry("ui.node.stopping", List.of("is stopping.", "останавливается.")),
+      Map.entry("ui.node.already-stopped", List.of("This VPN server is not running anymore.",
+                                                   "Этот VPN-сервер уже не запущен.")),
+      Map.entry("ui.node.stopped-by-admin", List.of("was stopped by an administrator.",
+                                                    "остановлен администратором.")),
+      Map.entry("ui.stop.confirm", List.of("Stop", "Остановить")),
+      Map.entry("ui.stop.not-allowed", List.of("You are not allowed to stop this VPN server.",
+                                               "У вас нет прав на остановку этого VPN-сервера.")));
+
+  /** Keys changed by stop-in-place (§4.1) with their English and Russian values. */
+  private static final Map<String, List<String>> STOP_IN_PLACE_KEYS = Map.of(
+      "ui.node.stopped-idle", List.of("Stopped: no devices were connected for 10 minutes.",
+                                      "Остановлен: 10 минут без подключённых устройств."));
+
   /** Keys removed by Phase 2a (§4.2, §4.3): old /runNodeIn progress messages and what only they used. */
   private static final List<String> REMOVED_KEYS = List.of(
       "ui.launch.still-starting",
@@ -68,13 +92,37 @@ class UiMessagesTest {
   }
 
   @Test
+  @DisplayName("2b AC-12: every new Phase 2b key exists in both message files with the values of §4.9")
+  void phase2bKeysExistInBothFiles() throws IOException {
+    Properties en = load(EN);
+    Properties ru = load(RU);
+
+    PHASE_2B_KEYS.forEach((key, values) -> {
+      assertEquals(values.get(0), en.getProperty(key), "messages.properties " + key);
+      assertEquals(values.get(1), ru.getProperty(key), "messages_ru.properties " + key);
+    });
+  }
+
+  @Test
+  @DisplayName("stop-in-place AC-4: ui.node.stopped-idle has the values of §4.1 in both message files")
+  void stopInPlaceKeysHaveSpecValues() throws IOException {
+    Properties en = load(EN);
+    Properties ru = load(RU);
+
+    STOP_IN_PLACE_KEYS.forEach((key, values) -> {
+      assertEquals(values.get(0), en.getProperty(key), "messages.properties " + key);
+      assertEquals(values.get(1), ru.getProperty(key), "messages_ru.properties " + key);
+    });
+  }
+
+  @Test
   @DisplayName("AC-15: both message files have the same ui.* keys")
   void sameUiKeysInBothFiles() throws IOException {
     assertEquals(uiKeys(load(EN)), uiKeys(load(RU)));
   }
 
   @Test
-  @DisplayName("AC-15: message files contain only ASCII characters")
+  @DisplayName("AC-15, stop-in-place AC-4: message files contain only ASCII characters")
   void filesAreAscii() throws IOException {
     for (Path file : List.of(EN, RU)) {
       List<String> lines = Files.readAllLines(file, StandardCharsets.ISO_8859_1);

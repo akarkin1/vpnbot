@@ -1,30 +1,41 @@
-"""Tests for `agent.run` and `agent.fetch_public_ip`.
+"""Tests for `agent.run`, `agent.fetch_public_ip` and `agent.fetch_task_id`.
 
 Assumptions about how `agent.run` is wired (§5, §7):
 - `node_agent.agent` imports `get_secret`, `Tailscale`, `TelegramClient` by name
   (`from node_agent.<module> import <name>` or the relative equivalent), so they are patched
   as `node_agent.agent.<name>`; `run` creates one `Tailscale` and at most one `TelegramClient`.
-- `run` calls the module-level `fetch_public_ip` (patched, so no network access).
+- `run` calls the module-level `fetch_public_ip` and `fetch_task_id` (patched, so no network
+  access; `fetch_task_id` returns None unless a test sets a task id).
 - The monitor loop waits with `time.sleep` (patched). The tests use a 2 s timeout and a 1 s
   interval, so even another waiting mechanism keeps them short.
 - The real `AgentConfig`, `Notifier` and `IdleMonitor` are used.
 """
 
+import os
 import signal
 import unittest
 from unittest import mock
 
 from node_agent import agent
 from node_agent.config import AgentConfig
+from node_agent.notifier import Notifier
 from tests import fakes
-from tests.fakes import FakeResponse, FakeSession, FakeTailscale, FakeTelegram, bind
+from tests.fakes import (LINKS_ROW, MENU_BUTTON, READY_MARKUP_WITH_STOP, TASK_ARN, TASK_ID, FakeResponse,
+                         FakeSession, FakeTailscale, FakeTelegram, bind, canonical_markup, markup_json,
+                         stop_button)
 
 PUBLIC_IP = "203.0.113.7"
+WARNING_ID = FakeTelegram.FIRST_MESSAGE_ID
+METADATA_URI = "http://169.254.170.2/v4/0123456789abcdef0123456789abcdef-1234567890"
 SECRETS = {"ts-secret": "tskey-123", "tg-secret": "bot-token"}
 
 
 def telegram_client(token, api_base="https://api.telegram.org", session=None):
     """Signature of the `TelegramClient` constructor, used to compare constructor calls."""
+
+
+def fetch_task_id(env, session=None):
+    """Signature of `agent.fetch_task_id` (§6), used to compare calls."""
 
 
 def agent_env(**overrides):
@@ -48,6 +59,7 @@ class RunTest(unittest.TestCase):
         self.secrets = dict(SECRETS)
         self.secret_calls = []
         self.telegram_client_class = mock.Mock(return_value=self.telegram)
+        self.fetch_task_id = mock.Mock(return_value=None)
 
         sigterm_handler = signal.getsignal(signal.SIGTERM)
         self.addCleanup(signal.signal, signal.SIGTERM, sigterm_handler)
@@ -56,9 +68,11 @@ class RunTest(unittest.TestCase):
                 ("node_agent.agent.Tailscale", mock.Mock(return_value=self.tailscale)),
                 ("node_agent.agent.TelegramClient", self.telegram_client_class),
                 ("node_agent.agent.fetch_public_ip", mock.Mock(return_value=PUBLIC_IP)),
+                ("node_agent.agent.fetch_task_id", self.fetch_task_id),
                 ("time.sleep", mock.Mock()),
         ):
-            patcher = mock.patch(target, replacement)
+            # create=True: `fetch_task_id` is new in 2b; the 2a tests keep running without it.
+            patcher = mock.patch(target, replacement, create=True)
             patcher.start()
             self.addCleanup(patcher.stop)
 
@@ -70,20 +84,34 @@ class RunTest(unittest.TestCase):
         return value
 
     def expected_telegram_calls(self, env):
+        """Ready card, silent warning, warning deleted, node message edited into the stopped card."""
         config = AgentConfig.from_env(env)
-        chat_id, message_id = config.chat_id, config.message_id
-        return [
-            ("edit_message", {"chat_id": chat_id, "message_id": message_id,
-                              "text": "\U0001F7E2 <b>fra-node-1</b> · Frankfurt\n<code>203.0.113.7</code>",
-                              "reply_markup": fakes.READY_MARKUP}),
-            ("send_message", {"chat_id": chat_id, "text": "⚠️ <b>fra-node-1</b> will stop in 2 minutes",
-                              "reply_markup": None, "silent": True}),
-            ("send_message", {"chat_id": chat_id, "text": "\U0001F6D1 <b>fra-node-1</b> was stopped",
-                              "reply_markup": fakes.STOPPED_MARKUP, "silent": False}),
-            ("edit_message", {"chat_id": chat_id, "message_id": message_id,
-                              "text": "⚪ <b>fra-node-1</b> · Frankfurt\nStopped",
-                              "reply_markup": None}),
-        ]
+        return [self.ready_edit(config), self.warning_send(config), self.warning_delete(config, WARNING_ID),
+                ("edit_message", {"chat_id": config.chat_id, "message_id": config.message_id,
+                                  "text": "⚪ <b>fra-node-1</b> · Frankfurt\n"
+                                          "\U0001F6D1 Stopped: no devices were connected for 10 minutes.",
+                                  "reply_markup": canonical_markup(fakes.STOPPED_MARKUP)})]
+
+    @staticmethod
+    def ready_edit(config):
+        return ("edit_message", {"chat_id": config.chat_id, "message_id": config.message_id,
+                                 "text": "\U0001F7E2 <b>fra-node-1</b> · Frankfurt\n<code>203.0.113.7</code>",
+                                 "reply_markup": canonical_markup(fakes.READY_MARKUP)})
+
+    @staticmethod
+    def warning_send(config):
+        return ("send_message", {"chat_id": config.chat_id, "text": "⚠️ <b>fra-node-1</b> will stop in 2 minutes",
+                                 "reply_markup": None, "silent": True})
+
+    @staticmethod
+    def warning_delete(config, message_id):
+        return ("delete_message", {"chat_id": config.chat_id, "message_id": message_id})
+
+    @staticmethod
+    def stopped_card_edit(config):
+        return ("edit_message", {"chat_id": config.chat_id, "message_id": config.message_id,
+                                 "text": "⚪ <b>fra-node-1</b> · Frankfurt\nStopped",
+                                 "reply_markup": canonical_markup(fakes.STOPPED_CARD_MARKUP)})
 
     # --- start-up failures ---
 
@@ -117,11 +145,12 @@ class RunTest(unittest.TestCase):
         self.assertNotIn(self.expected_telegram_calls(agent_env())[0], self.telegram.calls)
 
     def test_up_failure_edits_progress_message_to_stopped_card(self):
-        """AC-P6/D-5: `up` failure -> only the progress message is edited to the stopped card, no markup"""
+        """AC-P6/D-5, stop-in-place AC-P5: `up` failure -> only the progress message is edited to the
+        stopped card, with TG_STOPPED_CARD_MARKUP"""
         self.tailscale.up_result = False
 
         self.assertEqual(1, agent.run(agent_env()))
-        self.assertEqual([self.expected_telegram_calls(agent_env())[3]], self.telegram.calls)
+        self.assertEqual([self.stopped_card_edit(AgentConfig.from_env(agent_env()))], self.telegram.calls)
 
     # --- start-up ---
 
@@ -146,6 +175,41 @@ class RunTest(unittest.TestCase):
         arguments = bind(telegram_client, args, kwargs)
         self.assertEqual(("bot-token", "http://telegram.local"), (arguments["token"], arguments["api_base"]))
 
+    # --- task id on the ready card (2b §5) ---
+
+    def ready_markup(self):
+        """The reply_markup of the ready card edit (the first Telegram call)."""
+        method, arguments = self.telegram.calls[0]
+        self.assertEqual("edit_message", method)
+        return arguments["reply_markup"]
+
+    def test_fetches_task_id_with_run_env_after_tailscale_is_up(self):
+        """AC-P7/§5: `run` calls fetch_task_id(env) once, after `tailscale up`"""
+        env = agent_env()
+        self.fetch_task_id.side_effect = lambda *args, **kwargs: self.events.append("fetch_task_id")
+
+        agent.run(env)
+
+        self.assertEqual(1, self.fetch_task_id.call_count)
+        args, kwargs = self.fetch_task_id.call_args
+        self.assertEqual(env, bind(fetch_task_id, args, kwargs)["env"])
+        self.assertEqual(["tailscale.start_daemon", "tailscale.up", "fetch_task_id"], self.events[:3])
+
+    def test_ready_card_stop_button_gets_fetched_task_id(self):
+        """AC-P8/§5: `run` passes the fetched task id to `ready` -> Stop callback_data STOP:<region>:<task id>"""
+        self.fetch_task_id.return_value = TASK_ID
+
+        agent.run(agent_env(TG_READY_MARKUP=READY_MARKUP_WITH_STOP))
+
+        self.assertEqual(markup_json(LINKS_ROW, [stop_button(TASK_ID), MENU_BUTTON]), self.ready_markup())
+
+    def test_ready_card_without_task_id_has_no_stop_button(self):
+        """AC-P8/§5: task id unknown -> ready card without the Stop button, node still runs"""
+        self.fetch_task_id.return_value = None
+
+        self.assertEqual(0, agent.run(agent_env(TG_READY_MARKUP=READY_MARKUP_WITH_STOP)))
+        self.assertEqual(markup_json(LINKS_ROW, [MENU_BUTTON]), self.ready_markup())
+
     # --- idle stop ---
 
     def test_idle_stop_exits_with_0(self):
@@ -153,17 +217,78 @@ class RunTest(unittest.TestCase):
         self.assertEqual(0, agent.run(agent_env()))
 
     def test_idle_stop_notifies_ready_warning_and_stop(self):
-        """AC-P6: idle STOP path notifies: ready card, silent warning, stopped message, stopped card"""
+        """AC-P7: idle STOP path: ready card, silent warning, warning deleted, node message edited
+        into the stopped card"""
         agent.run(agent_env())
 
         self.assertEqual(self.expected_telegram_calls(agent_env()), self.telegram.calls)
 
-    def test_idle_stop_logs_out_and_stops_daemon_after_notifying(self):
-        """AC-P6: idle STOP path notifies, then logs out, then terminates tailscaled"""
+    def test_idle_stop_sends_no_new_message(self):
+        """AC-P7: the warning is the only message the agent sends"""
         agent.run(agent_env())
 
-        self.assertEqual(["telegram.send_message", "telegram.edit_message", "tailscale.logout",
+        self.assertEqual(1, self.telegram.methods().count("send_message"))
+
+    def test_idle_stop_logs_out_and_stops_daemon_after_notifying(self):
+        """AC-P7: idle STOP path deletes the warning, edits the card, then logs out and terminates tailscaled"""
+        agent.run(agent_env())
+
+        self.assertEqual(["telegram.delete_message", "telegram.edit_message", "tailscale.logout",
                           "tailscale.stop_daemon"], self.events[-4:])
+
+    # --- devices connect again after the warning (stop-in-place) ---
+
+    def test_resume_deletes_warning_and_node_keeps_running(self):
+        """AC-P7: WARN, then a device connects (RESUME) -> warning deleted; the next idle period warns
+        again and the stop deletes that warning and edits the card"""
+        self.tailscale.peer_counts = [0, 1]
+        env = agent_env()
+        config = AgentConfig.from_env(env)
+
+        self.assertEqual(0, agent.run(env))
+        self.assertEqual([self.ready_edit(config),
+                          self.warning_send(config), self.warning_delete(config, WARNING_ID),
+                          self.warning_send(config), self.warning_delete(config, WARNING_ID + 1),
+                          self.expected_telegram_calls(env)[-1]], self.telegram.calls)
+        self.assertEqual(4, self.tailscale.status_calls)
+
+    def test_resume_calls_activity_resumed(self):
+        """AC-P7: Action.RESUME -> notifier.activity_resumed(), once per RESUME"""
+        self.tailscale.peer_counts = [0, 1, 1, 0]
+        calls = []
+        with mock.patch.object(Notifier, "activity_resumed", autospec=True,
+                               side_effect=lambda notifier: calls.append(self.tailscale.status_calls)):
+            self.assertEqual(0, agent.run(agent_env()))
+
+        self.assertEqual([2], calls, "called right after the check that found peers after the warning")
+
+    def test_no_activity_resumed_without_warning(self):
+        """AC-P7: peers without a prior warning -> activity_resumed is not called"""
+        self.tailscale.peer_counts = [1, 1]
+        with mock.patch.object(Notifier, "activity_resumed", autospec=True) as activity_resumed:
+            agent.run(agent_env(INACTIVITY_TIMEOUT="300", STATUS_CHECK_INTERVAL="100"))
+
+        activity_resumed.assert_not_called()
+
+    # --- SIGTERM (🛑 tap) ---
+
+    def test_sigterm_after_warning_deletes_warning_and_edits_card(self):
+        """AC-P5/AC-P7: SIGTERM after the warning -> warning deleted, card edited with the card markup, exit 0"""
+        def active_peer_count():
+            self.tailscale.status_calls += 1
+            if self.tailscale.status_calls == 2:
+                os.kill(os.getpid(), signal.SIGTERM)
+            return 0
+
+        self.tailscale.active_peer_count = active_peer_count
+        env = agent_env(INACTIVITY_TIMEOUT="10")
+        config = AgentConfig.from_env(env)
+
+        self.assertEqual(0, agent.run(env))
+        self.assertEqual([self.ready_edit(config), self.warning_send(config),
+                          self.warning_delete(config, WARNING_ID), self.stopped_card_edit(config)],
+                         self.telegram.calls)
+        self.assertEqual(["tailscale.logout", "tailscale.stop_daemon"], self.events[-2:])
 
     def test_connected_devices_postpone_idle_stop(self):
         """AC-P6: checks with active peers reset the idle time"""
@@ -232,6 +357,62 @@ class FetchPublicIpTest(unittest.TestCase):
         session = FakeSession(error=fakes.network_error())
 
         self.assertEqual("—", agent.fetch_public_ip(session=session))
+
+
+class FetchTaskIdTest(unittest.TestCase):
+    """§5: the ECS task id from the task metadata endpoint v4."""
+
+    def env(self):
+        return {"ECS_CONTAINER_METADATA_URI_V4": METADATA_URI}
+
+    def test_returns_last_segment_of_task_arn(self):
+        """AC-P7: task id = last `/` segment of TaskARN in the metadata response"""
+        session = FakeSession(FakeResponse(200, {"Cluster": "vpn-cluster", "TaskARN": TASK_ARN,
+                                                 "Family": "tailscale-node", "Revision": "7"}))
+
+        self.assertEqual(TASK_ID, agent.fetch_task_id(self.env(), session=session))
+
+    def test_queries_task_metadata_with_5_second_timeout(self):
+        """AC-P7: one GET $ECS_CONTAINER_METADATA_URI_V4/task with a 5 s timeout"""
+        session = FakeSession(FakeResponse(200, {"TaskARN": TASK_ARN}))
+
+        agent.fetch_task_id(self.env(), session=session)
+
+        self.assertEqual(1, len(session.gets))
+        url, kwargs = session.gets[0]
+        self.assertEqual(METADATA_URI + "/task", url)
+        self.assertEqual(5, kwargs.get("timeout"))
+
+    def test_without_metadata_variable_returns_none_without_request(self):
+        """AC-P7: no ECS_CONTAINER_METADATA_URI_V4 -> None, no request"""
+        session = FakeSession(FakeResponse(200, {"TaskARN": TASK_ARN}))
+
+        self.assertIsNone(agent.fetch_task_id({}, session=session))
+        self.assertEqual([], session.gets)
+
+    def test_http_error_returns_none(self):
+        """AC-P7: HTTP error -> None (even if the body has a TaskARN)"""
+        session = FakeSession(FakeResponse(500, {"TaskARN": TASK_ARN}))
+
+        self.assertIsNone(agent.fetch_task_id(self.env(), session=session))
+
+    def test_network_error_returns_none(self):
+        """AC-P7: network exception -> None"""
+        session = FakeSession(error=fakes.network_error())
+
+        self.assertIsNone(agent.fetch_task_id(self.env(), session=session))
+
+    def test_bad_json_returns_none(self):
+        """AC-P7: response body that is not JSON -> None"""
+        session = FakeSession(FakeResponse(200, text="<html>Bad Gateway</html>"))
+
+        self.assertIsNone(agent.fetch_task_id(self.env(), session=session))
+
+    def test_missing_task_arn_returns_none(self):
+        """AC-P7: JSON without TaskARN -> None"""
+        session = FakeSession(FakeResponse(200, {"Cluster": "vpn-cluster"}))
+
+        self.assertIsNone(agent.fetch_task_id(self.env(), session=session))
 
 
 if __name__ == "__main__":

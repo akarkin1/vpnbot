@@ -28,6 +28,7 @@ class AgentConfig:
     stopped_text: Optional[str] = None
     stopped_markup: Optional[str] = None
     stopped_card_text: Optional[str] = None
+    stopped_card_markup: Optional[str] = None
 
     @staticmethod
     def from_env(env: Mapping[str, str]) -> "AgentConfig":
@@ -49,6 +50,7 @@ class AgentConfig:
             stopped_text=_optional(env, "TG_STOPPED_TEXT"),
             stopped_markup=_optional(env, "TG_STOPPED_MARKUP"),
             stopped_card_text=_optional(env, "TG_STOPPED_CARD_TEXT"),
+            stopped_card_markup=_optional(env, "TG_STOPPED_CARD_MARKUP"),
         )
 
 

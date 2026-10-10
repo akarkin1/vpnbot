@@ -22,6 +22,7 @@ import software.amazon.awssdk.services.ecs.model.AwsVpcConfiguration;
 import software.amazon.awssdk.services.ecs.model.ContainerOverride;
 import software.amazon.awssdk.services.ecs.model.DescribeTasksRequest;
 import software.amazon.awssdk.services.ecs.model.DescribeTasksResponse;
+import software.amazon.awssdk.services.ecs.model.InvalidParameterException;
 import software.amazon.awssdk.services.ecs.model.KeyValuePair;
 import software.amazon.awssdk.services.ecs.model.LaunchType;
 import software.amazon.awssdk.services.ecs.model.ListTasksRequest;
@@ -29,6 +30,7 @@ import software.amazon.awssdk.services.ecs.model.ListTasksResponse;
 import software.amazon.awssdk.services.ecs.model.NetworkConfiguration;
 import software.amazon.awssdk.services.ecs.model.RunTaskRequest;
 import software.amazon.awssdk.services.ecs.model.RunTaskResponse;
+import software.amazon.awssdk.services.ecs.model.StopTaskRequest;
 import software.amazon.awssdk.services.ecs.model.Tag;
 import software.amazon.awssdk.services.ecs.model.Task;
 import software.amazon.awssdk.services.ecs.model.TaskField;
@@ -38,6 +40,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -51,6 +54,7 @@ public class EcsManagerImpl implements EcsManager {
   private static final String CONTAINER_NAME = "vpn-container";
   private static final String ELASTIC_NETWORK_INTERFACE_FIELD = "ElasticNetworkInterface";
   private static final String NETWORK_INTERFACE_ID = "networkInterfaceId";
+  private static final String STOPPED = "STOPPED";
 
   private final TaskConfigService taskConfigService;
   private final EcsClientPool ecsClientPool;
@@ -207,33 +211,75 @@ public class EcsManagerImpl implements EcsManager {
         continue;
       }
 
-      log.debug("Task attachments: {}", task.attachments());
-
-      String publicIp = getTaskPublicIp(region, task);
-
-      log.debug("Task tags: {}, Hostname tag name: {}", task.tags(),
-                config.getHostNameTag());
-      String hostName = task.tags()
-          .stream()
-          .filter(tag -> config.getHostNameTag().equals(tag.key()))
-          .map(Tag::value)
-          .findFirst()
-          .orElse(null);
-
-      TaskInfo taskInfo = TaskInfo.builder()
-          .hostName(hostName)
-          .id(taskIdFromArn(task.taskArn()))
-          .state(getContainerHealthStatus(task).name())
-          .cluster(clusterName)
-          .region(region)
-          .location(regionToCitiesMap.get(region.id()))
-          .publicIp(publicIp)
-          .build();
-
-      foundTasks.add(taskInfo);
+      foundTasks.add(toTaskInfo(region, clusterName, task));
     }
 
     return foundTasks;
+  }
+
+  private TaskInfo toTaskInfo(Region region, String clusterName, Task task) {
+    log.debug("Task attachments: {}", task.attachments());
+    return TaskInfo.builder()
+        .hostName(tagValue(task, config.getHostNameTag()))
+        .id(taskIdFromArn(task.taskArn()))
+        .state(getContainerHealthStatus(task).name())
+        .cluster(clusterName)
+        .region(region)
+        .location(regionToCitiesMap.get(region.id()))
+        .publicIp(getTaskPublicIp(region, task))
+        .runBy(tagValue(task, config.getRunByTag()))
+        .chatId(tagValue(task, config.getChatIdTag()))
+        .languageCode(tagValue(task, config.getLanguageTag()))
+        .build();
+  }
+
+  private static String tagValue(Task task, String tagName) {
+    return task.tags()
+        .stream()
+        .filter(tag -> tag.key().equals(tagName))
+        .map(Tag::value)
+        .findFirst()
+        .orElse(null);
+  }
+
+  @Override
+  public Optional<TaskInfo> getTask(Region region, String taskId) {
+    return metrics.time(MetricComponent.ECS, () -> describeTask(region, taskId));
+  }
+
+  private Optional<TaskInfo> describeTask(Region region, String taskId) {
+    String clusterName = taskConfigService.getTaskRuntimeParameters(region).getEcsClusterName();
+    DescribeTasksRequest request = DescribeTasksRequest.builder()
+        .cluster(clusterName)
+        .tasks(taskId)
+        .include(TaskField.TAGS)
+        .build();
+    DescribeTasksResponse response;
+    try {
+      response = ecsClientPool.get(region).describeTasks(request);
+    } catch (InvalidParameterException e) {
+      // e.g. the {{TASK_ID}} placeholder sent by a node agent that could not fill it in
+      log.warn("Task {} in {} cannot be described: {}", taskId, region, e.getMessage());
+      return Optional.empty();
+    }
+    return response.tasks()
+        .stream()
+        .filter(task -> !STOPPED.equals(task.desiredStatus()) && !STOPPED.equals(task.lastStatus()))
+        .findFirst()
+        .map(task -> toTaskInfo(region, clusterName, task));
+  }
+
+  @Override
+  public void stopTask(Region region, String taskId, String reason) {
+    metrics.time(MetricComponent.ECS, () -> {
+      String clusterName = taskConfigService.getTaskRuntimeParameters(region).getEcsClusterName();
+      StopTaskRequest request = StopTaskRequest.builder()
+          .cluster(clusterName)
+          .task(taskId)
+          .reason(reason)
+          .build();
+      ecsClientPool.get(region).stopTask(request);
+    });
   }
 
   private String getTaskPublicIp(Region region, Task task) {

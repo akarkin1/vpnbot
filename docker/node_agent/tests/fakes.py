@@ -9,9 +9,44 @@ import subprocess
 READY_TEXT = "\U0001F7E2 <b>{{HOSTNAME}}</b> · Frankfurt\n<code>{{PUBLIC_IP}}</code>"
 READY_MARKUP = '{"inline_keyboard":[[{"text":"Menu","callback_data":"m"}]]}'
 IDLE_WARNING_TEXT = "⚠️ <b>{{HOSTNAME}}</b> will stop in 2 minutes"
-STOPPED_TEXT = "\U0001F6D1 <b>{{HOSTNAME}}</b> was stopped"
+STOPPED_TEXT = "⚪ <b>{{HOSTNAME}}</b> · Frankfurt\n\U0001F6D1 Stopped: no devices were connected for 10 minutes."
 STOPPED_MARKUP = '{"inline_keyboard":[[{"text":"Start again","callback_data":"r"}]]}'
 STOPPED_CARD_TEXT = "⚪ <b>{{HOSTNAME}}</b> · Frankfurt\nStopped"
+# Differs from STOPPED_MARKUP (the Lambda renders the same keyboard for both) so that the tests
+# can tell which of the two variables an edit used.
+STOPPED_CARD_MARKUP = '{"inline_keyboard":[[{"text":"Start again","callback_data":"RUN:eu-central-1"}]]}'
+
+# --- ready card keyboard with the Stop button (2b §4.5) ---------------------
+
+TASK_ID_PLACEHOLDER = "{{TASK_ID}}"
+TASK_ID = "0123456789abcdef0123456789abcdef"
+TASK_ARN = "arn:aws:ecs:eu-central-1:123456789012:task/vpn-cluster/" + TASK_ID
+LINKS_ROW = [{"text": "\U0001F4D6 Exit node guide", "url": "https://tailscale.com/kb/1103/exit-nodes"},
+             {"text": "⬇️ Get Tailscale", "url": "https://tailscale.com/download"}]
+MENU_BUTTON = {"text": "\U0001F3E0 Menu", "callback_data": "HOME"}
+
+
+def canonical_markup(reply_markup):
+    """A `reply_markup` (JSON string or object) as compact JSON with non-ASCII kept, so that
+    markups Telegram receives as the same object compare equal however they were serialized.
+    Falsy values (no markup, which `TelegramClient` does not send) are returned unchanged."""
+    if not reply_markup:
+        return reply_markup
+    value = json.loads(reply_markup) if isinstance(reply_markup, str) else reply_markup
+    return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+
+
+def stop_button(task_id):
+    return {"text": "\U0001F6D1 Stop", "callback_data": "STOP:eu-central-1:" + task_id}
+
+
+def markup_json(*rows):
+    """An inline keyboard as compact JSON, the form `canonical_markup` produces."""
+    return canonical_markup({"inline_keyboard": [list(row) for row in rows]})
+
+
+# The ready card markup as the Lambda renders it in 2b: links row, then [Stop][Menu].
+READY_MARKUP_WITH_STOP = markup_json(LINKS_ROW, [stop_button(TASK_ID_PLACEHOLDER), MENU_BUTTON])
 
 
 def required_env():
@@ -40,6 +75,7 @@ def full_env():
         "TG_STOPPED_TEXT": STOPPED_TEXT,
         "TG_STOPPED_MARKUP": STOPPED_MARKUP,
         "TG_STOPPED_CARD_TEXT": STOPPED_CARD_TEXT,
+        "TG_STOPPED_CARD_MARKUP": STOPPED_CARD_MARKUP,
     })
     return env
 
@@ -199,35 +235,65 @@ def posted_json(kwargs):
     return json.loads(kwargs["data"])
 
 
-def network_error():
+def network_error(message="connection refused"):
     try:
         import requests
-        return requests.ConnectionError("connection refused")
+        return requests.ConnectionError(message)
     except ImportError:
-        return ConnectionError("connection refused")
+        return ConnectionError(message)
 
 
 # --- collaborators of Notifier and agent.run -------------------------------
 
 class FakeTelegram:
     """Same method signatures as the `TelegramClient` contract; records calls as dicts of
-    bound arguments (so positional and keyword calls compare equal)."""
+    bound arguments (so positional and keyword calls compare equal), with `reply_markup` in
+    `canonical_markup` form (so a string and an equal object compare equal).
 
-    def __init__(self, events=None, result=True):
+    `send_message` returns the sent message's id (`first_message_id`, then one more per sent
+    message); `edit_message` and `delete_message` return True. A method named in `failing`
+    reports a failure instead (None or False), one named in `raising` raises an error;
+    `result=False` makes every method fail."""
+
+    FIRST_MESSAGE_ID = 100
+
+    def __init__(self, events=None, result=True, failing=(), raising=(), first_message_id=FIRST_MESSAGE_ID):
         self.calls = []
         self.events = events if events is not None else []
         self.result = result
+        self.failing = set(failing)
+        self.raising = set(raising)
+        self.next_message_id = first_message_id
 
     def send_message(self, chat_id, text, reply_markup=None, silent=False):
         self._record("send_message", locals())
-        return self.result
+        if not self._succeeds("send_message"):
+            return None
+        message_id = self.next_message_id
+        self.next_message_id += 1
+        return message_id
 
     def edit_message(self, chat_id, message_id, text, reply_markup=None):
         self._record("edit_message", locals())
-        return self.result
+        return self._succeeds("edit_message")
+
+    def delete_message(self, chat_id, message_id):
+        self._record("delete_message", locals())
+        return self._succeeds("delete_message")
+
+    def methods(self):
+        """The names of the called methods, in order."""
+        return [method for method, _ in self.calls]
+
+    def _succeeds(self, method):
+        if method in self.raising:
+            raise network_error()
+        return self.result and method not in self.failing
 
     def _record(self, method, arguments):
         arguments = {k: v for k, v in arguments.items() if k != "self"}
+        if "reply_markup" in arguments:
+            arguments["reply_markup"] = canonical_markup(arguments["reply_markup"])
         self.calls.append((method, arguments))
         self.events.append("telegram." + method)
 

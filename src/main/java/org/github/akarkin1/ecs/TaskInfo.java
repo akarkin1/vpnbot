@@ -18,5 +18,8 @@ public class TaskInfo {
   private String publicIp;
   private String location;
   private Region region;
+  private String runBy;
+  private String chatId;
+  private String languageCode;
 
 }

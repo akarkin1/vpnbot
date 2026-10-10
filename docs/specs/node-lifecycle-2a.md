@@ -435,3 +435,9 @@ Mixed versions are safe: an old image ignores the `TG_*` vars (user taps Menu); 
   `docker/node_agent/tests` (tests are not inside the production source tree). Paths in §5, §7 and §10
   that say `docker/node_agent/...` refer to this layout; the test command is
   `cd docker/node_agent && PYTHONPATH=src python3 -m unittest discover -s tests -t .`.
+- D-14 (prod validation) The 29 s integration timeout never reached production: the HTTP API stage
+  still served the deployment snapshot created with the stack (0.6 s timeout), because CloudFormation
+  does not redeploy when the integration changes. Every request over ~600 ms got a 5xx, Telegram
+  re-delivered the update (dropped by deduplication, but each re-delivery could start another cold
+  Lambda). Fixed by renaming the Deployment resource (`ApiGatewayDeployment20261010`) so a new
+  deployment is created; the template comment says to rename it on every route/integration change.

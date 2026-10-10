@@ -53,6 +53,7 @@ public class S3TaskConfigService implements TaskConfigService {
   private static List<Region> parseRegions(String content) {
     return Stream.of(content.split(AWS_LINE_SEPARATOR))
         .map(String::trim)
+        .filter(regionId -> !regionId.isEmpty())
         .filter(regionId -> {
           if (!KNOWN_REGIONS.containsKey(regionId)) {
             log.warn("Region id {} is not known to AWS SDK", regionId);

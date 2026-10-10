@@ -11,6 +11,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import software.amazon.awssdk.regions.Region;
@@ -25,19 +26,27 @@ import software.amazon.awssdk.services.ecs.model.Attachment;
 import software.amazon.awssdk.services.ecs.model.Container;
 import software.amazon.awssdk.services.ecs.model.DescribeTasksRequest;
 import software.amazon.awssdk.services.ecs.model.DescribeTasksResponse;
+import software.amazon.awssdk.services.ecs.model.Failure;
 import software.amazon.awssdk.services.ecs.model.HealthStatus;
+import software.amazon.awssdk.services.ecs.model.InvalidParameterException;
 import software.amazon.awssdk.services.ecs.model.KeyValuePair;
 import software.amazon.awssdk.services.ecs.model.ListTasksRequest;
 import software.amazon.awssdk.services.ecs.model.ListTasksResponse;
+import software.amazon.awssdk.services.ecs.model.RunTaskRequest;
+import software.amazon.awssdk.services.ecs.model.RunTaskResponse;
+import software.amazon.awssdk.services.ecs.model.StopTaskRequest;
 import software.amazon.awssdk.services.ecs.model.Tag;
 import software.amazon.awssdk.services.ecs.model.Task;
+import software.amazon.awssdk.services.ecs.model.TaskField;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -46,6 +55,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -58,6 +68,7 @@ class EcsManagerImplTest {
                                                            "eu-west-2", "London");
   private static final Map<String, String> MATCHING_TAGS = Map.of("Service", "vpn");
   private static final long BARRIER_TIMEOUT_SEC = 5;
+  private static final String TASK_ID = "0123456789abcdef0123456789abcdef";
 
   @Mock
   private TaskConfigService taskConfigService;
@@ -85,9 +96,11 @@ class EcsManagerImplTest {
     config.setServiceNameTag("Service");
     config.setServiceName("vpn");
     config.setRunByTag("RunBy");
+    config.setChatIdTag("ChatId");
+    config.setLanguageTag("Lang");
     config.setHostNameEnv("TAILSCALE_HOSTNAME");
 
-    when(taskConfigService.getSupportedRegions()).thenReturn(REGIONS);
+    lenient().when(taskConfigService.getSupportedRegions()).thenReturn(REGIONS);
     stubRegion(Region.EU_CENTRAL_1, euClient);
     stubRegion(Region.US_EAST_1, usClient);
     stubRegion(Region.EU_WEST_2, ukClient);
@@ -168,6 +181,183 @@ class EcsManagerImplTest {
     assertEquals(List.of("host-a", "host-b"), tasks.stream().map(TaskInfo::getHostName).toList());
     assertNull(tasks.get(0).getPublicIp());
     assertEquals("1.2.3.4", tasks.get(1).getPublicIp());
+  }
+
+  @Test
+  @DisplayName("2b AC-9: startTask passes the ChatId and Lang tags (next to RunBy) to RunTask")
+  void startTaskPassesOwnerTags() {
+    Map<String, String> tags = Map.of("HostName", "alex-frankfurt-1", "RunBy", "alex",
+                                      "Service", "vpn", "ChatId", "100", "Lang", "ru");
+    when(euClient.runTask(any(RunTaskRequest.class))).thenReturn(
+        RunTaskResponse.builder().tasks(Task.builder().taskArn(arn(TASK_ID)).build()).build());
+
+    TaskInfo started = ecsManager.startTask(Region.EU_CENTRAL_1, "alex-frankfurt-1", tags, Map.of());
+
+    ArgumentCaptor<RunTaskRequest> request = ArgumentCaptor.forClass(RunTaskRequest.class);
+    verify(euClient).runTask(request.capture());
+    Map<String, String> sentTags = request.getValue().tags().stream()
+        .collect(Collectors.toMap(Tag::key, Tag::value));
+    assertEquals(tags, sentTags);
+    assertEquals(TASK_ID, started.getId());
+  }
+
+  @Test
+  @Timeout(30)
+  @DisplayName("2b AC-9: getTask describes the task with tags in the region's cluster and maps RunBy/ChatId/Lang")
+  void getTaskMapsOwnerTags() {
+    when(euClient.describeTasks(any(DescribeTasksRequest.class))).thenReturn(
+        DescribeTasksResponse.builder().tasks(runningTask(
+            Tag.builder().key("Service").value("vpn").build(),
+            Tag.builder().key("HostName").value("alex-frankfurt-1").build(),
+            Tag.builder().key("RunBy").value("alex").build(),
+            Tag.builder().key("ChatId").value("100").build(),
+            Tag.builder().key("Lang").value("ru").build())).build());
+
+    Optional<TaskInfo> task = ecsManager.getTask(Region.EU_CENTRAL_1, TASK_ID);
+
+    ArgumentCaptor<DescribeTasksRequest> request = ArgumentCaptor.forClass(DescribeTasksRequest.class);
+    verify(euClient).describeTasks(request.capture());
+    assertEquals("cluster-eu-central-1", request.getValue().cluster());
+    assertEquals(List.of(TASK_ID), request.getValue().tasks());
+    assertTrue(request.getValue().include().contains(TaskField.TAGS), "tags not requested");
+    assertTrue(task.isPresent(), "task not found");
+    assertEquals(TASK_ID, task.get().getId());
+    assertEquals("alex-frankfurt-1", task.get().getHostName());
+    assertEquals(Region.EU_CENTRAL_1, task.get().getRegion());
+    assertEquals("alex", task.get().getRunBy());
+    assertEquals("100", task.get().getChatId());
+    assertEquals("ru", task.get().getLanguageCode());
+  }
+
+  @Test
+  @Timeout(30)
+  @DisplayName("2b AC-9, AC-5: getTask resolves the task's public IP for the node card")
+  void getTaskResolvesPublicIp() {
+    Attachment eni = Attachment.builder()
+        .type("ElasticNetworkInterface")
+        .details(KeyValuePair.builder().name("networkInterfaceId").value("eni-a").build())
+        .build();
+    when(euClient.describeTasks(any(DescribeTasksRequest.class))).thenReturn(
+        DescribeTasksResponse.builder()
+            .tasks(runningTask(Tag.builder().key("RunBy").value("alex").build()).toBuilder()
+                       .attachments(eni).build())
+            .build());
+    when(ec2ClientPool.getForRegion("eu-central-1")).thenReturn(ec2Client);
+    stubEni("eni-a", networkInterfaceWithIp("eni-a", "1.2.3.4"));
+
+    Optional<TaskInfo> task = ecsManager.getTask(Region.EU_CENTRAL_1, TASK_ID);
+
+    assertEquals("1.2.3.4", task.map(TaskInfo::getPublicIp).orElse(null));
+  }
+
+  @Test
+  @Timeout(30)
+  @DisplayName("2b AC-9: getTask of a task without RunBy/ChatId/Lang tags (started before 2b) has nulls")
+  void getTaskWithoutOwnerTags() {
+    when(euClient.describeTasks(any(DescribeTasksRequest.class))).thenReturn(
+        DescribeTasksResponse.builder()
+            .tasks(runningTask(Tag.builder().key("Service").value("vpn").build()))
+            .build());
+
+    Optional<TaskInfo> task = ecsManager.getTask(Region.EU_CENTRAL_1, TASK_ID);
+
+    assertTrue(task.isPresent(), "task not found");
+    assertNull(task.get().getRunBy());
+    assertNull(task.get().getChatId());
+    assertNull(task.get().getLanguageCode());
+  }
+
+  @Test
+  @Timeout(30)
+  @DisplayName("2b AC-9: getTask of an unknown task is empty")
+  void getTaskUnknown() {
+    when(euClient.describeTasks(any(DescribeTasksRequest.class))).thenReturn(
+        DescribeTasksResponse.builder()
+            .tasks(List.of())
+            .failures(Failure.builder().arn(TASK_ID).reason("MISSING").build())
+            .build());
+
+    assertEquals(Optional.empty(), ecsManager.getTask(Region.EU_CENTRAL_1, TASK_ID));
+  }
+
+  @Test
+  @Timeout(30)
+  @DisplayName("2b D-6: getTask is empty when ECS rejects the task id (e.g. the {{TASK_ID}} placeholder)")
+  void getTaskInvalidTaskId() {
+    when(euClient.describeTasks(any(DescribeTasksRequest.class)))
+        .thenThrow(InvalidParameterException.builder().message("Invalid id: {{TASK_ID}}").build());
+
+    assertEquals(Optional.empty(), ecsManager.getTask(Region.EU_CENTRAL_1, "{{TASK_ID}}"));
+  }
+
+  @Test
+  @Timeout(30)
+  @DisplayName("2b AC-9: getTask is empty when the desired status is STOPPED")
+  void getTaskStopping() {
+    when(euClient.describeTasks(any(DescribeTasksRequest.class))).thenReturn(
+        DescribeTasksResponse.builder()
+            .tasks(runningTask(Tag.builder().key("RunBy").value("alex").build()).toBuilder()
+                       .desiredStatus("STOPPED")
+                       .build())
+            .build());
+
+    assertEquals(Optional.empty(), ecsManager.getTask(Region.EU_CENTRAL_1, TASK_ID));
+  }
+
+  @Test
+  @Timeout(30)
+  @DisplayName("2b AC-9: getTask is empty when the last status is STOPPED")
+  void getTaskStopped() {
+    when(euClient.describeTasks(any(DescribeTasksRequest.class))).thenReturn(
+        DescribeTasksResponse.builder()
+            .tasks(runningTask(Tag.builder().key("RunBy").value("alex").build()).toBuilder()
+                       .desiredStatus("STOPPED")
+                       .lastStatus("STOPPED")
+                       .build())
+            .build());
+
+    assertEquals(Optional.empty(), ecsManager.getTask(Region.EU_CENTRAL_1, TASK_ID));
+  }
+
+  @Test
+  @Timeout(30)
+  @DisplayName("2b AC-9: getTask is empty when only the last status is STOPPED")
+  void getTaskLastStatusStopped() {
+    when(euClient.describeTasks(any(DescribeTasksRequest.class))).thenReturn(
+        DescribeTasksResponse.builder()
+            .tasks(runningTask(Tag.builder().key("RunBy").value("alex").build()).toBuilder()
+                       .lastStatus("STOPPED")
+                       .build())
+            .build());
+
+    assertEquals(Optional.empty(), ecsManager.getTask(Region.EU_CENTRAL_1, TASK_ID));
+  }
+
+  @Test
+  @DisplayName("2b AC-9: stopTask calls StopTask with the region's cluster, the task id and the reason")
+  void stopTaskCallsStopTask() {
+    ecsManager.stopTask(Region.EU_CENTRAL_1, TASK_ID, "Stopped by @alex via the bot");
+
+    ArgumentCaptor<StopTaskRequest> request = ArgumentCaptor.forClass(StopTaskRequest.class);
+    verify(euClient).stopTask(request.capture());
+    assertEquals("cluster-eu-central-1", request.getValue().cluster());
+    assertEquals(TASK_ID, request.getValue().task());
+    assertEquals("Stopped by @alex via the bot", request.getValue().reason());
+  }
+
+  private static Task runningTask(Tag... tags) {
+    return Task.builder()
+        .taskArn(arn(TASK_ID))
+        .desiredStatus("RUNNING")
+        .lastStatus("RUNNING")
+        .tags(tags)
+        .containers(Container.builder().name("vpn-container").healthStatus(HealthStatus.HEALTHY).build())
+        .attachments(List.of())
+        .build();
+  }
+
+  private static String arn(String taskId) {
+    return "arn:aws:ecs:eu-central-1:123:task/cluster-eu-central-1/" + taskId;
   }
 
   /** eu-central-1 runs task-a (ENI eni-a) and task-b (ENI eni-b); the other regions run nothing. */

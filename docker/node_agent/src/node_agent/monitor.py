@@ -5,6 +5,7 @@ class Action(Enum):
     NONE = "none"
     WARN = "warn"
     STOP = "stop"
+    RESUME = "resume"
 
 
 class IdleMonitor:
@@ -19,9 +20,10 @@ class IdleMonitor:
 
     def observe(self, active_peers: int) -> Action:
         if active_peers > 0:
+            resumed = self._warned
             self._idle_time = 0
             self._warned = False
-            return Action.NONE
+            return Action.RESUME if resumed else Action.NONE
         self._idle_time += self._interval
         if self._idle_time >= self._timeout:
             return Action.STOP
