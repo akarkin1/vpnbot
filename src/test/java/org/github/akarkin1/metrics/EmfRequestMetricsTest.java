@@ -37,7 +37,7 @@ class EmfRequestMetricsTest {
   private final List<String> lines = new CopyOnWriteArrayList<>();
 
   @Test
-  @DisplayName("2a AC-7: finish writes one EMF JSON line with the namespace, the dimension and the 4 metrics")
+  @DisplayName("2a AC-7, 3 AC-A7: finish writes one EMF JSON line with the namespace, the dimension and the 4 metrics")
   void emfLine() throws Exception {
     EmfRequestMetrics metrics = new EmfRequestMetrics(true, clock, lines::add);
 
@@ -78,6 +78,7 @@ class EmfRequestMetricsTest {
     assertEquals(5, json.get("DynamoDbMs").asLong());
     assertEquals(7, json.get("EcsMs").asLong());
     assertEquals(3, json.get("TelegramMs").asLong());
+    assertFalse(json.has("S3Ms"), "S3Ms must be gone: " + line);
   }
 
   @Test
