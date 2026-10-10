@@ -51,7 +51,7 @@ jobs:
       run: |
         POM_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
         aws s3 cp target/vpnbot-${POM_VERSION}.jar s3://${{ env.S3_CONFIG_BUCKET_NAME }}/vpntgbot/vpnbot-${POM_VERSION}.jar
-        echo "::set-output name=src_s3_key::vpntgbot/vpnbot-${POM_VERSION}.jar"
+        echo "src_s3_key=vpntgbot/vpnbot-${POM_VERSION}.jar" >> "$GITHUB_OUTPUT"
 
     - name: Update AWS Lambda
       run: |

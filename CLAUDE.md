@@ -47,7 +47,7 @@ same message into the stopped card – all via the Telegram Bot API.
 
 - Constructor injection with `final` fields and Lombok `@RequiredArgsConstructor`; logging with `@Log4j2`.
 - Wiring lives in `*Configurer` classes (see `TailscaleEcsNodeServiceConfigurer`), not in business code.
-- Interface + implementation for anything that talks to the outside world (Telegram, AWS, S3).
+- Interface + implementation for anything that talks to the outside world (Telegram, AWS).
 - Records for small immutable values. No new static mutable state (`TgRequestContext` is legacy).
   Exception: DynamoDB beans (`org.github.akarkin1.dynamodb`) are mutable JavaBeans as the Enhanced
   Client requires; they stay inside the DynamoDB services, which map them to domain types.
