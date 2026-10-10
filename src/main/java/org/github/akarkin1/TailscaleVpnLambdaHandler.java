@@ -49,7 +49,6 @@ import java.time.Clock;
 import java.util.Optional;
 
 import static org.github.akarkin1.config.ConfigManager.getAppVersion;
-import static org.github.akarkin1.config.ConfigManager.getBotToken;
 import static org.github.akarkin1.config.ConfigManager.getBotTokenSecretId;
 import static org.github.akarkin1.config.ConfigManager.getBotUsernameEnv;
 import static org.github.akarkin1.config.ConfigManager.getConfigTableName;
@@ -81,7 +80,7 @@ public class TailscaleVpnLambdaHandler implements
                                                        Clock.systemUTC(), METRICS);
 
     final String botToken = new BotTokenResolver(SecretsManagerClient.create())
-        .resolve(getBotTokenSecretId(), getBotToken());
+        .resolve(getBotTokenSecretId());
     final AbsSender sender = sender(botToken, getBotUsernameEnv());
     final TailscaleNodeService nodeService = new TailscaleEcsNodeServiceConfigurer()
         .configure(configTables.regions(), METRICS);

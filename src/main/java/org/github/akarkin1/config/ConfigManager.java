@@ -17,7 +17,6 @@ public class ConfigManager {
 
   private static final String APP_CONFIG_YAML = "application.yml";
 
-  private static final String BOT_TOKEN_ENV = "BOT_TOKEN";
   private static final String BOT_USERNAME_ENV = "BOT_USERNAME";
   private static final String BOT_SECRET_TOKEN_ID_ENV = "BOT_SECRET_TOKEN_ID";
   private static final String STATUS_CHECK_PAUSE_MS_ENV = "STATUS_CHECK_PAUSE_MS";
@@ -32,10 +31,6 @@ public class ConfigManager {
 
   private static final YamlApplicationConfiguration APP_CONFIG = YamlApplicationConfiguration
       .load(APP_CONFIG_YAML);
-
-  public static String getBotToken() {
-    return getenv(BOT_TOKEN_ENV);
-  }
 
   public static String getBotUsernameEnv() {
     return getenv(BOT_USERNAME_ENV);
