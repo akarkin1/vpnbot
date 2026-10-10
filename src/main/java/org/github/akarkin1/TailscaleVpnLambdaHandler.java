@@ -28,6 +28,7 @@ import org.github.akarkin1.dispatcher.command.VersionCommand;
 import org.github.akarkin1.dynamodb.ConfigTables;
 import org.github.akarkin1.metrics.EmfRequestMetrics;
 import org.github.akarkin1.metrics.RequestMetrics;
+import org.github.akarkin1.startup.SnapStartPrimer;
 import org.github.akarkin1.tailscale.TailscaleEcsNodeServiceConfigurer;
 import org.github.akarkin1.tailscale.TailscaleNodeService;
 import org.github.akarkin1.tg.BotCommunicator;
@@ -115,6 +116,8 @@ public class TailscaleVpnLambdaHandler implements
                                                               COMMUNICATOR::sendMessageToTheBot));
     COMMAND_DISPATCHER.registerCommand("/listRegisteredUsers",
                                        new ListUsersCommand(permissionsService));
+
+    new SnapStartPrimer(nodeService, permissionsService, EVENTS_REGISTRY, sender).prime();
   }
 
   @Override
