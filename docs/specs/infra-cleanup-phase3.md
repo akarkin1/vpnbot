@@ -562,3 +562,8 @@ cold requests (`Restore Duration` + first-request `TotalMs`) with D-22's 4.5 s; 
   `EnvPauseBetweenStatusCheckMs`/`EnvOperationWaitTimeoutSec`/`EnvRestartSleepTimeSec` with their
   commented env vars, and `ConfigManager`'s unused getters (`getStatusCheckWaitIntervalMs`,
   `getOperationTimeoutMs`, `getRestartPauseMs`, `getUsedRegions`).
+- D-32 (§13.1a, validated 2026-10-10, v4) The first `DescribeTasks` + EC2 call on a restored instance
+  takes 0.9 s (was 3.1 s). Cold start 3.0 s in one sample vs 2.5 s for v3 (noise: DynamoDB and
+  Telegram each ≈ 150 ms slower that time); priming takes 1.9 s at snapshot time. Start and stop work,
+  no errors, no API 4xx/5xx, no re-deliveries. Summary of cold starts: baseline ≈ 5.4 s → SnapStart
+  4.5 s → priming 2.5–3.0 s. Node start: ≈ 20 s from the tap to Tailscale up (Fargate start-up).

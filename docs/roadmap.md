@@ -48,7 +48,7 @@ User feedback: a stopped node edits its own message into a stopped card with
 `[🚀 Start again] [🏠 Menu]` instead of sending a new message; the silent idle warning is deleted
 when the node stops or a device connects again.
 
-## Phase 3 – Config in DynamoDB, no Lambda VPC, SnapStart (A, B, C and priming deployed; node log retention open)
+## Phase 3 – Config in DynamoDB, no Lambda VPC, SnapStart (done; node log retention deploy open)
 
 Spec: `docs/specs/infra-cleanup-phase3.md` · Branch: `feature/infra-cleanup`
 
@@ -72,8 +72,8 @@ EC2 instance that needs AMI patching.
 
 - Node image runs Python 3.9, which boto3 no longer supports (deprecation warning at start-up):
   move to `python3.11` from the Amazon Linux 2023 repos and re-pin `docker/requirements.txt`.
-- Cold start: Init ≈ 3.7 s + ≈ 0.75 s first-invocation work, warm requests ≈ 0.3 s. SnapStart is in
-  Phase 3; more memory (CPU scales with memory; 1024 MB today) is the other lever if needed.
+- Cold start after Phase 3: ≈ 2.5–3 s (restore 0.8 s + first request), was ≈ 5.4 s; warm requests
+  ≈ 0.1–0.3 s. More memory (CPU scales with memory; 1024 MB today) is the remaining lever if needed.
 - Clean up the stale per-region stack-output files and the legacy `vpntgbot-s3` bucket (manual, once).
 
 ## Later
