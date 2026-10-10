@@ -19,7 +19,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class CachedS3TaskConfigServiceTest {
+class CachedTaskConfigServiceTest {
 
   private static final Duration TTL = Duration.ofSeconds(300);
   private static final List<Region> REGIONS = List.of(Region.EU_CENTRAL_1, Region.US_EAST_1);
@@ -35,7 +35,7 @@ class CachedS3TaskConfigServiceTest {
   @DisplayName("2a AC-8: supported regions are loaded once within the TTL")
   void regionsCachedWithinTtl() {
     when(delegate.getSupportedRegions()).thenReturn(REGIONS);
-    CachedS3TaskConfigService service = new CachedS3TaskConfigService(delegate, TTL, clock);
+    CachedTaskConfigService service = new CachedTaskConfigService(delegate, TTL, clock);
 
     assertEquals(REGIONS, service.getSupportedRegions());
     clock.advance(TTL.minusMillis(1));
@@ -49,7 +49,7 @@ class CachedS3TaskConfigServiceTest {
   void regionsReloadedAfterTtl() {
     List<Region> updated = List.of(Region.EU_WEST_2);
     when(delegate.getSupportedRegions()).thenReturn(REGIONS, updated);
-    CachedS3TaskConfigService service = new CachedS3TaskConfigService(delegate, TTL, clock);
+    CachedTaskConfigService service = new CachedTaskConfigService(delegate, TTL, clock);
 
     assertEquals(REGIONS, service.getSupportedRegions());
     clock.advance(TTL.plusMillis(1));
@@ -64,7 +64,7 @@ class CachedS3TaskConfigServiceTest {
   void zeroTtlDelegatesEveryCall() {
     when(delegate.getSupportedRegions()).thenReturn(REGIONS);
     when(delegate.getTaskRuntimeParameters(Region.EU_CENTRAL_1)).thenReturn(EU_PARAMS);
-    CachedS3TaskConfigService service = new CachedS3TaskConfigService(delegate, Duration.ZERO, clock);
+    CachedTaskConfigService service = new CachedTaskConfigService(delegate, Duration.ZERO, clock);
 
     for (int i = 0; i < 3; i++) {
       assertEquals(REGIONS, service.getSupportedRegions());
@@ -80,7 +80,7 @@ class CachedS3TaskConfigServiceTest {
   void runtimeParametersCachedPerRegion() {
     when(delegate.getTaskRuntimeParameters(Region.EU_CENTRAL_1)).thenReturn(EU_PARAMS);
     when(delegate.getTaskRuntimeParameters(Region.US_EAST_1)).thenReturn(US_PARAMS);
-    CachedS3TaskConfigService service = new CachedS3TaskConfigService(delegate, TTL, clock);
+    CachedTaskConfigService service = new CachedTaskConfigService(delegate, TTL, clock);
 
     assertSame(EU_PARAMS, service.getTaskRuntimeParameters(Region.EU_CENTRAL_1));
     assertSame(US_PARAMS, service.getTaskRuntimeParameters(Region.US_EAST_1));
@@ -97,7 +97,7 @@ class CachedS3TaskConfigServiceTest {
   void runtimeParametersReloadedAfterTtl() {
     TaskRuntimeParameters updated = params("eu-cluster-2");
     when(delegate.getTaskRuntimeParameters(Region.EU_CENTRAL_1)).thenReturn(EU_PARAMS, updated);
-    CachedS3TaskConfigService service = new CachedS3TaskConfigService(delegate, TTL, clock);
+    CachedTaskConfigService service = new CachedTaskConfigService(delegate, TTL, clock);
 
     assertSame(EU_PARAMS, service.getTaskRuntimeParameters(Region.EU_CENTRAL_1));
     clock.advance(TTL.plusMillis(1));
