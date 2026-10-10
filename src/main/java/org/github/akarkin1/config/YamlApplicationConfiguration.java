@@ -15,25 +15,11 @@ public class YamlApplicationConfiguration {
 
   private String version;
 
-  private S3Configuration s3;
-
   private EcsConfiguration ecs;
 
   private AWSConfiguration aws;
 
   private AuthConfiguration auth;
-
-  @Getter
-  @Setter
-  public static class S3Configuration {
-
-    private String configBucket;
-    private String configRootDir;
-    private String regionsKey;
-    private String stackOutputParametersKey;
-    private String userPermissionsKey;
-
-  }
 
   @Getter
   @Setter
