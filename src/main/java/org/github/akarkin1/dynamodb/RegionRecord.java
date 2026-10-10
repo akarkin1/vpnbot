@@ -1,6 +1,7 @@
 package org.github.akarkin1.dynamodb;
 
 import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbAttribute;
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbBean;
@@ -15,24 +16,14 @@ public class RegionRecord {
 
   public static final String TYPE = "REGION";
 
+  @Getter(onMethod_ = {@DynamoDbPartitionKey, @DynamoDbAttribute("pk")})
   private String type = TYPE;
+  @Getter(onMethod_ = {@DynamoDbSortKey, @DynamoDbAttribute("sk")})
   private String regionId;
   private String ecsClusterName;
   private String ecsTaskDefinitionArn;
   private String subnetId;
   private String securityGroupId;
   private String updatedAt;
-
-  @DynamoDbPartitionKey
-  @DynamoDbAttribute("pk")
-  public String getType() {
-    return type;
-  }
-
-  @DynamoDbSortKey
-  @DynamoDbAttribute("sk")
-  public String getRegionId() {
-    return regionId;
-  }
 
 }
