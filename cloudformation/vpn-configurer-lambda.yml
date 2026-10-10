@@ -75,6 +75,18 @@ Resources:
                   - "logs:PutLogEvents"
                 Effect: Allow
                 Resource: "*"
+              # Lambda deletes the network interfaces of its former VPC with the function's role,
+              # which can take ~20 min after the VPC config is removed. Keep until the VPC is gone.
+              - Action:
+                  - "ec2:DescribeSubnets"
+                  - "ec2:DescribeVpcs"
+                  - "ec2:DescribeSecurityGroups"
+                  - "ec2:CreateNetworkInterface"
+                  - "ec2:DeleteNetworkInterface"
+                  - "ec2:AssignPrivateIpAddresses"
+                  - "ec2:UnassignPrivateIpAddresses"
+                Effect: Allow
+                Resource: "*"
               # Permissions to manage ECS instances
               - Action:
                   - "ecs:RunTask"

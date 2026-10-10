@@ -431,3 +431,6 @@ Deploy C:
   throws `IllegalStateException("BOT_TOKEN_SECRET_ID is not set")`, Secrets Manager errors propagate unchanged.
 - D-16 (tech lead) Deploy A verified in production by the owner (2026-10-10); the migration script is
   removed in Deploy B as planned.
+- D-17 (tech lead) Deploy B keeps the role's EC2 network-interface permissions: Lambda uses the
+  execution role to delete the interfaces of its former VPC (up to ~20 min after `VpcConfig` is
+  removed); without them the subnet/security group deletion would fail for good. Removed in Deploy C.
