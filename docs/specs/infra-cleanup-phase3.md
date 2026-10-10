@@ -66,8 +66,14 @@ Access patterns (all eventually consistent reads):
 | ECS delete workflow | `delete-item (REGION, <region>)` |
 | Lambda deploy workflow | `put-item (USER, <root>)` with `attribute_not_exists(pk)` (bootstrap, never overwrites) |
 
-No caches: every request reads what it needs (≈ 5–10 ms per call; changes take effect immediately).
-`CONFIG_CACHE_TTL_SEC` stays and now only controls the webhook-secret cache.
+In-memory config cache behind a feature flag, to be measured (`DynamoDbMs`) and retired if it
+doesn't pay off:
+- `CONFIG_CACHE_ENABLED` (default `false`): when `true`, the region list, per-region parameters and
+  user permissions are cached per Lambda instance for `CONFIG_CACHE_TTL_SEC`; when `false`, every
+  request reads DynamoDB (≈ 5–10 ms per call; changes take effect immediately).
+- `CONFIG_CACHE_TTL_SEC` (default `300`, unchanged) is that TTL and, as today, the webhook-secret
+  cache TTL (the webhook secret is cached regardless of the flag).
+- Caches fill on first use (never during init), so SnapStart snapshots contain no config.
 
 ## 6. Deploy A – DynamoDB
 
@@ -81,7 +87,10 @@ No caches: every request reads what it needs (≈ 5–10 ms per call; changes ta
   on `!GetAtt ConfigTable.Arn`. The S3, EFS and VPC statements stay until Deploy B (the old code keeps
   working between the stack deploy and the code deploy of §6.4).
 - Lambda env var `CONFIG_TABLE_NAME: !Ref ConfigTable`.
-- Update the `EnvConfigCacheTtlSec` description: "…caches the webhook secret read from Secrets Manager".
+- New parameter `EnvConfigCacheEnabled` (String, default `"false"`, description "Whether the Lambda caches
+  regions and permissions read from DynamoDB for EnvConfigCacheTtlSec") → env `CONFIG_CACHE_ENABLED`.
+- Update the `EnvConfigCacheTtlSec` description: "TTL in seconds of the config cache (when enabled)
+  and of the webhook secret read from Secrets Manager".
 - The Lambda stays in the VPC; it reaches DynamoDB through the NAT instance.
 
 ### 6.2 Java
@@ -141,13 +150,19 @@ Wiring:
   Lambda's `AWS_REGION`) and passes it, with `ConfigManager.getConfigTableName()`, to
   `TailscaleEcsNodeServiceConfigurer.configure(…)`, `PermissionsServiceConfigurer.configure(…)` and
   the registry.
-- `ConfigManager`: add `getConfigTableName()` (env `CONFIG_TABLE_NAME`, default `vpnbot`); remove
-  `getEventRootDir()`, `getEventTtlSec()` and their constants.
+- `ConfigManager`: add `getConfigTableName()` (env `CONFIG_TABLE_NAME`, default `vpnbot`) and
+  `isConfigCacheEnabled()` (env `CONFIG_CACHE_ENABLED`, `true`/`false`, default `false`, parsed like
+  `isMetricsEnabled()`); remove `getEventRootDir()`, `getEventTtlSec()` and their constants.
+- Caches (decorators, wired by the configurers only when `isConfigCacheEnabled()`):
+  - `config.CachedS3TaskConfigService` → renamed `config.CachedTaskConfigService`, logic unchanged
+    (TTL per value, `Clock`, zero TTL = no caching).
+  - `auth.s3.CachingPermissionsService` → moved to `auth.CachingPermissionsService` and given the same
+    TTL behaviour (`PermissionsService delegate, Duration ttl, Clock clock`; today it never expires);
+    `updateUserPermissions` still invalidates before delegating.
 
 Metrics: `MetricComponent.S3` → `DYNAMODB`, EMF metric name `S3Ms` → `DynamoDbMs`.
 
-Delete: `S3TaskConfigService`, `CachedS3TaskConfigService`, `auth.s3.S3PermissionsService`,
-`auth.s3.CachingPermissionsService`, `s3.S3ConfigManager`, `config.exception.S3DownloadFailureException`,
+Delete: `S3TaskConfigService`, `auth.s3.S3PermissionsService`, `s3.S3ConfigManager`, `config.exception.S3DownloadFailureException`,
 `deduplication.FSUpdateEventsRegistry`, `YamlApplicationConfiguration.S3Configuration` + the `s3:`
 section of `application.yml` (main and test), and their tests. `pom.xml`: `s3` → `dynamodb`.
 
@@ -166,6 +181,8 @@ All table writes use `--table-name vpnbot --region ${{ vars.CONFIG_BASE_REGION }
 - `delete-ecs-vpn-resources.yml`: new **first** step after credentials, "Remove region from DynamoDB":
   `aws dynamodb delete-item --key '{"pk":{"S":"REGION"},"sk":{"S":"<region>"}}'` (idempotent), so
   the bot stops offering the region before its stack goes. The S3 cleanup step and its env vars are removed.
+- `deploy-tgbot-lambda.yml`: env `CONFIG_CACHE_ENABLED: ${{ vars.CONFIG_CACHE_ENABLED || 'false' }}`,
+  passed as `EnvConfigCacheEnabled=…` in the parameter overrides.
 - `deploy-tgbot-lambda.yml`: after the stack deploy, "Bootstrap root user in DynamoDB":
   `put-item` of `(USER, $TG_ROOT_USERNAME, permissions SS ["ROOT_ACCESS"])` with
   `--condition-expression 'attribute_not_exists(pk)'`; a `ConditionalCheckFailedException` is
@@ -191,6 +208,9 @@ All table writes use `--table-name vpnbot --region ${{ vars.CONFIG_BASE_REGION }
 4. Verify: home screen lists the regions; start/stop a node; `/supportedRegions`; an admin command
    that changes permissions; `DynamoDbMs` appears in metrics; no `S3Ms`; re-deliveries (if any)
    log "Skipping duplicated event".
+5. Measure the cache: a few days with `CONFIG_CACHE_ENABLED=false`, then a few with `true` (GitHub
+   variable + "Deploy VPN Configurer Lambda Resources"); compare `DynamoDbMs` and `TotalMs` per
+   `UpdateKind`. Keep or retire the cache based on that (follow-up, not part of this phase).
 
 ## 7. Deploy B – No VPC
 
@@ -292,6 +312,10 @@ Deploy A:
 - AC-A11 `migrate-config-to-dynamodb.sh --dry-run` against a fake `aws` (test script
   `scripts/migrate-config-to-dynamodb-test.sh`): prints one region item per listed region and one user
   item per non-empty user, writes nothing; without `--dry-run` it calls `put-item` for each.
+- AC-A12 Cache flag: `isConfigCacheEnabled()` default `false`; flag off → the configurers return the
+  DynamoDB services unwrapped; on → wrapped. `CachingPermissionsService`: second read within the TTL
+  hits no delegate, after the TTL it does, an update invalidates; `CachedTaskConfigService` tests
+  keep passing after the rename.
 - AC-A10 No reference to S3 or EFS remains in `src/main/java`; `pom.xml` has `dynamodb`, not `s3`.
 
 Deploy B:
@@ -332,7 +356,8 @@ Deploy C:
   cost (no per-table charge), fewer resources; record types are readable as `pk` values.
 - D-2 (review) Lock record type is `TG_UPDATE_LOCK` (written before processing, so "processed" would
   be wrong).
-- D-3 (review) Config caches removed: ≈ 10 ms per request, changes visible immediately.
+- D-3 (review) Config caches kept behind `CONFIG_CACHE_ENABLED` (default off) to measure their benefit
+  with `DynamoDbMs`; retire them later if they don't pay off. The permissions cache gets a TTL.
 - D-5 (review) The migration is a local script, not a workflow (run once by the owner).
 - D-4 (review) Workflows switch to DynamoDB in Deploy A – no dual writes to S3. Rolling back to
   pre-A code means updating the S3 files by hand (a local sync script only if that is ever needed).

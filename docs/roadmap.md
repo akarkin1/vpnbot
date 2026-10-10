@@ -60,7 +60,8 @@ EC2 instance that needs AMI patching.
 1. **Deploy A – DynamoDB**: one table `vpnbot` (`pk` = `REGION` / `USER` / `TG_UPDATE_LOCK`, `sk` = id)
    replaces `supported-regions.txt`, the per-region stack-output files, `user-permissions.json` and the
    EFS deduplication registry (atomic conditional put, 24 h TTL). Workflows write regions/users with
-   `put-item`/`delete-item`; one-off migration workflow. Config caches removed.
+   `put-item`/`delete-item` (no S3 config any more); one-off local migration script. The in-memory
+   config cache stays behind `CONFIG_CACHE_ENABLED` (default off) until measured.
 2. **Deploy B – No VPC**: Lambda out of the VPC; delete VPC, subnets, gateway, route tables, NAT
    instance + ENI + EIP, security groups, EFS; drop S3 from the Lambda; remove `BOT_TOKEN`;
    Lambda timeout 30 s; node log retention 7 days.
