@@ -68,19 +68,21 @@ EC2 instance that needs AMI patching.
 3. **Deploy C – SnapStart**: published versions + alias `live`, API Gateway → alias, workflows publish
    a version on every code/config deploy (free for Java).
 
-## Small follow-ups (from the 2026-10-09 prod validation)
+## Small follow-ups
 
-- Node image runs Python 3.9, which boto3 no longer supports (deprecation warning at start-up):
-  move to `python3.11` from the Amazon Linux 2023 repos and re-pin `docker/requirements.txt`.
 - Cold start after Phase 3: ≈ 2.5–3 s (restore 0.8 s + first request), was ≈ 5.4 s; warm requests
   ≈ 0.1–0.3 s. More memory (CPU scales with memory; 1024 MB today) is the remaining lever if needed.
-- Clean up the stale per-region stack-output files and the legacy `vpntgbot-s3` bucket (manual, once).
+- S3 cleanup (on hold, owner's call): the `ecs-tailscale-node/config/` folder in the config bucket
+  (nothing reads it since Phase 3) and the legacy `vpntgbot-s3` bucket after listing its contents.
+  The config bucket itself stays: it holds the Lambda jar.
 
 ## Later
 
-- **Phase 4 – access & admin**: "Request access" flow for unknown users (admin gets role buttons that
-  call the existing `assignRolesToUser`; `ADMIN_CHAT_ID` setting); `/users` list with 🗑 buttons;
-  optionally key permissions by Telegram user id instead of username.
+- **Phase 4 – access & admin** (spec: `docs/specs/access-admin-phase4.md`, branch
+  `feature/access-admin`): permissions and node ownership keyed by Telegram user id (lazy migration
+  of the username-keyed records); "Request access" button → admins get role buttons → requester
+  notified; Users screen with 🗑; housekeeping: `java-tests.yml` on pull requests, node image on
+  Python 3.11, unused repository variables removed.
 - **Phase 5 – region requests**: "🌍 Other region…" lists regions enabled in the account
   (`ec2:DescribeRegions`) that are not set up yet; tapping one sends the admin a request with
   `[✅ Deployed, notify] [✖ Decline]`.
