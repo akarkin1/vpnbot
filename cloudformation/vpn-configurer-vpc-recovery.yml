@@ -1,0 +1,196 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Recovery of the network resources that the vpn-tgbot-cfn stack deleted on 2026-10-10 (Phase 3,
+  Deploy B): internet gateway, public subnet, route tables, NAT instance with its ENI and Elastic IP.
+  Recreates them, exactly as they were defined before, INSIDE the existing VPC. Surviving resources
+  (VPC, private subnet, and possibly the public subnet or internet gateway) are passed in as parameters.
+  Deploy as a NEW stack, e.g. vpn-configurer-vpc-recovery; never add this to vpn-tgbot-cfn.
+
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: The surviving VPC (tag Name vpn-configurer-vpc, 10.0.0.0/27).
+  PrivateSubnetId:
+    Type: AWS::EC2::Subnet::Id
+    Description: The surviving private subnet (vpn-configurer-private-sn, 10.0.0.0/28) that must route through the NAT.
+  PublicSubnetId:
+    Type: String
+    Default: ""
+    Description: The public subnet (vpn-configurer-public-sn) if it still exists; empty = create it (10.0.0.16/28).
+  InternetGatewayId:
+    Type: String
+    Default: ""
+    Description: The internet gateway if it still exists and is attached to the VPC; empty = create and attach one.
+  EipAllocationId:
+    Type: String
+    Default: ""
+    Description: >
+      Allocation id of the Elastic IP for the NAT. Try to recover the old address first:
+      aws ec2 allocate-address --domain vpc --address <old ip> --region eu-central-1 (works while the
+      address has not been given to another account). Empty = allocate a new address.
+  NatInstanceAMI:
+    Type: String
+    Default: ami-0a72753edf3e631b7
+    Description: AMI of the NAT instance (as in the original stack).
+  NatInstanceSize:
+    Type: String
+    Default: t3.micro
+  ClientIPCIDR:
+    Type: String
+    Default: 0.0.0.0/0
+
+Conditions:
+  CreatePublicSubnet: !Equals [!Ref PublicSubnetId, ""]
+  CreateInternetGateway: !Equals [!Ref InternetGatewayId, ""]
+  AllocateEip: !Equals [!Ref EipAllocationId, ""]
+
+Resources:
+  PublicSubnet:
+    Condition: CreatePublicSubnet
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VpcId
+      CidrBlock: 10.0.0.16/28
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: vpn-configurer-public-sn
+        - Key: ServiceName
+          Value: vpn-configurer-lambda
+
+  InternetGateway:
+    Condition: CreateInternetGateway
+    Type: AWS::EC2::InternetGateway
+
+  InternetGatewayAttachment:
+    Condition: CreateInternetGateway
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VpcId
+      InternetGatewayId: !Ref InternetGateway
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VpcId
+      Tags:
+        - Key: Name
+          Value: vpn-configurer-public-rt
+
+  PublicRouteTableSubnetAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !If [CreatePublicSubnet, !Ref PublicSubnet, !Ref PublicSubnetId]
+      RouteTableId: !Ref PublicRouteTable
+
+  InternetGatewayRoute:
+    DependsOn: PublicRouteTableSubnetAssociation
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: !Ref ClientIPCIDR
+      GatewayId: !If [CreateInternetGateway, !Ref InternetGateway, !Ref InternetGatewayId]
+
+  NatInstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "Security group for NAT instance"
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: -1
+          FromPort: 0
+          ToPort: 65535
+          CidrIp: !Ref ClientIPCIDR
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 0
+          ToPort: 65535
+          CidrIp: !Ref ClientIPCIDR
+
+  NatInstanceEIP:
+    Condition: AllocateEip
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+
+  NatInstanceNetworkInterface:
+    Type: AWS::EC2::NetworkInterface
+    Properties:
+      SubnetId: !If [CreatePublicSubnet, !Ref PublicSubnet, !Ref PublicSubnetId]
+      Description: Public Interface
+      GroupSet:
+        - !Ref NatInstanceSecurityGroup
+      SourceDestCheck: false
+      Tags:
+        - Key: Name
+          Value: Nat Instance Public ENI
+
+  NatInstanceEIPAssociation:
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      AllocationId: !If [AllocateEip, !GetAtt NatInstanceEIP.AllocationId, !Ref EipAllocationId]
+      NetworkInterfaceId: !Ref NatInstanceNetworkInterface
+
+  NatInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref NatInstanceSize
+      ImageId: !Ref NatInstanceAMI
+      SourceDestCheck: false
+      NetworkInterfaces:
+        - NetworkInterfaceId: !Ref NatInstanceNetworkInterface
+          DeviceIndex: 0
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          # Update the system
+          sudo yum update -y
+          # Install iptables
+          sudo yum install iptables-services -y
+          sudo systemctl enable iptables
+          sudo systemctl start iptables
+          # Enable IP forwarding
+          sudo sysctl -w net.ipv4.ip_forward=1
+          # Configure iptables (example rules)
+          sudo iptables -t nat -A POSTROUTING -o ens5 -s 0.0.0.0/0 -j MASQUERADE
+          sudo iptables -F FORWARD
+          # Save the iptables rules
+          sudo service iptables save
+          sudo service iptables restart
+      Tags:
+        - Key: Name
+          Value: vpn-configurer-nat-ec2
+        - Key: ServiceName
+          Value: vpn-configurer-lambda
+
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VpcId
+      Tags:
+        - Key: Name
+          Value: vpn-configurer-private-rt
+
+  PrivateRouteTableSubnetAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnetId
+      RouteTableId: !Ref PrivateRouteTable
+
+  NatInstanceRoute:
+    DependsOn: PrivateRouteTableSubnetAssociation
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: !Ref ClientIPCIDR
+      InstanceId: !Ref NatInstance
+
+Outputs:
+  NatPublicIp:
+    Description: Public (Elastic) IP the private subnet now egresses from – must match the exchange allow-list.
+    Value: !GetAtt NatInstance.PublicIp
+  NatInstanceId:
+    Value: !Ref NatInstance
+  PrivateRouteTableId:
+    Value: !Ref PrivateRouteTable
