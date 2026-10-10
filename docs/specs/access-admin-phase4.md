@@ -16,8 +16,8 @@ Status: draft for review · Branch: `feature/access-admin` (based on `main`) · 
 ## 2. Non-goals
 
 - No change to node start/stop/reuse behaviour, screens of Phases 1–3, metrics, infrastructure or IAM.
-- No invitations of users who never contacted the bot (they request access instead). The existing
-  admin text commands keep working for users known to the bot (§4.6).
+- No change to the admin text commands' behaviour: pre-registering a user by username keeps working
+  (§4.6); the request-access flow is an addition, not a replacement.
 - No new dependencies. No refactoring beyond what this spec lists.
 
 ## 3. Ground rules
@@ -29,7 +29,9 @@ file ownership, `SPEC DEVIATION: <what> / <why> / <proposed option>` escalation)
 
 ### 4.1 Identity
 
-- `org.github.akarkin1.auth.TgUser(long id, String username)` (record; `username` may be null).
+- `org.github.akarkin1.auth.TgUser(Long id, String username)` (record; one of the two may be null:
+  requests always carry the id; a pre-registration carries only the username). `TgUser.key()` = the
+  record key: the id as a decimal string when known, else the username.
   `UiContext` gains `Long userId` (from `User.getId()`), and `UiContext.user()` returns the `TgUser`.
   `TgRequestContext` (legacy, used by text commands) gains `getUser()` returning the same.
 - `Authorizer.hasPermission(TgUser user, Permission permission)` replaces the username variant;
@@ -38,17 +40,18 @@ file ownership, `SPEC DEVIATION: <what> / <why> / <proposed option>` escalation)
 - `PermissionsService`:
   - `Map<String, UserEntry> getUsers()` keyed by user id (decimal string), `UserEntry(String username,
     List<Permission> permissions)`; replaces `getUserPermissions()` (and `UserPermissionsProvider`).
-  - `updateUserPermissions(TgUser user, Set<Permission> permissions)`: non-empty → put the record with
-    the id as key and the username as attribute (null username keeps the stored one); null/empty →
-    delete. `assignRolesToUser`/`deleteUser` defaults take a `TgUser` likewise.
-  - `Optional<TgUser> findByUsername(String username)`: the user with that username attribute
-    (case-insensitive, without `@`), for the text commands.
-- `UserRecord`: sk = user id (decimal string); attributes `username` (S, nullable), `permissions` (SS).
-  **Lazy migration** of the current username-keyed records (D-2): `WhiteListAuthorizer`, on a request
-  by a user with no id-keyed record, looks for a record whose sk equals the username; if found it
-  writes the id-keyed record (same permissions, `username` attribute) and deletes the old one, in that
-  order, then answers from the new record. One request migrates one user; after every user has used the
-  bot once, no username-keyed record remains. `isUsernameKey(sk)` = sk is not all digits.
+  - `updateUserPermissions(TgUser user, Set<Permission> permissions)`: non-empty → put the record
+    keyed by `user.key()` with the username as attribute (null username keeps the stored one);
+    null/empty → delete. `assignRolesToUser`/`deleteUser` defaults take a `TgUser` likewise.
+  - `Optional<TgUser> findByUsername(String username)`: the user with that username (attribute or
+    key, case-insensitive, without `@`), for the text commands and the Users screen.
+- `UserRecord`: sk = user id (decimal string) for users who have contacted the bot, or the username
+  for **pending** users (pre-registered by an admin, and the records existing before this phase);
+  attributes `username` (S, nullable), `permissions` (SS). `isUsernameKey(sk)` = sk is not all digits.
+  **Migration on first contact** (D-2): `WhiteListAuthorizer`, on a request by a user with no id-keyed
+  record, looks for a record keyed by the username; if found it writes the id-keyed record (same
+  permissions, `username` attribute) and deletes the old one, in that order, then answers from the new
+  record. Pre-registrations therefore work as today, with the record re-keyed once the user shows up.
 - The workflow bootstrap of the root user (`deploy-tgbot-lambda.yml`) keeps writing the username-keyed
   record (`TG_ROOT_USERNAME`); it is migrated at the root's next request. Its condition
   `attribute_not_exists(pk)` still prevents overwriting.
@@ -100,45 +103,46 @@ Home screen: for users with `USER_MANAGEMENT` (or root) a row `[👥 ${ui.button
 (`UiAction.users()`, `USERS`) between the stop rows and Refresh/Help.
 
 **List** – `UsersController.show(context, messageId)` → `usersScreen.list(model)`: title
-`${ui.users.title}`, one button per user, sorted by username then id, labelled
-`@username · <roles>` (or `id · <roles>` without a username; `RoleFormat.describe`: the `UserRole`s
-whose permission sets are covered, root → `${ui.role.root}`, otherwise the permission names), each
-`UiAction.user(id)` (`USER:<id>`); last row `[🏠 Menu]`.
+`${ui.users.title}`, one button per user, sorted by username then key, labelled
+`@username · <roles>` (or `id · <roles>` without a username; a pending user gets the suffix
+`· ${ui.users.pending}`; `RoleFormat.describe`: the `UserRole`s whose permission sets are covered,
+root → `${ui.role.root}`, otherwise the permission names), each `UiAction.user(key)` (`USER:<key>`,
+key = id or `@username`); last row `[🏠 Menu]`. Users are referenced by their record key in every
+callback of this screen (`<key>` below), so pending users can be edited and removed too.
 
-**User card** – `UsersController.showUser(context, messageId, userId)` → `usersScreen.user(row)`:
-`👤 <b>@username</b> (id)\n<roles>` and, unless the target is a root user or the caller:
+**User card** – `UsersController.showUser(context, messageId, key)` → `usersScreen.user(row)`:
+`👤 <b>@username</b> (id or ${ui.users.pending})\n<roles>` and, unless the target is a root user or the caller:
 - role toggles, one row `[✅|☐ ${ui.role.node-admin}] [✅|☐ ${ui.role.read-only}]` and one row
-  `[✅|☐ ${ui.role.user-admin}]` (`UiAction.toggleRole(id, role)` → `USER_ROLE:<id>:<ROLE>`); a role is
+  `[✅|☐ ${ui.role.user-admin}]` (`UiAction.toggleRole(key, role)` → `USER_ROLE:<key>:<ROLE>`); a role is
   ticked when its permission set is a subset of the user's permissions;
-- `[🗑 ${ui.button.remove}]` (`USER_DEL:<id>`);
+- `[🗑 ${ui.button.remove}]` (`USER_DEL:<key>`);
 - `[◀ ${ui.button.users}]` (`USERS`).
 For a root user or the caller the card has only the back button.
 
-Toggle → `UsersController.toggleRole(context, messageId, userId, role)`: permission check; refuse for
+Toggle → `UsersController.toggleRole(context, messageId, key, role)`: permission check; refuse for
 root users and the caller (card unchanged); compute the ticked set after the toggle; if it is empty →
-`usersScreen.confirmDelete(row)` (same as 🗑); else `assignRolesToUser(TgUser(id, username),
+`usersScreen.confirmDelete(row)` (same as 🗑); else `assignRolesToUser(row.user(),
 tickedRoles)` (the union of the roles' permissions, replacing the previous permissions) and show the
 card again. The affected user is not notified (D-8).
 
 🗑 → `usersScreen.confirmDelete(row)`: `${ui.users.confirm-delete}` with
-`[✅ ${ui.button.confirm-delete}]` (`USER_DEL_CONFIRM:<id>`) `[✖ ${ui.button.cancel}]` (`USER:<id>`).
+`[✅ ${ui.button.confirm-delete}]` (`USER_DEL_CONFIRM:<key>`) `[✖ ${ui.button.cancel}]` (`USER:<key>`).
 Confirm → `UsersController.delete(...)`: permission check, refuse root/self even on a forged callback,
-`deleteUser(TgUser(id, username))`, back to the list.
+`deleteUser(row.user())`, back to the list.
 
 ### 4.5 Routing
 
 `UiAction.Type` += `REQUEST_ACCESS, GRANT, DECLINE, USERS, USER, USER_ROLE, USER_DEL, USER_DEL_CONFIRM`;
 `UiAction.userId()` (`Optional<Long>`) and `UiAction.role()` (`Optional<UserRole>`) for the typed
 ones. `UiRouter` dispatches them to `AccessController` / `UsersController`. Callback data stays under
-64 bytes (`USER_ROLE:9999999999:NODE_ADMIN` = 31).
+64 bytes (`USER_ROLE:@<32-char username>:NODE_ADMIN` = 54, the longest).
 
-### 4.6 Text commands (existing, adapted – approved change)
+### 4.6 Text commands (existing, behaviour unchanged)
 
-`/assignRoles`, `/deleteUsers` accept each user as `@username` or a numeric id; a username is resolved
-with `findByUsername`, unknown → the command's existing error text + `${command.user-unknown}`
-("… has not used the bot yet"). `/listRegisteredUsers` prints `@username (id): roles`. Their required
-permissions and semantics are otherwise unchanged. (CLAUDE.md asks before changing text commands:
-this is the ask – see D-1.)
+`/assignRoles`, `/deleteUsers`, `/listRegisteredUsers` keep their syntax and behaviour. Internally a
+`@username` argument is resolved with `findByUsername`; an unknown username in `/assignRoles` creates a
+pending (username-keyed) record exactly as today. `/listRegisteredUsers` prints `@username (id): roles`,
+or `@username (pending): roles` for a pending user. A numeric id is accepted too.
 
 ### 4.7 Texts (EN / RU; RU as `\uXXXX` in the properties files)
 
@@ -161,12 +165,12 @@ this is the ask – see D-1.)
 | `ui.role.root` | Root | Root |
 | `ui.button.users` | Users | Пользователи |
 | `ui.users.title` | Users | Пользователи |
+| `ui.users.pending` | pending | ожидает |
 | `ui.users.confirm-delete` | Remove %s from the bot? | Удалить %s из бота? |
 | `ui.button.confirm-delete` | Yes, remove | Да, удалить |
 | `ui.button.remove` | Remove | Удалить |
 | `ui.button.cancel` | Cancel | Отмена |
 | `ui.users.not-allowed` | You are not allowed to manage users. | Вы не можете управлять пользователями. |
-| `command.user-unknown` | has not used the bot yet (ask them to open it first) | ещё не пользовался ботом (попросите его открыть бота) |
 
 `%s` are params (HTML-escaped where dynamic); emoji live in Java.
 
@@ -174,7 +178,7 @@ this is the ask – see D-1.)
 
 | pk | sk | Attributes |
 |---|---|---|
-| `USER` (changed) | user id | `username` (S, nullable), `permissions` (SS) |
+| `USER` (changed) | user id, or username while pending | `username` (S, nullable), `permissions` (SS) |
 | `ACCESS_REQUEST` (new) | user id | `username` (S, nullable), `firstName` (S), `languageCode` (S), `requestedAt` (N, epoch ms), `expiresAt` (N, TTL = requestedAt + 7 days) |
 
 Bean `AccessRequestRecord` in `dynamodb` (same style as the others, keys on Lombok getters);
@@ -204,7 +208,7 @@ Delete `S3_CONFIG_DIR`, `S3_SUPPORTED_REGIONS_FILE_NAME`, `S3_VPN_SERVER_STACK_O
 
 ```java
 // auth
-public record TgUser(long id, String username) {}
+public record TgUser(Long id, String username) { public String key(); }   // id or username, one may be null
 public interface Authorizer { boolean hasPermission(TgUser user, Permission permission); }
 public record UserEntry(String username, List<Permission> permissions) {}
 public interface PermissionsService extends UserSignupService {
@@ -218,15 +222,15 @@ public final class RoleFormat { public static String describe(List<Permission> p
 
 // ui
 UiContext(Long chatId, Long userId, String username, String firstName, String languageCode) + TgUser user()
-UiAction: requestAccess(), grant(long userId, UserRole role), decline(long userId), users(), user(long), toggleRole(long, UserRole), deleteUser(long), confirmDeleteUser(long)
-         + Optional<Long> userId(), Optional<UserRole> role()
+UiAction: requestAccess(), grant(long userId, UserRole role), decline(long userId), users(), user(String key), toggleRole(String key, UserRole), deleteUser(String key), confirmDeleteUser(String key)
+         + Optional<Long> userId(), Optional<String> userKey(), Optional<UserRole> role()
 // ui.controller
 public class AccessController { request(UiContext, Integer messageId); decide(UiContext, Integer messageId, long userId, Optional<UserRole> role); }
-public class UsersController  { show(UiContext, Integer messageId); showUser(UiContext, Integer messageId, long userId); toggleRole(UiContext, Integer messageId, long userId, UserRole role); confirmDelete(UiContext, Integer messageId, long userId); delete(UiContext, Integer messageId, long userId); }
+public class UsersController  { show(UiContext, Integer messageId); showUser(UiContext, Integer messageId, String key); toggleRole(UiContext, Integer messageId, String key, UserRole role); confirmDelete(UiContext, Integer messageId, String key); delete(UiContext, Integer messageId, String key); }
 // ui.screen
 public class AccessScreens { requested(); alreadyRequested(); adminRequest(AccessRequest); granted(AccessRequest, UserRole); declined(AccessRequest); alreadyHandled(); accessGranted(UserRole); accessDeclined(); notAllowed(); }
 public class UsersScreen   { list(UsersModel); user(UserRow); confirmDelete(UserRow); notAllowed(); }
-public record UsersModel(List<UserRow> users) {}   public record UserRow(long id, String username, List<Permission> permissions, boolean editable) {}   // editable = not root, not the caller
+public record UsersModel(List<UserRow> users) {}   public record UserRow(TgUser user, List<Permission> permissions, boolean editable) { boolean pending(); }   // editable = not root, not the caller
 HomeModel: + boolean canManageUsers, boolean hasAccess
 // tailscale / ecs
 NodeOwner(long userId, String username, Long chatId, String languageCode); TaskInfo + runByName; EcsConfiguration + runByNameTag
@@ -238,9 +242,10 @@ NodeOwner(long userId, String username, Long chatId, String languageCode); TaskI
 - AC-2 `WhiteListAuthorizer`: id-keyed record → answers from it; no id record but username record →
   migrates (put new, delete old, in order) and answers; neither → false; auth disabled → true; root
   implies every permission.
-- AC-3 `DynamoDbPermissionsService`: `getUsers` maps sk→id and `username`; `updateUserPermissions`
-  keeps the stored username when the given one is null; `findByUsername` is case-insensitive and
-  strips `@`; delete on empty permissions.
+- AC-3 `DynamoDbPermissionsService`: `getUsers` maps sk→key and `username` (pending = username key);
+  `updateUserPermissions` writes under `user.key()` and keeps the stored username when the given one
+  is null; `findByUsername` matches the attribute or a username key, case-insensitive, strips `@`;
+  delete on empty permissions.
 - AC-4 `AccessController.request`: the three branches of §4.2; the admin notification goes to each
   admin's user id as chat id, not to non-admins; records the request with `expiresAt` = +7 days.
 - AC-5 `AccessController.decide`: permission check; missing record → already handled; grant assigns the
@@ -256,7 +261,8 @@ NodeOwner(long userId, String username, Long chatId, String languageCode); TaskI
 - AC-8 `UiAction` round-trips for the eight new types; `UiRouter` dispatches them.
 - AC-9 `NodeAccess.isOwner` matches id, and username during the transition; `runNode` tags `RunBy` =
   id and `RunByName` = username; `getTask`/`listTasks` map `RunByName`.
-- AC-10 Text commands accept `@name` and ids; unknown name → the error text with `command.user-unknown`.
+- AC-10 Text commands: `/assignRoles @unknown ROLE` creates a pending record; known users are updated
+  under their id; `/listRegisteredUsers` marks pending users; ids are accepted.
 - AC-11 Messages: all keys of §4.7 in both files, ASCII only.
 - AC-12 `java-tests.yml` runs on a PR touching `src/**` (checked by opening the PR); Dockerfile builds
   and `python3.11 -m node_agent` starts (checked by the Docker deploy); node tests run on 3.11 in CI.
@@ -291,7 +297,9 @@ Order: H1 → T1/T2 (deploy, observe the migration) → T3/T4 (deploy).
 
 ## 12. Decisions to confirm (review)
 
-- D-1 Keying by user id changes the admin text commands' argument resolution (§4.6) – approve.
+- D-1 Keying by user id keeps pre-registration by username: such a record stays username-keyed
+  ("pending") until the user's first contact, then it is re-keyed (same mechanism as the migration of
+  today's records). The text commands' behaviour is unchanged.
 - D-2 Lazy migration of username-keyed records on first contact instead of a one-off script
   (the ids are unknown until the users contact the bot).
 - D-3 Transition rule for running nodes (`RunBy` = username) – owner match by username too; remove
@@ -303,6 +311,8 @@ Order: H1 → T1/T2 (deploy, observe the migration) → T3/T4 (deploy).
 - D-6 Access requests expire after 7 days (TTL); a second tap while pending is refused.
 - D-7 Roles are edited from the user card with toggles (union of the ticked roles) instead of a
   separate "change role" flow; `/assignRoles` stays for scripting.
+- D-9 The username-takeover window that id-keying closes remains open for pending users until their
+  first contact – the same exposure as today, limited to that window.
 - D-8 A user whose roles change from the Users screen is not notified (only access requests are);
   can be added later if wanted.
 
