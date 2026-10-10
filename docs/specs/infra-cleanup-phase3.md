@@ -434,6 +434,25 @@ Metrics: the primer's calls go through `RequestMetrics.time(...)` like any other
 checks that the first real request after a restore does not report the primer's times (the
 per-request totals must be reset when a request starts) and records the finding in the decision log.
 
+### 13.1a Second round (approved 2026-10-10, after D-26)
+
+Two more read-only steps, after step 2 and before step 3:
+
+2a. For each region id of `nodeService.getSupportedRegionIds()`: `nodeService.getNode(regionId,
+    PRIMER_TASK_ID)` with `PRIMER_TASK_ID = "00000000000000000000000000000000"` (32 zeros: a valid
+    id that no task has; ECS reports it as missing, the result is `Optional.empty()`).
+2b. For each of those regions: `ec2ClientPool.prime(regionId)` – new method on
+    `org.github.akarkin1.ec2.Ec2ClientPool`: creates/gets the region's client and calls
+    `describeNetworkInterfaces` with the filter `network-interface-id = eni-00000000000000000`
+    (matches nothing, no error, empty result; the result is discarded).
+
+Wiring: `TailscaleEcsNodeServiceConfigurer.configure(...)` returns a record
+`NodeServices(TailscaleNodeService nodeService, Ec2ClientPool ec2ClientPool)` (package `tailscale`)
+instead of the bare service; the handler takes `nodeService()` from it and passes `ec2ClientPool()`
+to the primer, whose constructor becomes `(TailscaleNodeService, Ec2ClientPool, PermissionsService,
+UpdateEventsRegistry, AbsSender)`. Each region's 2a/2b call is its own wrapped step (a failing
+region doesn't skip the others). `RunTask`/`StopTask` are not primed (no read-only way, D-28).
+
 ### 13.2 Acceptance criteria
 
 - AC-P1 `prime()` calls the four steps in order with exactly the arguments above.
@@ -441,6 +460,12 @@ per-request totals must be reset when a request starts) and records the finding 
   `prime()` returns normally.
 - AC-P3 `PRIMER_UPDATE_ID` is negative; `PRIMER_USER` is non-blank.
 - AC-P4 The handler's static block ends with the primer call (checked by reading the handler).
+- AC-P5 (round 2) Steps in order: permissions, `listTasks`, then per region `getNode(region,
+  PRIMER_TASK_ID)` and `ec2ClientPool.prime(region)`, then `register`, then `GetMe`; with no
+  supported regions the per-region steps are skipped; a failing region step doesn't stop the rest.
+- AC-P6 (round 2) `Ec2ClientPool.prime(region)` calls `describeNetworkInterfaces` once on that
+  region's client with exactly the no-match filter and returns normally on an empty result
+  (tested with a mocked `Ec2Client` injected the way the pool allows).
 
 ### 13.3 Deploy and measure
 
@@ -500,7 +525,7 @@ cold requests (`Restore Duration` + first-request `TotalMs`) with D-22's 4.5 s; 
   NAT, internet gateway and route tables cut the TradingBot off (its route became a blackhole). The
   owner isolates the TradingBot with its own NAT into a separate stack; `vpn-tgbot-cfn` must not be
   deployed until then (CloudFormation retries the `DELETE_FAILED` VPC/subnet on the next update).
-  `cloudformation/vpn-configurer-vpc-recovery.yml` holds the deleted network definitions.
+  (A recovery template was added for a while and removed again once the TradingBot had its own stack.)
 - D-22 (C, validated 2026-10-10) Deploy C works (alias `live` → v2, `Restore Duration` 758 ms, no
   errors). Cold request 4.5 s vs 5.0–6.6 s before (1 sample): the restore replaced a 3.2–4.0 s init,
   but the first request after restore took 3.7 s (DynamoDB 886 ms, ECS 720 ms, Telegram 236 ms,
@@ -524,3 +549,6 @@ cold requests (`Restore Duration` + first-request `TotalMs`) with D-22's 4.5 s; 
   (snapshot refresh / pre-start): each run repeats the priming calls, which is harmless.
 - D-27 (incident) Resolved: the TradingBot was moved to its own VPC/EIP by the owner; the old VPC is
   gone; nothing is shared any more. `vpn-tgbot-cfn` may be deployed again.
+- D-28 (§13.1a) `RunTask`/`StopTask` stay unprimed: no read-only request exists, and a deliberately
+  invalid one would log an error at every publish. `DescribeTasks` priming loads the shared ECS
+  request machinery; a cold node start is measured afterwards and revisited only if still slow.
