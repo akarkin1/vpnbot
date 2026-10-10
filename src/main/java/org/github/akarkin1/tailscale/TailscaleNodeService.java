@@ -1,11 +1,9 @@
 package org.github.akarkin1.tailscale;
 
-import org.github.akarkin1.ecs.RunTaskStatus;
 import org.github.akarkin1.ecs.TaskInfo;
-import software.amazon.awssdk.regions.Region;
-
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -17,11 +15,14 @@ public interface TailscaleNodeService {
 
   boolean isHostnameAvailable(String userRegion, String userHostName);
 
-  TaskInfo runNode(String userRegion, String userTgId, String userHostName);
+  TaskInfo runNode(String regionId, NodeOwner owner, String hostName,
+                   Map<String, String> environment);
 
-  Optional<TaskInfo> getFullTaskInfo(Region region, String clusterName, String taskId);
+  Optional<TaskInfo> getNode(String regionId, String taskId);
 
-  RunTaskStatus checkNodeStatus(TaskInfo taskInfo);
+  void stopNode(String regionId, String taskId, String reason);
+
+  String toRegionId(String userRegion);
 
   List<TaskInfo> listTasks(String userTgId);
 

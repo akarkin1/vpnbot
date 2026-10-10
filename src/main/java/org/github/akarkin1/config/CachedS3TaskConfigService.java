@@ -1,43 +1,58 @@
 package org.github.akarkin1.config;
 
 import lombok.RequiredArgsConstructor;
-import org.github.akarkin1.config.YamlApplicationConfiguration.S3Configuration;
 import software.amazon.awssdk.regions.Region;
 
-import java.util.HashMap;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * Caches the supported regions and each region's runtime parameters for {@code ttl}.
+ * A zero {@code ttl} disables caching.
+ */
 @RequiredArgsConstructor
 public class CachedS3TaskConfigService implements TaskConfigService {
 
   private final TaskConfigService delegate;
-  private final S3Configuration config;
-  private final Map<Region, TaskRuntimeParameters> runtimeParameters = new HashMap<>();
+  private final Duration ttl;
+  private final Clock clock;
 
-  private List<Region> supportedRegions;
-
+  private final Map<Region, CachedValue<TaskRuntimeParameters>> runtimeParameters =
+      new ConcurrentHashMap<>();
+  private volatile CachedValue<List<Region>> supportedRegions;
 
   @Override
   public List<Region> getSupportedRegions() {
-    if (!Boolean.TRUE.equals(config.getCacheSupportedRegions())) {
-        return delegate.getSupportedRegions();
+    CachedValue<List<Region>> cached = supportedRegions;
+    if (isExpired(cached)) {
+      cached = cache(delegate.getSupportedRegions());
+      supportedRegions = cached;
     }
-
-    if (supportedRegions == null) {
-      supportedRegions = delegate.getSupportedRegions();
-    }
-
-    return supportedRegions;
+    return cached.value();
   }
 
   @Override
   public TaskRuntimeParameters getTaskRuntimeParameters(Region region) {
-    if (!Boolean.TRUE.equals(config.getCacheTaskRuntimeParameters())) {
-      return delegate.getTaskRuntimeParameters(region);
+    CachedValue<TaskRuntimeParameters> cached = runtimeParameters.get(region);
+    if (isExpired(cached)) {
+      cached = cache(delegate.getTaskRuntimeParameters(region));
+      runtimeParameters.put(region, cached);
     }
-
-    return runtimeParameters.computeIfAbsent(region,
-                                             ignore -> delegate.getTaskRuntimeParameters(region));
+    return cached.value();
   }
+
+  private <T> CachedValue<T> cache(T value) {
+    return new CachedValue<>(value, clock.instant().plus(ttl));
+  }
+
+  private boolean isExpired(CachedValue<?> cached) {
+    return cached == null || !clock.instant().isBefore(cached.expiresAt());
+  }
+
+  private record CachedValue<T>(T value, Instant expiresAt) {}
+
 }

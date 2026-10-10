@@ -28,4 +28,14 @@ class NodeFormatTest {
         () -> assertEquals("node-1", NodeFormat.orDash("node-1")));
   }
 
+  @Test
+  @DisplayName("2b D-11: escapePercent doubles every % so a label survives String.formatted")
+  void escapePercent() {
+    assertAll(
+        () -> assertEquals("node-1", NodeFormat.escapePercent("node-1")),
+        () -> assertEquals("100%%-node", NodeFormat.escapePercent("100%-node")),
+        () -> assertEquals("%%%%s", NodeFormat.escapePercent("%%s")),
+        () -> assertEquals("a%sb", NodeFormat.escapePercent("a%sb").formatted()));
+  }
+
 }

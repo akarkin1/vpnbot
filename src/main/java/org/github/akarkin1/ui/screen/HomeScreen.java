@@ -3,6 +3,7 @@ package org.github.akarkin1.ui.screen;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.github.akarkin1.ecs.TaskInfo;
+import org.github.akarkin1.ui.NodeRef;
 import org.github.akarkin1.ui.UiAction;
 
 import java.util.ArrayList;
@@ -79,6 +80,7 @@ public class HomeScreen {
     if (model.canRunNodes()) {
       keyboard.addAll(regionRows(model.regionIds()));
     }
+    keyboard.addAll(stopRows(model));
     keyboard.add(REFRESH_HELP_ROW);
     return keyboard;
   }
@@ -93,6 +95,19 @@ public class HomeScreen {
       rows.add(buttons.subList(from, Math.min(from + REGIONS_PER_ROW, buttons.size())));
     }
     return rows;
+  }
+
+  private static List<List<Button>> stopRows(HomeModel model) {
+    return model.nodes().stream()
+        .filter(node -> model.stoppableTaskIds().contains(node.getId()))
+        .map(node -> List.of(stopButton(node)))
+        .toList();
+  }
+
+  private static Button stopButton(TaskInfo node) {
+    NodeRef nodeRef = new NodeRef(node.getRegion().id(), node.getId());
+    String hostName = NodeFormat.escapePercent(NodeFormat.orDash(node.getHostName()));
+    return Button.action("🛑 " + hostName, UiAction.stop(nodeRef));
   }
 
 }

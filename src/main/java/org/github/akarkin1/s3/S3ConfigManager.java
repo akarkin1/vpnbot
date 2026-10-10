@@ -5,6 +5,8 @@ import lombok.RequiredArgsConstructor;
 import org.apache.commons.io.IOUtils;
 import org.github.akarkin1.config.YamlApplicationConfiguration.S3Configuration;
 import org.github.akarkin1.config.exception.S3DownloadFailureException;
+import org.github.akarkin1.metrics.MetricComponent;
+import org.github.akarkin1.metrics.RequestMetrics;
 import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -19,13 +21,18 @@ public final class S3ConfigManager {
 
   private final S3Client s3Client;
   private final S3Configuration config;
+  private final RequestMetrics metrics;
 
-  public static S3ConfigManager create(S3Configuration config) {
+  public static S3ConfigManager create(S3Configuration config, RequestMetrics metrics) {
     S3Client createdClient = S3Client.create();
-    return new S3ConfigManager(createdClient, config);
+    return new S3ConfigManager(createdClient, config, metrics);
   }
 
   public String downloadConfigFromS3(String fileName) throws S3DownloadFailureException {
+    return metrics.time(MetricComponent.S3, () -> download(fileName));
+  }
+
+  private String download(String fileName) {
     String bucket = config.getConfigBucket();
     GetObjectRequest request = GetObjectRequest.builder()
         .bucket(bucket)

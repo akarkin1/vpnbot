@@ -2,12 +2,12 @@ package org.github.akarkin1.ec2;
 
 import software.amazon.awssdk.services.ec2.Ec2Client;
 
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class Ec2ClientPool implements Ec2ClientProvider {
   private final Ec2ClientProvider delegate;
-  private final Map<String, Ec2Client> pool = new HashMap<>();
+  private final Map<String, Ec2Client> pool = new ConcurrentHashMap<>();
 
   public Ec2ClientPool() {
     this.delegate = new SimpleEc2ClientProvider();

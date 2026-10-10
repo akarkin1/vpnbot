@@ -26,6 +26,10 @@ Parameters:
   TailscaleAuthTokenSecretRegion:
     Type: String
     Description: AWS Region, where the secret with Tailscale Auth Key is stored within the account.
+  TgBotTokenSecretId:
+    Type: String
+    Description: Id of Telegram Bot Token Secret in Secret Manager (stored in TailscaleAuthTokenSecretRegion).
+    Default: vpn-tg-bot-token
   TailscaleInactivityTimeoutSeconds:
     Type: String
     Description: Number of seconds without active connections to wait before stop the Tailscale task.
@@ -229,7 +233,9 @@ Resources:
           - Effect: Allow
             Action:
               - 'secretsmanager:GetSecretValue'
-            Resource: !Sub "arn:aws:secretsmanager:${TailscaleAuthTokenSecretRegion}:${AWS::AccountId}:secret:${TailscaleAuthTokenSecretId}*"
+            Resource:
+              - !Sub "arn:aws:secretsmanager:${TailscaleAuthTokenSecretRegion}:${AWS::AccountId}:secret:${TailscaleAuthTokenSecretId}*"
+              - !Sub "arn:aws:secretsmanager:${TailscaleAuthTokenSecretRegion}:${AWS::AccountId}:secret:${TgBotTokenSecretId}*"
       Roles:
         - !Ref TailscaleNodeEcsTaskRole
 
@@ -257,6 +263,7 @@ Resources:
       ContainerDefinitions:
         - Name: vpn-container
           Essential: true
+          StopTimeout: 60
           LinuxParameters:
             InitProcessEnabled: true
           Image: !Join [':', [!GetAtt TailscaleNodeEcrRepository.RepositoryUri, 'latest']]
@@ -289,6 +296,10 @@ Resources:
               Value: !Ref TailscaleInactivityTimeoutSeconds
             - Name: STATUS_CHECK_INTERVAL
               Value: !Ref StatusCheckIntervalSeconds
+            - Name: TG_BOT_TOKEN_SECRET_ID
+              Value: !Ref TgBotTokenSecretId
+            - Name: TG_BOT_TOKEN_SECRET_REGION
+              Value: !Ref TailscaleAuthTokenSecretRegion
       Tags:
         - Key: Name
           Value: !Ref EcsTaskDefinitionName

@@ -9,6 +9,7 @@ import org.github.akarkin1.config.YamlApplicationConfiguration.S3Configuration;
 import org.github.akarkin1.config.exception.S3DownloadFailureException;
 import org.github.akarkin1.config.model.CfnStackOutputParameter;
 import org.github.akarkin1.config.model.StackOutputParameters;
+import org.github.akarkin1.metrics.RequestMetrics;
 import org.github.akarkin1.s3.S3ConfigManager;
 import software.amazon.awssdk.regions.Region;
 
@@ -38,8 +39,8 @@ public class S3TaskConfigService implements TaskConfigService {
   private final S3ConfigManager s3ConfigManager;
   private final S3Configuration config;
 
-  public static S3TaskConfigService create(S3Configuration config) {
-    S3ConfigManager s3ConfigManager = S3ConfigManager.create(config);
+  public static S3TaskConfigService create(S3Configuration config, RequestMetrics metrics) {
+    S3ConfigManager s3ConfigManager = S3ConfigManager.create(config, metrics);
     return new S3TaskConfigService(s3ConfigManager, config);
   }
 
@@ -52,6 +53,7 @@ public class S3TaskConfigService implements TaskConfigService {
   private static List<Region> parseRegions(String content) {
     return Stream.of(content.split(AWS_LINE_SEPARATOR))
         .map(String::trim)
+        .filter(regionId -> !regionId.isEmpty())
         .filter(regionId -> {
           if (!KNOWN_REGIONS.containsKey(regionId)) {
             log.warn("Region id {} is not known to AWS SDK", regionId);

@@ -32,8 +32,6 @@ public class YamlApplicationConfiguration {
     private String regionsKey;
     private String stackOutputParametersKey;
     private String userPermissionsKey;
-    private Boolean cacheSupportedRegions;
-    private Boolean cacheTaskRuntimeParameters;
 
   }
 
@@ -43,20 +41,12 @@ public class YamlApplicationConfiguration {
 
     private String essentialContainerName;
     private String serviceName;
-    private EcsContainerHealth health;
     private String hostNameEnv;
     private String hostNameTag;
     private String runByTag;
     private String serviceNameTag;
-
-  }
-
-  @Getter
-  @Setter
-  public static class EcsContainerHealth {
-
-    private long intervalMs;
-    private long timeoutSec;
+    private String chatIdTag;
+    private String languageTag;
 
   }
 

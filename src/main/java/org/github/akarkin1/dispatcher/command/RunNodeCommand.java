@@ -1,24 +1,22 @@
 package org.github.akarkin1.dispatcher.command;
 
 import lombok.RequiredArgsConstructor;
-import lombok.extern.log4j.Log4j2;
 import org.github.akarkin1.auth.Permission;
 import org.github.akarkin1.dispatcher.response.EmptyResponse;
-import org.github.akarkin1.ecs.RunTaskStatus;
-import org.github.akarkin1.ecs.TaskInfo;
 import org.github.akarkin1.message.MessageConsumer;
 import org.github.akarkin1.tailscale.TailscaleNodeService;
 import org.github.akarkin1.tg.TgRequestContext;
+import org.github.akarkin1.ui.NodeLauncher;
+import org.github.akarkin1.ui.UiContext;
 
 import java.util.List;
-import java.util.Optional;
 
-@Log4j2
 @RequiredArgsConstructor
 public final class RunNodeCommand implements BotCommand<EmptyResponse> {
 
   private final TailscaleNodeService tailscaleNodeService;
   private final MessageConsumer messageConsumer;
+  private final NodeLauncher nodeLauncher;
 
   @Override
   public EmptyResponse run(List<String> args) {
@@ -55,32 +53,11 @@ public final class RunNodeCommand implements BotCommand<EmptyResponse> {
       }
     }
 
-    messageConsumer.accept("${command.run-node.node.running.message}");
-    TaskInfo taskInfo = tailscaleNodeService.runNode(userRegion,
-                                                     TgRequestContext.getUsername(),
-                                                     userHost);
-    log.debug("Task is run, task info: {}", taskInfo);
-    messageConsumer.accept("${command.run-node.task.started.message}");
-    RunTaskStatus runTaskStatus = tailscaleNodeService.checkNodeStatus(taskInfo);
-    if (RunTaskStatus.UNKNOWN.equals(runTaskStatus)) {
-      messageConsumer.accept("${command.run-node.status.check-failed.error}");
-    } else if (RunTaskStatus.UNHEALTHY.equals(runTaskStatus)) {
-      messageConsumer.accept("${command.run-node.node.start-failed.error}");
-    } else {
-      Optional<TaskInfo> fullTaskInfo = tailscaleNodeService.getFullTaskInfo(taskInfo.getRegion(),
-                                                                             taskInfo.getCluster(),
-                                                                             taskInfo.getId());
-      StringBuilder successMessage = new StringBuilder("${command.run-node.node.start-succeed.message}");
-      fullTaskInfo.ifPresent(fullInfoLocal -> successMessage.append(" ${common.node.details.message}:\n")
-        .append("\t- ${common.node.name.message}: %s%n".formatted(fullInfoLocal.getHostName()))
-        .append("\t\t${common.node.status.message}: %s%n".formatted(fullInfoLocal.getState()))
-        .append("\t\t${common.node.public-ip.message}: %s%n".formatted(fullInfoLocal.getPublicIp()))
-        .append("\t\t${common.node.location.message}: %s (%s)".formatted(fullInfoLocal.getLocation(),
-                                                  fullInfoLocal.getRegion().id())));
-
-      messageConsumer.accept(successMessage.toString());
-    }
-
+    UiContext context = new UiContext(TgRequestContext.getChatId(),
+                                      TgRequestContext.getUsername(),
+                                      null,
+                                      TgRequestContext.getLanguageCode());
+    nodeLauncher.launchInNewMessage(context, tailscaleNodeService.toRegionId(userRegion), userHost);
     return EmptyResponse.NONE;
   }
 

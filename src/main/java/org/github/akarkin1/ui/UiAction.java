@@ -11,7 +11,7 @@ public record UiAction(Type type, String arg) {
   private static final int MAX_DATA_BYTES = 64;
   private static final String SEPARATOR = ":";
 
-  public enum Type { HOME, HELP, RUN }
+  public enum Type { HOME, HELP, RUN, RUN_NEW, USE, STOP, STOP_CONFIRM }
 
   public UiAction {
     if (!isValid(type, arg)) {
@@ -29,6 +29,26 @@ public record UiAction(Type type, String arg) {
 
   public static UiAction run(String regionId) {
     return new UiAction(Type.RUN, regionId);
+  }
+
+  public static UiAction runNew(String regionId) {
+    return new UiAction(Type.RUN_NEW, regionId);
+  }
+
+  public static UiAction use(NodeRef node) {
+    return new UiAction(Type.USE, node.encode());
+  }
+
+  public static UiAction stop(NodeRef node) {
+    return new UiAction(Type.STOP, node.encode());
+  }
+
+  public static UiAction confirmStop(NodeRef node) {
+    return new UiAction(Type.STOP_CONFIRM, node.encode());
+  }
+
+  public Optional<NodeRef> nodeRef() {
+    return hasNodeRef(type) ? NodeRef.parse(arg) : Optional.empty();
   }
 
   public String encode() {
@@ -56,7 +76,15 @@ public record UiAction(Type type, String arg) {
     if (type == null) {
       return false;
     }
-    return type == Type.RUN ? StringUtils.isNotBlank(arg) : arg == null;
+    return switch (type) {
+      case RUN, RUN_NEW -> StringUtils.isNotBlank(arg);
+      case USE, STOP, STOP_CONFIRM -> NodeRef.parse(arg).isPresent();
+      case HOME, HELP -> arg == null;
+    };
+  }
+
+  private static boolean hasNodeRef(Type type) {
+    return type == Type.USE || type == Type.STOP || type == Type.STOP_CONFIRM;
   }
 
 }

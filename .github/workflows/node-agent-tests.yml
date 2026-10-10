@@ -1,0 +1,29 @@
+name: Node Agent Tests
+
+on:
+  push:
+    paths:
+      - 'docker/**'
+      - '.github/workflows/node-agent-tests.yml'
+  pull_request:
+    paths:
+      - 'docker/**'
+      - '.github/workflows/node-agent-tests.yml'
+
+jobs:
+  node-agent-tests:
+    name: Run Node Agent Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+      - name: Set Up Python 3.9
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+      - name: Install Dependencies
+        run: pip install -r docker/requirements.txt
+      - name: Run Tests
+        run: |
+          cd docker/node_agent
+          PYTHONPATH=src python3 -m unittest discover -s tests -t .

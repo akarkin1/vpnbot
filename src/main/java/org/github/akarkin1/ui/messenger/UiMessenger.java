@@ -5,7 +5,7 @@ import org.github.akarkin1.ui.screen.Screen;
 
 public interface UiMessenger {
 
-  void send(UiContext context, Screen screen);
+  Integer send(UiContext context, Screen screen);
 
   void edit(UiContext context, Integer messageId, Screen screen);
 

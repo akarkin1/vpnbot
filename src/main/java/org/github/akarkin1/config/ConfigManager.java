@@ -3,6 +3,7 @@ package org.github.akarkin1.config;
 import lombok.experimental.UtilityClass;
 import lombok.extern.log4j.Log4j2;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
@@ -25,6 +26,9 @@ public class ConfigManager {
   private static final String RESTART_SLEEP_TIME_SEC_ENV = "RESTART_SLEEP_TIME_SEC";
   private static final String REGISTERED_EVENT_EXPIRATION_TIME_SEC_ENV = "REGISTERED_EVENT_EXPIRATION_TIME_SEC";
   private static final String USED_REGIONS_ENV = "USED_REGIONS";
+  private static final String CONFIG_CACHE_TTL_SEC_ENV = "CONFIG_CACHE_TTL_SEC";
+  private static final String METRICS_ENABLED_ENV = "METRICS_ENABLED";
+  private static final String BOT_TOKEN_SECRET_ID_ENV = "BOT_TOKEN_SECRET_ID";
 
   private static final YamlApplicationConfiguration APP_CONFIG = YamlApplicationConfiguration
       .load(APP_CONFIG_YAML);
@@ -76,6 +80,19 @@ public class ConfigManager {
   public static String getSecretTokenId() {
     return envOrThrow(BOT_SECRET_TOKEN_ID_ENV, () -> new IllegalStateException(
         "Environment variable 'BOT_SECRET_TOKEN_ID_ENV' is not set"));
+  }
+
+  public static Duration getConfigCacheTtl() {
+    String envValSec = envOrDefault(CONFIG_CACHE_TTL_SEC_ENV, "300");
+    return Duration.ofSeconds(Long.parseLong(envValSec));
+  }
+
+  public static boolean isMetricsEnabled() {
+    return "true".equalsIgnoreCase(envOrDefault(METRICS_ENABLED_ENV, "true"));
+  }
+
+  public static String getBotTokenSecretId() {
+    return getenv(BOT_TOKEN_SECRET_ID_ENV);
   }
 
   public static YamlApplicationConfiguration getApplicationYaml() {

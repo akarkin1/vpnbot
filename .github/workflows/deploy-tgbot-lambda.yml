@@ -15,6 +15,9 @@ on:
 env:
   TG_BOT_USERNAME: ${{ vars.TG_BOT_USERNAME }}
   TG_SECRET_TOKEN_ID: ${{ vars.TG_SECRET_TOKEN_ID }}
+  TG_BOT_TOKEN_SECRET_ID: ${{ vars.TG_BOT_TOKEN_SECRET_ID || 'vpn-tg-bot-token' }}
+  METRICS_ENABLED: ${{ vars.METRICS_ENABLED || 'true' }}
+  CONFIG_CACHE_TTL_SEC: ${{ vars.CONFIG_CACHE_TTL_SEC || '300' }}
   TG_ROOT_USERNAME: ${{ vars.TG_ROOT_USERNAME }}
   S3_CONFIG_BUCKET_NAME: ${{ vars.S3_CONFIG_BUCKET_NAME }}
   USER_PERMISSIONS_KEY: ${{ vars.S3_CONFIG_DIR }}/${{ vars.S3_USER_PERMISSIONS_FILE_NAME }}
@@ -41,6 +44,16 @@ jobs:
           if [ $(aws secretsmanager describe-secret --secret-id "${{ env.TG_SECRET_TOKEN_ID }}" --region ${{ github.event.inputs.region }} >/dev/null 2>&1; echo $?) -ne 0 ]; then
              aws secretsmanager create-secret --name ${{ env.TG_SECRET_TOKEN_ID }} --secret-string "${{ secrets.TG_SECRET_TOKEN }}" --region ${{ github.event.inputs.region }};
           fi
+      - name: Upload TG Bot Token
+        id: tg-bot-token-upload
+        env:
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+        run: |
+          if [ $(aws secretsmanager describe-secret --secret-id "${{ env.TG_BOT_TOKEN_SECRET_ID }}" --region ${{ github.event.inputs.region }} >/dev/null 2>&1; echo $?) -ne 0 ]; then
+             aws secretsmanager create-secret --name "${{ env.TG_BOT_TOKEN_SECRET_ID }}" --secret-string "$TG_BOT_TOKEN" --region ${{ github.event.inputs.region }};
+          else
+             aws secretsmanager put-secret-value --secret-id "${{ env.TG_BOT_TOKEN_SECRET_ID }}" --secret-string "$TG_BOT_TOKEN" --region ${{ github.event.inputs.region }};
+          fi
       - name: Deploy Cloud Formation Stack
         id: deploy-cfn-stack
         uses: aws-actions/aws-cloudformation-github-deploy@v1.3.0
@@ -49,7 +62,7 @@ jobs:
           template: cloudformation/vpn-configurer-lambda.yml
           no-fail-on-empty-changeset: "1"
           capabilities: CAPABILITY_IAM,CAPABILITY_NAMED_IAM
-          parameter-overrides: 'LambdaConfigBucketName=${{ env.S3_CONFIG_BUCKET_NAME }},LambdaSourceVersion=${{ github.event.inputs.lambda-source-version }},EnvTgBotToken=${{ secrets.TG_BOT_TOKEN }},EnvTgBotUsername=${{ env.TG_BOT_USERNAME }},EnvTgBotSecretTokenId=${{ env.TG_SECRET_TOKEN_ID }}'
+          parameter-overrides: 'LambdaConfigBucketName=${{ env.S3_CONFIG_BUCKET_NAME }},LambdaSourceVersion=${{ github.event.inputs.lambda-source-version }},EnvTgBotToken=${{ secrets.TG_BOT_TOKEN }},EnvTgBotUsername=${{ env.TG_BOT_USERNAME }},EnvTgBotSecretTokenId=${{ env.TG_SECRET_TOKEN_ID }},EnvTgBotTokenSecretId=${{ env.TG_BOT_TOKEN_SECRET_ID }},EnvMetricsEnabled=${{ env.METRICS_ENABLED }},EnvConfigCacheTtlSec=${{ env.CONFIG_CACHE_TTL_SEC }}'
       - name: Upload 'user-permissions.json' to S3
         id: user-permissions-upload
         run: |
