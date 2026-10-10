@@ -94,6 +94,8 @@ EC2 instance that needs AMI patching.
 - SnapStart is not compatible with EFS; deferred to Phase 3.
 - The Lambda stack's NAT instance only serves the Lambda (its private subnet); VPN nodes egress via
   their own public IP and internet gateway, and Tailscale userspace networking needs no NAT.
+  History: the NAT's fixed Elastic IP existed for another bot (crypto trading, exchange IP allow-list)
+  that shared the VPC and is gone; the VPN bot itself never needed a fixed egress IP.
 - Metrics use EMF (no API calls); `PutMetricData` and X-Ray were rejected (latency/complexity).
 - The node agent uses `requests` directly instead of a Telegram library (only two API calls);
   reconsider if it grows.
