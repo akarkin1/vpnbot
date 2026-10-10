@@ -113,22 +113,28 @@ callback of this screen (`<key>` below), so pending users can be edited and remo
 **User card** – `UsersController.showUser(context, messageId, key)` → `usersScreen.user(row)`:
 `👤 <b>@username</b> (id or ${ui.users.pending})\n<roles>` and, unless the target is a root user or the caller:
 - role toggles, one row `[✅|☐ ${ui.role.node-admin}] [✅|☐ ${ui.role.read-only}]` and one row
-  `[✅|☐ ${ui.role.user-admin}]` (`UiAction.toggleRole(key, role)` → `USER_ROLE:<key>:<ROLE>`); a role is
-  ticked when its permission set is a subset of the user's permissions;
-- `[🗑 ${ui.button.remove}]` (`USER_DEL:<key>`);
+  `[✅|☐ ${ui.role.user-admin}]` plus, **for root callers only**, `[✅|☐ ${ui.role.root}]`
+  (`UiAction.toggleRole(key, role)` → `USER_ROLE:<key>:<ROLE>`, `ROLE` ∈ `UserRole` or `ROOT`); a role
+  is ticked when its permission set is a subset of the user's permissions (`ROOT` = `ROOT_ACCESS`);
+- `[🗑 ${ui.button.remove}]` (`USER_DEL:<key>`), only for callers with `DELETE_USERS` (or root), as
+  `/deleteUsers` requires;
 - `[◀ ${ui.button.users}]` (`USERS`).
-For a root user or the caller the card has only the back button.
+For the caller the card has only the back button. For another root user it has only the back button
+unless the caller is root too (then the Root toggle and Remove are shown, so a root can demote or
+remove another root but never themselves).
 
-Toggle → `UsersController.toggleRole(context, messageId, key, role)`: permission check; refuse for
-root users and the caller (card unchanged); compute the ticked set after the toggle; if it is empty →
-`usersScreen.confirmDelete(row)` (same as 🗑); else `assignRolesToUser(row.user(),
-tickedRoles)` (the union of the roles' permissions, replacing the previous permissions) and show the
-card again. The affected user is not notified (D-8).
+Toggle → `UsersController.toggleRole(context, messageId, key, role)`: permission check
+(`USER_MANAGEMENT`; the `ROOT` toggle additionally requires the caller to be root); refuse for the
+caller, and for a root target unless the caller is root (card unchanged); compute the ticked set after
+the toggle; if it is empty → `usersScreen.confirmDelete(row)` (same as 🗑); else write the union of
+the ticked roles' permissions (`ROOT` → `ROOT_ACCESS`) via `updateUserPermissions`, replacing the
+previous permissions, and show the card again. The affected user is not notified (D-8).
 
 🗑 → `usersScreen.confirmDelete(row)`: `${ui.users.confirm-delete}` with
 `[✅ ${ui.button.confirm-delete}]` (`USER_DEL_CONFIRM:<key>`) `[✖ ${ui.button.cancel}]` (`USER:<key>`).
-Confirm → `UsersController.delete(...)`: permission check, refuse root/self even on a forged callback,
-`deleteUser(row.user())`, back to the list.
+Confirm → `UsersController.delete(...)`: permission check (`DELETE_USERS` or root), refuse self and –
+for non-root callers – root targets even on a forged callback, `deleteUser(row.user())`, back to the
+list.
 
 ### 4.5 Routing
 
@@ -251,11 +257,12 @@ NodeOwner(long userId, String username, Long chatId, String languageCode); TaskI
 - AC-5 `AccessController.decide`: permission check; missing record → already handled; grant assigns the
   role and notifies in the requester's language; decline notifies; the record is deleted either way;
   a failing requester notification doesn't fail the decision.
-- AC-6 `UsersController`: list sorted with one button per user; the card shows toggles and Remove only
-  for editable users (not root, not the caller); a toggle replaces the permissions with the union of the
-  ticked roles (ticked = role's permissions ⊆ user's); unticking the last role asks for confirmation;
-  confirm → delete → list; non-admin → not allowed; editing root or self is refused even on a forged
-  callback.
+- AC-6 `UsersController`: list sorted with one button per user; the card shows toggles for editable
+  users (not the caller; root targets only for root callers), the Root toggle only for root callers,
+  Remove only with `DELETE_USERS`/root; a toggle replaces the permissions with the union of the ticked
+  roles (ticked = role's permissions ⊆ user's); unticking the last role asks for confirmation; confirm →
+  delete → list; non-admin → not allowed; editing self, or root without being root, is refused even on
+  a forged callback.
 - AC-7 Screens: templates/params/buttons of §4.2–4.4; callback data < 64 bytes for a 10-digit id;
   `%s` = params; dynamic values escaped.
 - AC-8 `UiAction` round-trips for the eight new types; `UiRouter` dispatches them.
@@ -313,6 +320,11 @@ Order: H1 → T1/T2 (deploy, observe the migration) → T3/T4 (deploy).
   separate "change role" flow; `/assignRoles` stays for scripting.
 - D-9 The username-takeover window that id-keying closes remains open for pending users until their
   first contact – the same exposure as today, limited to that window.
+- D-10 Root is a fourth toggle on the user card, shown and usable by root callers only; a root can
+  make or unmake another root, never themselves.
+- D-11 Remove on the user card requires `DELETE_USERS` like `/deleteUsers`. Today no `UserRole`
+  grants it, so only root can remove users – decide whether `USER_ADMIN` should include
+  `DELETE_USERS` (a change to an existing role) or stay as is.
 - D-8 A user whose roles change from the Users screen is not notified (only access requests are);
   can be added later if wanted.
 
