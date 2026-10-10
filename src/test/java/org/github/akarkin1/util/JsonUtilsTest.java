@@ -1,7 +1,8 @@
 package org.github.akarkin1.util;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.type.TypeReference;
-import org.github.akarkin1.config.model.CfnStackOutputParameter;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -9,6 +10,11 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class JsonUtilsTest {
+
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  record StackOutput(@JsonProperty("OutputKey") String outputKey,
+                     @JsonProperty("OutputValue") String outputValue) {
+  }
 
   @Test
   void testParseList() {
@@ -21,7 +27,7 @@ class JsonUtilsTest {
             }
         ]
         """;
-    List<CfnStackOutputParameter> stackOutputParameters = JsonUtils.parseJson(
+    List<StackOutput> stackOutputParameters = JsonUtils.parseJson(
         json,
         new TypeReference<>() {});
     assertEquals(1, stackOutputParameters.size());

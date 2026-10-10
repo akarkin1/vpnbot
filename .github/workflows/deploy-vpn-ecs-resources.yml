@@ -32,13 +32,8 @@ on:
           - no
 
 env:
-  S3_CONFIG_BUCKET_NAME: ${{ vars.S3_CONFIG_BUCKET_NAME }}
-  S3_CONFIG_DIR: ${{ vars.S3_CONFIG_DIR }}
-  S3_SUPPORTED_REGIONS_FILE_NAME: ${{ vars.S3_SUPPORTED_REGIONS_FILE_NAME }}
-  S3_CONFIG_REGIONS_FILE_URL: s3://${{ vars.S3_CONFIG_BUCKET_NAME }}/${{ vars.S3_CONFIG_DIR }}/${{ vars.S3_SUPPORTED_REGIONS_FILE_NAME }}
-  S3_CONFIG_BUCKET_REGION: ${{ vars.CONFIG_BASE_REGION }}
-  S3_STACK_OUTPUTS_FILE_NAME: ${{ vars.S3_VPN_SERVER_STACK_OUTPUTS_FILE_NAME }}
-  S3_STACK_OUTPUTS_FILE_URL: s3://${{ vars.S3_CONFIG_BUCKET_NAME }}/${{ vars.S3_CONFIG_DIR }}/${{ github.event.inputs.region }}/${{ vars.S3_VPN_SERVER_STACK_OUTPUTS_FILE_NAME }}
+  CONFIG_TABLE_NAME: vpnbot
+  CONFIG_TABLE_REGION: ${{ vars.CONFIG_BASE_REGION }}
   STACK_NAME: ${{ vars.ECS_STACK_NAME }}
   TAILSCALE_AUTH_TOKEN_SECRET_ID: ${{ vars.TAILSCALE_AUTH_TOKEN_SECRET_ID }}
   TAILSCALE_AUTH_TOKEN_REGION: ${{ vars.CONFIG_BASE_REGION }}
@@ -89,30 +84,14 @@ jobs:
           template: cloudformation/ecs-vpn-server.yml
           no-fail-on-empty-changeset: "1"
           parameter-overrides: 'EcsClusterName=${{ github.event.inputs.cluster-name }},EcrRepositoryName=${{ github.event.inputs.repository-name }},TailscaleAuthTokenSecretId=${{ env.TAILSCALE_AUTH_TOKEN_SECRET_ID }},TailscaleAuthTokenSecretRegion=${{ env.TAILSCALE_AUTH_TOKEN_REGION }},TgBotTokenSecretId=${{ env.TG_BOT_TOKEN_SECRET_ID }}'
-      - name: Update Task Configuration In S3
-        id: upload-config-to-s3
+      - name: Register Region In DynamoDB
+        id: register-region
         if: ${{ github.event.inputs.run-cfn-deploy == 'true' }}
         run: |
-          # Save CF Template outputs to S3
-          STACK_OUTPUTS=$(aws cloudformation describe-stacks --stack-name ${{ env.STACK_NAME }} --query 'Stacks[0].Outputs' --output json)
-          echo "$STACK_OUTPUTS" > ./stack-outputs.json
-          aws s3 cp ./stack-outputs.json ${{ env.S3_STACK_OUTPUTS_FILE_URL }} --region ${{ env.S3_CONFIG_BUCKET_REGION }}
-          
-          # Update regions.txt
-          if [ $(aws s3api head-object --bucket "${{ env.S3_CONFIG_BUCKET_NAME }}" --key "${{ env.S3_CONFIG_DIR }}/${{ env.S3_SUPPORTED_REGIONS_FILE_NAME }}" --region ${{ env.S3_CONFIG_BUCKET_REGION }} >/dev/null 2>&1; echo $?) = 0 ]; then
-            aws s3 cp "${{ env.S3_CONFIG_REGIONS_FILE_URL }}" ./regions.txt --region "${{ env.S3_CONFIG_BUCKET_REGION }}"
-            # If region already exists, remove it first
-            # grep exits with 1 when no lines are left (the region was the only one) – that is fine
-            grep -v "^${{ github.event.inputs.region }}$" ./regions.txt > ./regions-new.txt || [ $? -eq 1 ]
-            rm regions.txt
-            mv regions-new.txt regions.txt
-          else
-            touch ./regions.txt
-          fi
-          
-          # Add region
-          echo "${{ github.event.inputs.region }}" >> ./regions.txt
-          aws s3 cp ./regions.txt "${{ env.S3_CONFIG_REGIONS_FILE_URL }}" --region "${{ env.S3_CONFIG_BUCKET_REGION }}"
+          aws cloudformation describe-stacks --stack-name ${{ env.STACK_NAME }} --query 'Stacks[0].Outputs' --output json > ./stack-outputs.json
+          ITEM=$(.github/scripts/region-item.sh "${{ github.event.inputs.region }}" ./stack-outputs.json)
+          echo "$ITEM"
+          aws dynamodb put-item --table-name "${{ env.CONFIG_TABLE_NAME }}" --region "${{ env.CONFIG_TABLE_REGION }}" --item "$ITEM"
       - name: Login to Amazon ECR
         id: login-to-ecr
         if: ${{ github.event.inputs.run-docker == 'true' }}

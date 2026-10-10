@@ -3,13 +3,6 @@ version: ${project.version}
 auth:
   enabled: true
 
-s3:
-  config-bucket: ecs-mgmt-tg-bot-euc1-s3
-  config-root-dir: ecs-tailscale-node/config
-  regions-key: supported-regions.txt
-  stack-output-parameters-key: vpn-ecs-resources-output-parameters.json
-  user-permissions-key: user-permissions.json
-
 ecs:
   service-name: tailscale-node
   essential-container-name: vpn-container

@@ -15,7 +15,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * A zero {@code ttl} disables caching.
  */
 @RequiredArgsConstructor
-public class CachedS3TaskConfigService implements TaskConfigService {
+public class CachedTaskConfigService implements TaskConfigService {
 
   private final TaskConfigService delegate;
   private final Duration ttl;

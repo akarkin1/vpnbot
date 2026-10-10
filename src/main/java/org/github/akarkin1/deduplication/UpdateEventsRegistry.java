@@ -4,7 +4,7 @@ import org.telegram.telegrambots.meta.api.objects.Update;
 
 public interface UpdateEventsRegistry {
 
-  boolean hasAlreadyProcessed(Update update);
+  /** Records the update; false if it was already recorded (a re-delivery). */
+  boolean register(Update update);
 
-  void registerEvent(Update update);
 }

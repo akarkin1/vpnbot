@@ -75,7 +75,7 @@
     </dependency>
     <dependency>
       <groupId>software.amazon.awssdk</groupId>
-      <artifactId>s3</artifactId>
+      <artifactId>dynamodb-enhanced</artifactId>
     </dependency>
     <dependency>
       <groupId>software.amazon.awssdk</groupId>
@@ -213,6 +213,8 @@
             <configuration>
               <proc>only</proc>
               <annotationProcessors>
+                <!-- Lombok must run here too: javac rejects Lombok-only attributes (onMethod_) otherwise -->
+                <annotationProcessor>lombok.launch.AnnotationProcessorHider$AnnotationProcessor</annotationProcessor>
                 <annotationProcessor>org.apache.logging.log4j.core.config.plugins.processor.PluginProcessor</annotationProcessor>
               </annotationProcessors>
             </configuration>

@@ -18,12 +18,10 @@ env:
   TG_BOT_TOKEN_SECRET_ID: ${{ vars.TG_BOT_TOKEN_SECRET_ID || 'vpn-tg-bot-token' }}
   METRICS_ENABLED: ${{ vars.METRICS_ENABLED || 'true' }}
   CONFIG_CACHE_TTL_SEC: ${{ vars.CONFIG_CACHE_TTL_SEC || '300' }}
+  CONFIG_CACHE_ENABLED: ${{ vars.CONFIG_CACHE_ENABLED || 'false' }}
   TG_ROOT_USERNAME: ${{ vars.TG_ROOT_USERNAME }}
   S3_CONFIG_BUCKET_NAME: ${{ vars.S3_CONFIG_BUCKET_NAME }}
-  USER_PERMISSIONS_KEY: ${{ vars.S3_CONFIG_DIR }}/${{ vars.S3_USER_PERMISSIONS_FILE_NAME }}
-  SUPPORTED_REGIONS: ${{ vars.S3_CONFIG_DIR }}/supported-regions.txt
-  USER_PERMISSIONS_FILE_URI: s3://${{ vars.S3_CONFIG_BUCKET_NAME }}/${{ vars.S3_CONFIG_DIR }}/${{ vars.S3_USER_PERMISSIONS_FILE_NAME }}
-  SUPPORTED_REGIONS_FILE_URI: s3://${{ vars.S3_CONFIG_BUCKET_NAME }}/${{ vars.S3_CONFIG_DIR }}/supported-regions.txt
+  CONFIG_TABLE_NAME: vpnbot
 
 jobs:
   deploy-vpn-configurer-lambda:
@@ -62,30 +60,29 @@ jobs:
           template: cloudformation/vpn-configurer-lambda.yml
           no-fail-on-empty-changeset: "1"
           capabilities: CAPABILITY_IAM,CAPABILITY_NAMED_IAM
-          parameter-overrides: 'LambdaConfigBucketName=${{ env.S3_CONFIG_BUCKET_NAME }},LambdaSourceVersion=${{ github.event.inputs.lambda-source-version }},EnvTgBotToken=${{ secrets.TG_BOT_TOKEN }},EnvTgBotUsername=${{ env.TG_BOT_USERNAME }},EnvTgBotSecretTokenId=${{ env.TG_SECRET_TOKEN_ID }},EnvTgBotTokenSecretId=${{ env.TG_BOT_TOKEN_SECRET_ID }},EnvMetricsEnabled=${{ env.METRICS_ENABLED }},EnvConfigCacheTtlSec=${{ env.CONFIG_CACHE_TTL_SEC }}'
-      - name: Upload 'user-permissions.json' to S3
-        id: user-permissions-upload
+          parameter-overrides: 'LambdaConfigBucketName=${{ env.S3_CONFIG_BUCKET_NAME }},LambdaSourceVersion=${{ github.event.inputs.lambda-source-version }},EnvTgBotUsername=${{ env.TG_BOT_USERNAME }},EnvTgBotSecretTokenId=${{ env.TG_SECRET_TOKEN_ID }},EnvTgBotTokenSecretId=${{ env.TG_BOT_TOKEN_SECRET_ID }},EnvMetricsEnabled=${{ env.METRICS_ENABLED }},EnvConfigCacheTtlSec=${{ env.CONFIG_CACHE_TTL_SEC }},EnvConfigCacheEnabled=${{ env.CONFIG_CACHE_ENABLED }}'
+      # A published version freezes the configuration too, so configuration changes go live only with a new one
+      - name: Publish Version And Point Alias `live`
+        run: .github/scripts/publish-live-version.sh vpnbot live
+      - name: Bootstrap Root User In DynamoDB
+        id: bootstrap-root-user
         run: |
-          if [ $(aws s3api head-object --bucket "${{ env.S3_CONFIG_BUCKET_NAME }}" --key "${{ env.USER_PERMISSIONS_KEY }}" --region ${{ github.event.inputs.region }} >/dev/null 2>&1; echo $?) = 0 ]; then
-            echo "'user-permissions.json' file already exists, nothing to upload"
-          else
-            echo "Uploading 'user-permissions.json' to the S3 bucket"
-            echo '{"${{ env.TG_ROOT_USERNAME }}": ["ROOT_ACCESS"]}' > ./user-permissions.json
-            aws s3 cp ./user-permissions.json ${{ env.USER_PERMISSIONS_FILE_URI }} --region ${{ github.event.inputs.region }}
-            rm ./user-permissions.json
+          if [ -z "${{ env.TG_ROOT_USERNAME }}" ]; then
+            echo "::warning::TG_ROOT_USERNAME is not set, skipping the root user bootstrap"
+            exit 0
           fi
-      - name: Upload 'supported-regions.txt' to S3
-        id: supported-regions-upload
-        run: |
-          if [ $(aws s3api head-object --bucket "${{ env.S3_CONFIG_BUCKET_NAME }}" --key "${{ env.SUPPORTED_REGIONS }}" --region ${{ github.event.inputs.region }} >/dev/null 2>&1; echo $?) = 0 ]; then
-            echo "'supported-regions.txt' file already exists, nothing to upload"
+          # Creates the root user only if it doesn't exist yet (never overwrites permissions)
+          if aws dynamodb put-item --table-name "${{ env.CONFIG_TABLE_NAME }}" --region ${{ github.event.inputs.region }} \
+               --item '{"pk":{"S":"USER"},"sk":{"S":"${{ env.TG_ROOT_USERNAME }}"},"permissions":{"SS":["ROOT_ACCESS"]}}' \
+               --condition-expression 'attribute_not_exists(pk)' 2> ./put-item-error.txt; then
+            echo "Root user '${{ env.TG_ROOT_USERNAME }}' created"
+          elif grep -q ConditionalCheckFailedException ./put-item-error.txt; then
+            echo "Root user '${{ env.TG_ROOT_USERNAME }}' already exists"
           else
-            echo "Uploading 'supported-regions.txt' to the S3 bucket"
-            touch supported-regions.txt
-            aws s3 cp ./supported-regions.txt ${{ env.SUPPORTED_REGIONS_FILE_URI }} --region ${{ github.event.inputs.region }}
-            rm ./supported-regions.txt
+            cat ./put-item-error.txt
+            exit 1
           fi
-      
+
       - name: Register Telegram bot commands
         id: register-bot-commands
         env:

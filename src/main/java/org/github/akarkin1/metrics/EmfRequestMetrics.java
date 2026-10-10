@@ -16,7 +16,7 @@ import java.util.function.Supplier;
 
 /**
  * Accumulates per-request timings and writes them as one CloudWatch Embedded Metric Format line.
- * Timings of nested calls (e.g. S3 inside ECS) may overlap.
+ * Timings of nested calls (e.g. DynamoDB inside ECS) may overlap.
  */
 @Log4j2
 @RequiredArgsConstructor
@@ -28,7 +28,7 @@ public class EmfRequestMetrics implements RequestMetrics {
   private static final String TOTAL_METRIC = "TotalMs";
   private static final String UNIT = "Milliseconds";
   private static final Map<MetricComponent, String> METRIC_NAMES = new EnumMap<>(Map.of(
-      MetricComponent.S3, "S3Ms",
+      MetricComponent.DYNAMODB, "DynamoDbMs",
       MetricComponent.ECS, "EcsMs",
       MetricComponent.TELEGRAM, "TelegramMs"));
 
