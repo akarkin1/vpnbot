@@ -71,9 +71,10 @@ jobs:
             echo "::warning::TG_ROOT_USERNAME is not set, skipping the root user bootstrap"
             exit 0
           fi
-          # Creates the root user only if it doesn't exist yet (never overwrites permissions)
+          # Pre-registers the root user only if not registered yet (never overwrites permissions);
+          # the pending record becomes a USER record at the root's first request
           if aws dynamodb put-item --table-name "${{ env.CONFIG_TABLE_NAME }}" --region ${{ github.event.inputs.region }} \
-               --item '{"pk":{"S":"USER"},"sk":{"S":"${{ env.TG_ROOT_USERNAME }}"},"permissions":{"SS":["ROOT_ACCESS"]}}' \
+               --item '{"pk":{"S":"PENDING_USER"},"sk":{"S":"${{ env.TG_ROOT_USERNAME }}"},"permissions":{"SS":["ROOT_ACCESS"]}}' \
                --condition-expression 'attribute_not_exists(pk)' 2> ./put-item-error.txt; then
             echo "Root user '${{ env.TG_ROOT_USERNAME }}' created"
           elif grep -q ConditionalCheckFailedException ./put-item-error.txt; then
