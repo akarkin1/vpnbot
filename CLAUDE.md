@@ -8,12 +8,14 @@ Planned work lives in `docs/roadmap.md`.
 ## Build & test
 
 - Java 21, Maven: `mvn -B verify` (compiles, runs unit tests, builds the shaded Lambda jar).
-- Node agent (Python 3.9, deps pinned in `docker/requirements.txt`):
+- Node agent (Python 3.11, deps pinned in `docker/requirements.txt`):
   `cd docker/node_agent && PYTHONPATH=src python3 -m unittest discover -s tests -t .`
   (production code in `docker/node_agent/src/node_agent`, tests in `docker/node_agent/tests`)
 - The build rewrites `dependency-reduced-pom.xml`; never commit that change
   (`git checkout dependency-reduced-pom.xml`).
-- Shell script tests (need `jq`): `.github/scripts/region-item-test.sh`, `.github/scripts/publish-live-version-test.sh`.
+- Shell script tests (need `jq`): `.github/scripts/region-item-test.sh`, `.github/scripts/publish-live-version-test.sh`,
+  `scripts/migrate-pending-users-test.sh`.
+- `java-tests.yml` runs the build and the shell script tests on pull requests.
 - Deployment is manual via GitHub Actions (`.github/workflows/deploy-*.yml`). API Gateway invokes the
   Lambda alias `live` (SnapStart): every code/config deploy ends with `publish-live-version.sh`, which
   publishes a version and moves the alias. The static block runs at publish time, not on first request.
@@ -24,12 +26,18 @@ Planned work lives in `docs/roadmap.md`.
 TailscaleVpnLambdaHandler  (API Gateway → Lambda entry point, wiring in a static block)
  ├─ UiRouter (ui)           button taps (callback queries), /start, /menu, plain text
  │   ├─ HomeController, LaunchController, NodeController (stop/use) + NodeAccess (ui.controller)
+ │   ├─ AccessController (request access → admins' role checkboxes), UsersController (users screen)
  │   ├─ *Screen classes (ui.screen): pure functions, data → Screen (template + params + buttons)
  │   └─ UiMessenger (ui.messenger): sends/edits Telegram messages, translates, HTML-escapes
  └─ CommandDispatcher       every other "/command" (dispatcher.command.*), plain-text replies
 Services: TailscaleNodeService (tailscale) → EcsManager (ecs); Authorizer + PermissionsService (auth)
+Identity: TgUser(id, username) – permissions and node ownership (RunBy tag) are keyed by the Telegram
+          user id; a user pre-registered by username is a PENDING_USER record until their first request,
+          when the handler's PendingUserActivator turns it into a USER record (Authorizer.hasPermission
+          is read-only); roles (UserRole) are bundles of permissions, root is a permission (ROOT_ACCESS)
 Config:   application.yml → YamlApplicationConfiguration (via ConfigManager); DynamoDB table `vpnbot`
-          holds runtime config: pk REGION/USER/TG_UPDATE_LOCK, beans in `dynamodb` (Enhanced Client),
+          holds runtime config: pk REGION/USER/PENDING_USER/ACCESS_REQUEST/TG_UPDATE_LOCK, beans in
+          `dynamodb` (Enhanced Client),
           optional in-memory cache (CONFIG_CACHE_ENABLED, CONFIG_CACHE_TTL_SEC); workflows write regions;
           bot token from Secrets Manager (BOT_TOKEN_SECRET_ID)
 Dedup:    a Telegram re-delivery is dropped by a conditional put of a TG_UPDATE_LOCK record (24 h TTL)

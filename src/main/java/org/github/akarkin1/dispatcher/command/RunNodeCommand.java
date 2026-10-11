@@ -54,8 +54,9 @@ public final class RunNodeCommand implements BotCommand<EmptyResponse> {
     }
 
     UiContext context = new UiContext(TgRequestContext.getChatId(),
+                                      TgRequestContext.getUserId(),
                                       TgRequestContext.getUsername(),
-                                      null,
+                                      null, null,
                                       TgRequestContext.getLanguageCode());
     nodeLauncher.launchInNewMessage(context, tailscaleNodeService.toRegionId(userRegion), userHost);
     return EmptyResponse.NONE;

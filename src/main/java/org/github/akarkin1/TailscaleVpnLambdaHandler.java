@@ -9,6 +9,7 @@ import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang3.StringUtils;
 import org.github.akarkin1.auth.Authorizer;
 import org.github.akarkin1.auth.AuthorizerConfigurer;
+import org.github.akarkin1.auth.PendingUserActivator;
 import org.github.akarkin1.auth.RequestAuthenticator;
 import org.github.akarkin1.auth.RequestAuthenticatorConfigurer;
 import org.github.akarkin1.auth.PermissionsService;
@@ -39,6 +40,7 @@ import org.github.akarkin1.translation.Translator;
 import org.github.akarkin1.ui.UiComponents;
 import org.github.akarkin1.ui.UiConfigurer;
 import org.github.akarkin1.ui.UiRouter;
+import org.github.akarkin1.util.LambdaHandler;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.User;
@@ -58,17 +60,19 @@ import static org.github.akarkin1.config.ConfigManager.isMetricsEnabled;
 import static org.github.akarkin1.tg.TelegramBotFactory.sender;
 
 @Log4j2
+@LambdaHandler
 public class TailscaleVpnLambdaHandler implements
     RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
-  private static final CommandDispatcher COMMAND_DISPATCHER;
+  private static final CommandDispatcher SYSTEM_COMMANDS_DISPATCHER;
   private static final BotCommunicator COMMUNICATOR;
   private static final UpdateEventsRegistry EVENTS_REGISTRY;
   private static final String BOT_SERVER_ERROR = "${bot.internal.error}";
   private static final RequestAuthenticator REQUEST_AUTHENTICATOR;
   private static final UiRouter UI_ROUTER;
   private static final RequestMetrics METRICS;
+  private static final PendingUserActivator PENDING_USER_ACTIVATOR;
 
   static {
     METRICS = new EmfRequestMetrics(isMetricsEnabled(), Clock.systemUTC(), System.out::println);
@@ -88,35 +92,37 @@ public class TailscaleVpnLambdaHandler implements
         .configure(configTables.regions(), METRICS);
     final TailscaleNodeService nodeService = nodeServices.nodeService();
     final PermissionsService permissionsService = new PermissionsServiceConfigurer()
-        .configure(configTables.users(), METRICS);
+        .configure(configTables.users(), configTables.pendingUsers(), METRICS);
     final Authorizer authorizer = new AuthorizerConfigurer().configure(permissionsService);
+    PENDING_USER_ACTIVATOR = new PendingUserActivator(permissionsService);
 
     final Translator translator = new ResourceBasedTranslator();
 
     final UiComponents ui = new UiConfigurer().configure(sender, translator, nodeService,
-                                                         authorizer, METRICS);
+                                                         authorizer, permissionsService,
+                                                         configTables.accessRequests(), METRICS);
     UI_ROUTER = ui.router();
 
     COMMUNICATOR = new BotCommunicator(sender, translator, METRICS);
-    COMMAND_DISPATCHER = new CommandDispatcher(COMMUNICATOR, authorizer);
+    SYSTEM_COMMANDS_DISPATCHER = new CommandDispatcher(COMMUNICATOR, authorizer);
 
-    COMMAND_DISPATCHER.registerCommand("/version", new VersionCommand());
-    COMMAND_DISPATCHER.registerCommand("/listRunningNodes", new ListNodesCommand(
+    SYSTEM_COMMANDS_DISPATCHER.registerCommand("/version", new VersionCommand());
+    SYSTEM_COMMANDS_DISPATCHER.registerCommand("/listRunningNodes", new ListNodesCommand(
         nodeService, authorizer));
-    COMMAND_DISPATCHER.registerCommand("/runNodeIn",
+    SYSTEM_COMMANDS_DISPATCHER.registerCommand("/runNodeIn",
                                        new RunNodeCommand(nodeService,
                                                           COMMUNICATOR::sendMessageToTheBot,
                                                           ui.nodeLauncher()));
-    COMMAND_DISPATCHER.registerCommand("/supportedRegions",
+    SYSTEM_COMMANDS_DISPATCHER.registerCommand("/supportedRegions",
                                        new SupportedRegionCommand(nodeService));
-    COMMAND_DISPATCHER.registerCommand("/assignRoles",
+    SYSTEM_COMMANDS_DISPATCHER.registerCommand("/assignRoles",
                                        new AssignRolesCommand(permissionsService));
-    COMMAND_DISPATCHER.registerCommand("/describeRoles",
+    SYSTEM_COMMANDS_DISPATCHER.registerCommand("/describeRoles",
                                        new DescribeRolesCommand(permissionsService));
-    COMMAND_DISPATCHER.registerCommand("/deleteUsers",
+    SYSTEM_COMMANDS_DISPATCHER.registerCommand("/deleteUsers",
                                        new DeleteUsersCommand(permissionsService,
                                                               COMMUNICATOR::sendMessageToTheBot));
-    COMMAND_DISPATCHER.registerCommand("/listRegisteredUsers",
+    SYSTEM_COMMANDS_DISPATCHER.registerCommand("/listRegisteredUsers",
                                        new ListUsersCommand(permissionsService));
 
     new SnapStartPrimer(nodeService, nodeServices.ec2ClientPool(), permissionsService,
@@ -198,6 +204,8 @@ public class TailscaleVpnLambdaHandler implements
     }
 
     TgRequestContext.initContext(update);
+    // before any permission check: a pre-registered user gets their USER record (D-24)
+    PENDING_USER_ACTIVATOR.activate(TgRequestContext.getUser());
 
     if (UI_ROUTER.canHandle(update)) {
       UI_ROUTER.handle(update);
@@ -220,7 +228,7 @@ public class TailscaleVpnLambdaHandler implements
         .map(User::getUserName)
         .orElse("<Unknown>");
     log.info("User {} has started communication with the bot", userName);
-    COMMAND_DISPATCHER.handle(update);
+    SYSTEM_COMMANDS_DISPATCHER.handle(update);
   }
 
 }

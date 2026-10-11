@@ -1,11 +1,14 @@
 package org.github.akarkin1.ui;
 
 import org.apache.commons.lang3.StringUtils;
+import org.github.akarkin1.auth.TgUser;
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.User;
 
-public record UiContext(Long chatId, String username, String firstName, String languageCode) {
+/** The user and chat of a request; {@code username} and {@code lastName} are nullable. */
+public record UiContext(Long chatId, Long userId, String username, String firstName,
+                        String lastName, String languageCode) {
 
   private static final String DEFAULT_LANGUAGE_CODE = "en-US";
 
@@ -24,7 +27,13 @@ public record UiContext(Long chatId, String username, String firstName, String l
 
   private static UiContext of(Long chatId, User user) {
     String languageCode = StringUtils.defaultIfBlank(user.getLanguageCode(), DEFAULT_LANGUAGE_CODE);
-    return new UiContext(chatId, user.getUserName(), user.getFirstName(), languageCode);
+    return new UiContext(chatId, user.getId(), user.getUserName(), user.getFirstName(),
+                         user.getLastName(), languageCode);
+  }
+
+  /** The user of the request. */
+  public TgUser user() {
+    return new TgUser(userId, username);
   }
 
 }

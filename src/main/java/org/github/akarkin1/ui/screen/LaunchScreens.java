@@ -1,7 +1,7 @@
 package org.github.akarkin1.ui.screen;
 
 import lombok.RequiredArgsConstructor;
-import org.github.akarkin1.ecs.TaskInfo;
+import org.github.akarkin1.ecs.EcsNode;
 import org.github.akarkin1.ui.NodeRef;
 import org.github.akarkin1.ui.UiAction;
 
@@ -67,9 +67,9 @@ public class LaunchScreens {
                       List.of(List.of(tryAgain, MENU)));
   }
 
-  public Screen existingNodes(String regionId, List<TaskInfo> nodes) {
+  public Screen existingNodes(String regionId, List<EcsNode> nodes) {
     List<List<Button>> keyboard = new ArrayList<>();
-    for (TaskInfo node : nodes) {
+    for (EcsNode node : nodes) {
       String label = "📋 ${ui.button.use} " + escapePercent(orDash(node.getHostName()));
       keyboard.add(List.of(Button.action(label, UiAction.use(new NodeRef(regionId, node.getId())))));
     }

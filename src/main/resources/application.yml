@@ -10,6 +10,7 @@ ecs:
   service-name-tag: ServiceName
   host-name-tag: Hostname
   run-by-tag: RunBy
+  run-by-name-tag: RunByName
   chat-id-tag: ChatId
   language-tag: Lang
 

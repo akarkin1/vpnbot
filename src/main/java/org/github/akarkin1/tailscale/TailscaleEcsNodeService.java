@@ -4,7 +4,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.github.akarkin1.config.YamlApplicationConfiguration.AWSConfiguration;
 import org.github.akarkin1.config.YamlApplicationConfiguration.EcsConfiguration;
 import org.github.akarkin1.ecs.EcsManager;
-import org.github.akarkin1.ecs.TaskInfo;
+import org.github.akarkin1.ecs.EcsNode;
 import software.amazon.awssdk.regions.Region;
 
 import java.util.HashMap;
@@ -67,31 +67,35 @@ public class TailscaleEcsNodeService implements TailscaleNodeService {
   }
 
   @Override
-  public TaskInfo runNode(String userRegion, NodeOwner owner, String userHostName,
-                          Map<String, String> environment) {
-    String userTgId = owner.username();
+  public EcsNode runNode(String userRegion, NodeOrigin origin, String userHostName,
+                         Map<String, String> environment) {
+    String userTgId = String.valueOf(origin.userId());
     Region region = regionByCity.getOrDefault(userRegion, Region.of(userRegion));
 
     String hostName = userHostName;
     if (userHostName == null) {
-      hostName = chooseHostName(userTgId, region.id());
+      String hostNamePrefix = StringUtils.isNotBlank(origin.username()) ? origin.username() : userTgId;
+      hostName = chooseHostName(hostNamePrefix, region.id());
     }
 
     Map<String, String> assignedTags = new LinkedHashMap<>();
     assignedTags.put(config.getHostNameTag(), hostName);
     assignedTags.put(config.getRunByTag(), userTgId);
-    if (owner.chatId() != null) {
-      assignedTags.put(config.getChatIdTag(), String.valueOf(owner.chatId()));
+    if (StringUtils.isNotBlank(origin.username())) {
+      assignedTags.put(config.getRunByNameTag(), origin.username());
     }
-    if (owner.languageCode() != null) {
-      assignedTags.put(config.getLanguageTag(), owner.languageCode());
+    if (origin.chatId() != null) {
+      assignedTags.put(config.getChatIdTag(), String.valueOf(origin.chatId()));
+    }
+    if (origin.languageCode() != null) {
+      assignedTags.put(config.getLanguageTag(), origin.languageCode());
     }
     assignedTags.put(config.getServiceNameTag(), config.getServiceName());
     return ecsManager.startTask(region, hostName, assignedTags, environment);
   }
 
   @Override
-  public Optional<TaskInfo> getNode(String regionId, String taskId) {
+  public Optional<EcsNode> getNode(String regionId, String taskId) {
     return ecsManager.getTask(Region.of(regionId), taskId);
   }
 
@@ -105,27 +109,27 @@ public class TailscaleEcsNodeService implements TailscaleNodeService {
     return regionByCity.getOrDefault(userRegion, Region.of(userRegion)).id();
   }
 
-  private String chooseHostName(String userTgId, String regionId) {
+  private String chooseHostName(String hostNamePrefix, String regionId) {
     Set<String> hostNames = ecsManager.listTasks(Map.of(
             config.getServiceNameTag(), config.getServiceName()
         ))
         .stream()
-        .map(TaskInfo::getHostName)
+        .map(EcsNode::getHostName)
         .collect(Collectors.toSet());
 
     String suggestedHostName;
     int nodeNumber = 1;
     do {
-      suggestedHostName = suggestHostName(userTgId, regionId, nodeNumber);
+      suggestedHostName = suggestHostName(hostNamePrefix, regionId, nodeNumber);
       nodeNumber++;
     } while (hostNames.contains(suggestedHostName));
 
     return suggestedHostName;
   }
 
-  private String suggestHostName(String userTgId, String regionId, int nodeNumber) {
+  private String suggestHostName(String hostNamePrefix, String regionId, int nodeNumber) {
     String city = cityByRegion.get(regionId);
-    return sanitizeHostName("%s-%s-%d".formatted(userTgId, city, nodeNumber));
+    return sanitizeHostName("%s-%s-%d".formatted(hostNamePrefix, city, nodeNumber));
   }
 
   static String sanitizeHostName(String hostName) {
@@ -133,7 +137,7 @@ public class TailscaleEcsNodeService implements TailscaleNodeService {
   }
 
   @Override
-  public List<TaskInfo> listTasks(String userTgId) {
+  public List<EcsNode> listTasks(String userTgId) {
     Map<String, String> matchingTags = new HashMap<>();
     matchingTags.put(config.getServiceNameTag(), config.getServiceName());
     if (userTgId != null) {

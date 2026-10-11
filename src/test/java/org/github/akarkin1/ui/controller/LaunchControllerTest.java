@@ -2,8 +2,9 @@ package org.github.akarkin1.ui.controller;
 
 import org.github.akarkin1.auth.Authorizer;
 import org.github.akarkin1.auth.Permission;
-import org.github.akarkin1.ecs.TaskInfo;
-import org.github.akarkin1.tailscale.NodeOwner;
+import org.github.akarkin1.auth.TgUser;
+import org.github.akarkin1.ecs.EcsNode;
+import org.github.akarkin1.tailscale.NodeOrigin;
 import org.github.akarkin1.tailscale.TailscaleNodeService;
 import org.github.akarkin1.ui.UiContext;
 import org.github.akarkin1.ui.messenger.NodeNotifications;
@@ -37,21 +38,22 @@ import static org.mockito.Mockito.when;
 class LaunchControllerTest {
 
   private static final String REGION = "eu-central-1";
-  private static final UiContext CONTEXT = new UiContext(100L, "alex", "Alex", "en-US");
-  private static final NodeOwner OWNER = new NodeOwner("alex", 100L, "en-US");
+  private static final UiContext CONTEXT = new UiContext(100L, 7L, "alex", "Alex", null, "en-US");
+  private static final TgUser ALEX = new TgUser(7L, "alex");
+  private static final NodeOrigin OWNER = new NodeOrigin(7L, "alex", 100L, "en-US");
   private static final Integer MESSAGE_ID = 42;
   private static final Integer NEW_MESSAGE_ID = 77;
   private static final String HOST_NAME = "node-7";
   private static final Map<String, String> ENV = Map.of("TG_CHAT_ID", "100", "TG_MESSAGE_ID", "42");
   private static final Map<String, String> NEW_MESSAGE_ENV = Map.of("TG_CHAT_ID", "100",
                                                                     "TG_MESSAGE_ID", "77");
-  private static final TaskInfo TASK = TaskInfo.builder()
+  private static final EcsNode TASK = EcsNode.builder()
       .id("task-1")
       .cluster("cluster-1")
       .region(Region.EU_CENTRAL_1)
       .build();
-  private static final TaskInfo OWN_NODE_HERE = node("task-1", "alex-frankfurt-1", Region.EU_CENTRAL_1);
-  private static final TaskInfo OWN_NODE_ELSEWHERE = node("task-2", "alex-nvirginia-1", Region.US_EAST_1);
+  private static final EcsNode OWN_NODE_HERE = node("task-1", "alex-frankfurt-1", Region.EU_CENTRAL_1);
+  private static final EcsNode OWN_NODE_ELSEWHERE = node("task-2", "alex-nvirginia-1", Region.US_EAST_1);
 
   private static final Screen NOT_ALLOWED = screen("notAllowed");
   private static final Screen REGION_UNAVAILABLE = screen("regionUnavailable");
@@ -85,9 +87,9 @@ class LaunchControllerTest {
   }
 
   @Test
-  @DisplayName("2a AC-1: null username is not allowed and makes no service calls")
-  void nullUsernameNotAllowed() {
-    UiContext anonymous = new UiContext(100L, null, "Alex", "en-US");
+  @DisplayName("2a AC-1: a user without a username and without RUN_NODES is not allowed and makes no service calls")
+  void noUsernameNotAllowed() {
+    UiContext anonymous = new UiContext(100L, 11L, null, "Alex", null, "en-US");
 
     controller.launch(anonymous, MESSAGE_ID, REGION);
 
@@ -101,7 +103,7 @@ class LaunchControllerTest {
   void withoutRunNodesNotAllowed() {
     controller.launch(CONTEXT, MESSAGE_ID, REGION);
 
-    verify(authorizer).hasPermission("alex", Permission.RUN_NODES);
+    verify(authorizer).hasPermission(ALEX, Permission.RUN_NODES);
     verify(messenger).edit(CONTEXT, MESSAGE_ID, NOT_ALLOWED);
     verify(messenger, never()).edit(CONTEXT, MESSAGE_ID, STARTING);
     verifyNoInteractions(nodeService, nodeNotifications);
@@ -151,7 +153,7 @@ class LaunchControllerTest {
     InOrder inOrder = inOrder(messenger, nodeService, nodeNotifications);
     inOrder.verify(messenger).edit(CONTEXT, MESSAGE_ID, STARTING);
     inOrder.verify(nodeService).getSupportedRegionIds();
-    inOrder.verify(nodeService).listTasks("alex");
+    inOrder.verify(nodeService).listTasks("7");
     inOrder.verify(nodeNotifications).build(CONTEXT, MESSAGE_ID, REGION);
     inOrder.verify(nodeService).runNode(REGION, OWNER, null, ENV);
     inOrder.verify(messenger).edit(CONTEXT, MESSAGE_ID, WAITING);
@@ -177,7 +179,7 @@ class LaunchControllerTest {
     inOrder.verify(messenger).edit(CONTEXT, MESSAGE_ID, FAILED);
     verify(messenger, never()).edit(CONTEXT, MESSAGE_ID, WAITING);
     verify(nodeService).getSupportedRegionIds();
-    verify(nodeService).listTasks("alex");
+    verify(nodeService).listTasks("7");
     verifyNoMoreInteractions(nodeService);
   }
 
@@ -186,7 +188,7 @@ class LaunchControllerTest {
   void launchShowsExistingNodes() {
     allowRun();
     supportRegion();
-    when(nodeService.listTasks("alex")).thenReturn(List.of(OWN_NODE_HERE));
+    when(nodeService.listTasks("7")).thenReturn(List.of(OWN_NODE_HERE));
     when(launchScreens.existingNodes(REGION, List.of(OWN_NODE_HERE))).thenReturn(EXISTING);
 
     controller.launch(CONTEXT, MESSAGE_ID, REGION);
@@ -194,7 +196,7 @@ class LaunchControllerTest {
     InOrder inOrder = inOrder(messenger, nodeService);
     inOrder.verify(messenger).edit(CONTEXT, MESSAGE_ID, STARTING);
     inOrder.verify(nodeService).getSupportedRegionIds();
-    inOrder.verify(nodeService).listTasks("alex");
+    inOrder.verify(nodeService).listTasks("7");
     inOrder.verify(messenger).edit(CONTEXT, MESSAGE_ID, EXISTING);
     verify(nodeService, never()).runNode(any(), any(), any(), any());
     verify(messenger, never()).edit(CONTEXT, MESSAGE_ID, WAITING);
@@ -206,8 +208,8 @@ class LaunchControllerTest {
   void existingNodesFilteredToRegion() {
     allowRun();
     supportRegion();
-    TaskInfo secondHere = node("task-3", "alex-frankfurt-2", Region.EU_CENTRAL_1);
-    when(nodeService.listTasks("alex"))
+    EcsNode secondHere = node("task-3", "alex-frankfurt-2", Region.EU_CENTRAL_1);
+    when(nodeService.listTasks("7"))
         .thenReturn(List.of(OWN_NODE_HERE, OWN_NODE_ELSEWHERE, secondHere));
     when(launchScreens.existingNodes(REGION, List.of(OWN_NODE_HERE, secondHere)))
         .thenReturn(EXISTING);
@@ -223,7 +225,7 @@ class LaunchControllerTest {
   void nodesInOtherRegionsOnly() {
     allowRun();
     supportRegion();
-    when(nodeService.listTasks("alex")).thenReturn(List.of(OWN_NODE_ELSEWHERE));
+    when(nodeService.listTasks("7")).thenReturn(List.of(OWN_NODE_ELSEWHERE));
     when(nodeNotifications.build(CONTEXT, MESSAGE_ID, REGION)).thenReturn(ENV);
     when(nodeService.runNode(REGION, OWNER, null, ENV)).thenReturn(TASK);
 
@@ -239,9 +241,9 @@ class LaunchControllerTest {
   void foreignOrUntaggedNodesInRegionIgnored() {
     allowRun();
     supportRegion();
-    TaskInfo untagged = node("task-4", "legacy-frankfurt-1", Region.EU_CENTRAL_1, null);
-    TaskInfo bobs = node("task-5", "bob-frankfurt-1", Region.EU_CENTRAL_1, "bob");
-    when(nodeService.listTasks("alex")).thenReturn(List.of(untagged, bobs));
+    EcsNode untagged = node("task-4", "legacy-frankfurt-1", Region.EU_CENTRAL_1, null);
+    EcsNode bobs = node("task-5", "bob-frankfurt-1", Region.EU_CENTRAL_1, "8");
+    when(nodeService.listTasks("7")).thenReturn(List.of(untagged, bobs));
     when(nodeNotifications.build(CONTEXT, MESSAGE_ID, REGION)).thenReturn(ENV);
     when(nodeService.runNode(REGION, OWNER, null, ENV)).thenReturn(TASK);
 
@@ -257,9 +259,9 @@ class LaunchControllerTest {
   void existingNodesOnlyOwnRunBy() {
     allowRun();
     supportRegion();
-    TaskInfo untagged = node("task-4", "legacy-frankfurt-1", Region.EU_CENTRAL_1, null);
-    TaskInfo bobs = node("task-5", "bob-frankfurt-1", Region.EU_CENTRAL_1, "bob");
-    when(nodeService.listTasks("alex")).thenReturn(List.of(untagged, OWN_NODE_HERE, bobs));
+    EcsNode untagged = node("task-4", "legacy-frankfurt-1", Region.EU_CENTRAL_1, null);
+    EcsNode bobs = node("task-5", "bob-frankfurt-1", Region.EU_CENTRAL_1, "8");
+    when(nodeService.listTasks("7")).thenReturn(List.of(untagged, OWN_NODE_HERE, bobs));
     when(launchScreens.existingNodes(REGION, List.of(OWN_NODE_HERE))).thenReturn(EXISTING);
 
     controller.launch(CONTEXT, MESSAGE_ID, REGION);
@@ -273,7 +275,7 @@ class LaunchControllerTest {
   void reuseCheckFailureShowsFailed() {
     allowRun();
     supportRegion();
-    when(nodeService.listTasks("alex")).thenThrow(new IllegalStateException("ECS down"));
+    when(nodeService.listTasks("7")).thenThrow(new IllegalStateException("ECS down"));
 
     controller.launch(CONTEXT, MESSAGE_ID, REGION);
 
@@ -289,29 +291,29 @@ class LaunchControllerTest {
   @DisplayName("2b AC-6: the reuse check lists only the user's own nodes, also for root")
   void reuseCheckUsesOwnNodesForRoot() {
     allowRun();
-    lenient().when(authorizer.hasPermission("alex", Permission.ROOT_ACCESS)).thenReturn(true);
+    lenient().when(authorizer.hasPermission(ALEX, Permission.ROOT_ACCESS)).thenReturn(true);
     supportRegion();
     when(nodeNotifications.build(CONTEXT, MESSAGE_ID, REGION)).thenReturn(ENV);
     when(nodeService.runNode(REGION, OWNER, null, ENV)).thenReturn(TASK);
 
     controller.launch(CONTEXT, MESSAGE_ID, REGION);
 
-    verify(nodeService).listTasks("alex");
+    verify(nodeService).listTasks("7");
     verify(nodeService, never()).listTasks(null);
     verify(nodeService).runNode(REGION, OWNER, null, ENV);
   }
 
   @Test
-  @DisplayName("2b AC-6: runNode receives the NodeOwner built from the context (username, chat id, language)")
+  @DisplayName("2b AC-6, 4 AC-9: runNode receives the NodeOrigin built from the context (user id, username, chat id, language)")
   void runNodeReceivesOwnerFromContext() {
-    UiContext russian = new UiContext(555L, "masha", "Masha", "ru");
-    when(authorizer.hasPermission("masha", Permission.RUN_NODES)).thenReturn(true);
+    UiContext russian = new UiContext(555L, 12L, "masha", "Masha", null, "ru");
+    when(authorizer.hasPermission(new TgUser(12L, "masha"), Permission.RUN_NODES)).thenReturn(true);
     supportRegion();
     when(nodeNotifications.build(russian, MESSAGE_ID, REGION)).thenReturn(ENV);
 
     controller.launch(russian, MESSAGE_ID, REGION);
 
-    verify(nodeService).runNode(REGION, new NodeOwner("masha", 555L, "ru"), null, ENV);
+    verify(nodeService).runNode(REGION, new NodeOrigin(12L, "masha", 555L, "ru"), null, ENV);
   }
 
   @Test
@@ -319,7 +321,7 @@ class LaunchControllerTest {
   void launchAnotherSkipsReuseCheck() {
     allowRun();
     supportRegion();
-    lenient().when(nodeService.listTasks("alex")).thenReturn(List.of(OWN_NODE_HERE));
+    lenient().when(nodeService.listTasks("7")).thenReturn(List.of(OWN_NODE_HERE));
     when(nodeNotifications.build(CONTEXT, MESSAGE_ID, REGION)).thenReturn(ENV);
     when(nodeService.runNode(REGION, OWNER, null, ENV)).thenReturn(TASK);
 
@@ -346,9 +348,9 @@ class LaunchControllerTest {
   }
 
   @Test
-  @DisplayName("2b AC-6: launchAnother with a null username is not allowed and makes no service calls")
-  void launchAnotherNullUsername() {
-    UiContext anonymous = new UiContext(100L, null, "Alex", "en-US");
+  @DisplayName("2b AC-6: launchAnother by a user without a username and without RUN_NODES is not allowed and makes no service calls")
+  void launchAnotherNoUsername() {
+    UiContext anonymous = new UiContext(100L, 11L, null, "Alex", null, "en-US");
 
     controller.launchAnother(anonymous, MESSAGE_ID, REGION);
 
@@ -450,20 +452,49 @@ class LaunchControllerTest {
     verify(messenger, never()).edit(CONTEXT, NEW_MESSAGE_ID, WAITING);
   }
 
+  @Test
+  @DisplayName("4 AC-9: a user without a username but with RUN_NODES (granted by id) launches; the owner has the id and no username")
+  void noUsernameWithRunNodesLaunches() {
+    UiContext anna = new UiContext(100L, 11L, null, "Anna", null, "en-US");
+    when(authorizer.hasPermission(new TgUser(11L, null), Permission.RUN_NODES)).thenReturn(true);
+    supportRegion();
+    when(nodeNotifications.build(anna, MESSAGE_ID, REGION)).thenReturn(ENV);
+
+    controller.launch(anna, MESSAGE_ID, REGION);
+
+    verify(nodeService).listTasks("11");
+    verify(nodeService).runNode(REGION, new NodeOrigin(11L, null, 100L, "en-US"), null, ENV);
+    verify(messenger).edit(anna, MESSAGE_ID, WAITING);
+  }
+
+  @Test
+  @DisplayName("4 AC-9: the reuse check lists the user's nodes by id and counts nodes whose RunBy is the user id as own")
+  void reuseCheckByUserId() {
+    allowRun();
+    supportRegion();
+    when(nodeService.listTasks("7")).thenReturn(List.of(OWN_NODE_HERE));
+    when(launchScreens.existingNodes(REGION, List.of(OWN_NODE_HERE))).thenReturn(EXISTING);
+
+    controller.launch(CONTEXT, MESSAGE_ID, REGION);
+
+    verify(nodeService, never()).listTasks("alex");
+    verify(messenger).edit(CONTEXT, MESSAGE_ID, EXISTING);
+  }
+
   private void allowRun() {
-    when(authorizer.hasPermission("alex", Permission.RUN_NODES)).thenReturn(true);
+    when(authorizer.hasPermission(ALEX, Permission.RUN_NODES)).thenReturn(true);
   }
 
   private void supportRegion() {
     when(nodeService.getSupportedRegionIds()).thenReturn(Set.of(REGION, "us-east-1"));
   }
 
-  private static TaskInfo node(String id, String hostName, Region region) {
-    return node(id, hostName, region, "alex");
+  private static EcsNode node(String id, String hostName, Region region) {
+    return node(id, hostName, region, "7");
   }
 
-  private static TaskInfo node(String id, String hostName, Region region, String runBy) {
-    return TaskInfo.builder()
+  private static EcsNode node(String id, String hostName, Region region, String runBy) {
+    return EcsNode.builder()
         .id(id)
         .hostName(hostName)
         .region(region)

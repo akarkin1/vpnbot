@@ -96,6 +96,7 @@ class EcsManagerImplTest {
     config.setServiceNameTag("Service");
     config.setServiceName("vpn");
     config.setRunByTag("RunBy");
+    config.setRunByNameTag("RunByName");
     config.setChatIdTag("ChatId");
     config.setLanguageTag("Lang");
     config.setHostNameEnv("TAILSCALE_HOSTNAME");
@@ -124,16 +125,16 @@ class EcsManagerImplTest {
     stubListTasks(usClient, allRegionsQuerying, 0, "us");
     stubListTasks(ukClient, allRegionsQuerying, 100, "uk");
 
-    List<TaskInfo> tasks = ecsManager.listTasks(MATCHING_TAGS);
+    List<EcsNode> tasks = ecsManager.listTasks(MATCHING_TAGS);
 
-    assertEquals(List.of("task-eu", "task-us", "task-uk"), tasks.stream().map(TaskInfo::getId).toList());
+    assertEquals(List.of("task-eu", "task-us", "task-uk"), tasks.stream().map(EcsNode::getId).toList());
     assertEquals(List.of("host-eu", "host-us", "host-uk"),
-                 tasks.stream().map(TaskInfo::getHostName).toList());
-    assertEquals(REGIONS, tasks.stream().map(TaskInfo::getRegion).toList());
+                 tasks.stream().map(EcsNode::getHostName).toList());
+    assertEquals(REGIONS, tasks.stream().map(EcsNode::getRegion).toList());
     assertEquals(List.of("Frankfurt", "N. Virginia", "London"),
-                 tasks.stream().map(TaskInfo::getLocation).toList());
+                 tasks.stream().map(EcsNode::getLocation).toList());
     assertEquals(List.of("HEALTHY", "HEALTHY", "HEALTHY"),
-                 tasks.stream().map(TaskInfo::getState).toList());
+                 tasks.stream().map(EcsNode::getState).toList());
   }
 
   @Test
@@ -159,9 +160,9 @@ class EcsManagerImplTest {
     stubEni("eni-a", NetworkInterface.builder().networkInterfaceId("eni-a").build());
     stubEni("eni-b", networkInterfaceWithIp("eni-b", "1.2.3.4"));
 
-    List<TaskInfo> tasks = ecsManager.listTasks(MATCHING_TAGS);
+    List<EcsNode> tasks = ecsManager.listTasks(MATCHING_TAGS);
 
-    assertEquals(List.of("task-a", "task-b"), tasks.stream().map(TaskInfo::getId).toList());
+    assertEquals(List.of("task-a", "task-b"), tasks.stream().map(EcsNode::getId).toList());
     assertNull(tasks.get(0).getPublicIp());
     assertEquals("1.2.3.4", tasks.get(1).getPublicIp());
   }
@@ -175,10 +176,10 @@ class EcsManagerImplTest {
         .thenThrow(Ec2Exception.builder().message("InvalidNetworkInterfaceID.NotFound").build());
     stubEni("eni-b", networkInterfaceWithIp("eni-b", "1.2.3.4"));
 
-    List<TaskInfo> tasks = ecsManager.listTasks(MATCHING_TAGS);
+    List<EcsNode> tasks = ecsManager.listTasks(MATCHING_TAGS);
 
-    assertEquals(List.of("task-a", "task-b"), tasks.stream().map(TaskInfo::getId).toList());
-    assertEquals(List.of("host-a", "host-b"), tasks.stream().map(TaskInfo::getHostName).toList());
+    assertEquals(List.of("task-a", "task-b"), tasks.stream().map(EcsNode::getId).toList());
+    assertEquals(List.of("host-a", "host-b"), tasks.stream().map(EcsNode::getHostName).toList());
     assertNull(tasks.get(0).getPublicIp());
     assertEquals("1.2.3.4", tasks.get(1).getPublicIp());
   }
@@ -191,7 +192,7 @@ class EcsManagerImplTest {
     when(euClient.runTask(any(RunTaskRequest.class))).thenReturn(
         RunTaskResponse.builder().tasks(Task.builder().taskArn(arn(TASK_ID)).build()).build());
 
-    TaskInfo started = ecsManager.startTask(Region.EU_CENTRAL_1, "alex-frankfurt-1", tags, Map.of());
+    EcsNode started = ecsManager.startTask(Region.EU_CENTRAL_1, "alex-frankfurt-1", tags, Map.of());
 
     ArgumentCaptor<RunTaskRequest> request = ArgumentCaptor.forClass(RunTaskRequest.class);
     verify(euClient).runTask(request.capture());
@@ -203,17 +204,18 @@ class EcsManagerImplTest {
 
   @Test
   @Timeout(30)
-  @DisplayName("2b AC-9: getTask describes the task with tags in the region's cluster and maps RunBy/ChatId/Lang")
+  @DisplayName("2b AC-9, 4 AC-9: getTask describes the task with tags in the region's cluster and maps RunBy/RunByName/ChatId/Lang")
   void getTaskMapsOwnerTags() {
     when(euClient.describeTasks(any(DescribeTasksRequest.class))).thenReturn(
         DescribeTasksResponse.builder().tasks(runningTask(
             Tag.builder().key("Service").value("vpn").build(),
             Tag.builder().key("HostName").value("alex-frankfurt-1").build(),
-            Tag.builder().key("RunBy").value("alex").build(),
+            Tag.builder().key("RunBy").value("7").build(),
+            Tag.builder().key("RunByName").value("alex").build(),
             Tag.builder().key("ChatId").value("100").build(),
             Tag.builder().key("Lang").value("ru").build())).build());
 
-    Optional<TaskInfo> task = ecsManager.getTask(Region.EU_CENTRAL_1, TASK_ID);
+    Optional<EcsNode> task = ecsManager.getTask(Region.EU_CENTRAL_1, TASK_ID);
 
     ArgumentCaptor<DescribeTasksRequest> request = ArgumentCaptor.forClass(DescribeTasksRequest.class);
     verify(euClient).describeTasks(request.capture());
@@ -224,7 +226,8 @@ class EcsManagerImplTest {
     assertEquals(TASK_ID, task.get().getId());
     assertEquals("alex-frankfurt-1", task.get().getHostName());
     assertEquals(Region.EU_CENTRAL_1, task.get().getRegion());
-    assertEquals("alex", task.get().getRunBy());
+    assertEquals("7", task.get().getRunBy());
+    assertEquals("alex", task.get().getRunByName());
     assertEquals("100", task.get().getChatId());
     assertEquals("ru", task.get().getLanguageCode());
   }
@@ -245,9 +248,9 @@ class EcsManagerImplTest {
     when(ec2ClientPool.getForRegion("eu-central-1")).thenReturn(ec2Client);
     stubEni("eni-a", networkInterfaceWithIp("eni-a", "1.2.3.4"));
 
-    Optional<TaskInfo> task = ecsManager.getTask(Region.EU_CENTRAL_1, TASK_ID);
+    Optional<EcsNode> task = ecsManager.getTask(Region.EU_CENTRAL_1, TASK_ID);
 
-    assertEquals("1.2.3.4", task.map(TaskInfo::getPublicIp).orElse(null));
+    assertEquals("1.2.3.4", task.map(EcsNode::getPublicIp).orElse(null));
   }
 
   @Test
@@ -259,10 +262,11 @@ class EcsManagerImplTest {
             .tasks(runningTask(Tag.builder().key("Service").value("vpn").build()))
             .build());
 
-    Optional<TaskInfo> task = ecsManager.getTask(Region.EU_CENTRAL_1, TASK_ID);
+    Optional<EcsNode> task = ecsManager.getTask(Region.EU_CENTRAL_1, TASK_ID);
 
     assertTrue(task.isPresent(), "task not found");
     assertNull(task.get().getRunBy());
+    assertNull(task.get().getRunByName());
     assertNull(task.get().getChatId());
     assertNull(task.get().getLanguageCode());
   }
@@ -331,6 +335,54 @@ class EcsManagerImplTest {
             .build());
 
     assertEquals(Optional.empty(), ecsManager.getTask(Region.EU_CENTRAL_1, TASK_ID));
+  }
+
+  @Test
+  @Timeout(30)
+  @DisplayName("4 AC-9: listTasks maps RunBy (user id) and RunByName (username); a task without RunByName has null")
+  void listTasksMapsRunByName() {
+    when(euClient.listTasks(any(ListTasksRequest.class))).thenReturn(
+        ListTasksResponse.builder()
+            .taskArns("arn:aws:ecs:region:123:task/cluster/task-a",
+                      "arn:aws:ecs:region:123:task/cluster/task-b")
+            .build());
+    Task withName = task("a").toBuilder()
+        .tags(Tag.builder().key("Service").value("vpn").build(),
+              Tag.builder().key("RunBy").value("7").build(),
+              Tag.builder().key("RunByName").value("alex").build())
+        .build();
+    Task legacy = task("b").toBuilder()
+        .tags(Tag.builder().key("Service").value("vpn").build(),
+              Tag.builder().key("RunBy").value("bob").build())
+        .build();
+    when(euClient.describeTasks(any(DescribeTasksRequest.class))).thenReturn(
+        DescribeTasksResponse.builder().tasks(withName, legacy).build());
+    when(usClient.listTasks(any(ListTasksRequest.class))).thenReturn(emptyList());
+    when(ukClient.listTasks(any(ListTasksRequest.class))).thenReturn(emptyList());
+
+    List<EcsNode> tasks = ecsManager.listTasks(MATCHING_TAGS);
+
+    assertEquals(List.of("task-a", "task-b"), tasks.stream().map(EcsNode::getId).toList());
+    assertEquals("7", tasks.get(0).getRunBy());
+    assertEquals("alex", tasks.get(0).getRunByName());
+    assertEquals("bob", tasks.get(1).getRunBy());
+    assertNull(tasks.get(1).getRunByName());
+  }
+
+  @Test
+  @DisplayName("4 AC-9: startTask passes the RunBy (id) and RunByName (username) tags to RunTask")
+  void startTaskPassesRunByName() {
+    Map<String, String> tags = Map.of("HostName", "alex-frankfurt-1", "RunBy", "7",
+                                      "RunByName", "alex", "Service", "vpn");
+    when(euClient.runTask(any(RunTaskRequest.class))).thenReturn(
+        RunTaskResponse.builder().tasks(Task.builder().taskArn(arn(TASK_ID)).build()).build());
+
+    ecsManager.startTask(Region.EU_CENTRAL_1, "alex-frankfurt-1", tags, Map.of());
+
+    ArgumentCaptor<RunTaskRequest> request = ArgumentCaptor.forClass(RunTaskRequest.class);
+    verify(euClient).runTask(request.capture());
+    assertEquals(tags, request.getValue().tags().stream()
+        .collect(Collectors.toMap(Tag::key, Tag::value)));
   }
 
   @Test

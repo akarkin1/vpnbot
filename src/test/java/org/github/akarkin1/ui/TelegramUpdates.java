@@ -18,10 +18,16 @@ public final class TelegramUpdates {
   }
 
   public static User user(String username, String firstName, String languageCode) {
+    return user(username, firstName, null, languageCode);
+  }
+
+  public static User user(String username, String firstName, String lastName,
+                          String languageCode) {
     User user = new User();
     user.setId(USER_ID);
     user.setUserName(username);
     user.setFirstName(firstName);
+    user.setLastName(lastName);
     user.setLanguageCode(languageCode);
     return user;
   }

@@ -20,6 +20,7 @@ env:
   CONFIG_CACHE_TTL_SEC: ${{ vars.CONFIG_CACHE_TTL_SEC || '300' }}
   CONFIG_CACHE_ENABLED: ${{ vars.CONFIG_CACHE_ENABLED || 'false' }}
   TG_ROOT_USERNAME: ${{ vars.TG_ROOT_USERNAME }}
+  TG_ROOT_USER_ID: ${{ vars.TG_ROOT_USER_ID }}
   S3_CONFIG_BUCKET_NAME: ${{ vars.S3_CONFIG_BUCKET_NAME }}
   CONFIG_TABLE_NAME: vpnbot
 
@@ -67,17 +68,18 @@ jobs:
       - name: Bootstrap Root User In DynamoDB
         id: bootstrap-root-user
         run: |
-          if [ -z "${{ env.TG_ROOT_USERNAME }}" ]; then
-            echo "::warning::TG_ROOT_USERNAME is not set, skipping the root user bootstrap"
+          if [ -z "${{ env.TG_ROOT_USER_ID }}" ]; then
+            echo "::warning::TG_ROOT_USER_ID is not set, skipping the root user bootstrap (needed only for a fresh installation)"
             exit 0
           fi
-          # Creates the root user only if it doesn't exist yet (never overwrites permissions)
+          # Creates the root user only if it doesn't exist yet (never overwrites permissions). Keyed by the
+          # Telegram user id, so a later deploy never recreates a username-keyed (takeover-prone) record.
           if aws dynamodb put-item --table-name "${{ env.CONFIG_TABLE_NAME }}" --region ${{ github.event.inputs.region }} \
-               --item '{"pk":{"S":"USER"},"sk":{"S":"${{ env.TG_ROOT_USERNAME }}"},"permissions":{"SS":["ROOT_ACCESS"]}}' \
+               --item '{"pk":{"S":"USER"},"sk":{"S":"${{ env.TG_ROOT_USER_ID }}"},"username":{"S":"${{ env.TG_ROOT_USERNAME }}"},"permissions":{"SS":["ROOT_ACCESS"]}}' \
                --condition-expression 'attribute_not_exists(pk)' 2> ./put-item-error.txt; then
-            echo "Root user '${{ env.TG_ROOT_USERNAME }}' created"
+            echo "Root user ${{ env.TG_ROOT_USER_ID }} (@${{ env.TG_ROOT_USERNAME }}) created"
           elif grep -q ConditionalCheckFailedException ./put-item-error.txt; then
-            echo "Root user '${{ env.TG_ROOT_USERNAME }}' already exists"
+            echo "Root user ${{ env.TG_ROOT_USER_ID }} already exists"
           else
             cat ./put-item-error.txt
             exit 1

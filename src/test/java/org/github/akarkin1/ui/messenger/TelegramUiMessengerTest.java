@@ -41,7 +41,7 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class TelegramUiMessengerTest {
 
-  private static final UiContext CONTEXT = new UiContext(100L, "alex", "Alex", "ru");
+  private static final UiContext CONTEXT = new UiContext(100L, 7L, "alex", "Alex", null, "ru");
   private static final Integer MESSAGE_ID = 42;
   private static final Integer SENT_MESSAGE_ID = 77;
   private static final Screen SCREEN = new Screen("screen", List.of(), List.of());

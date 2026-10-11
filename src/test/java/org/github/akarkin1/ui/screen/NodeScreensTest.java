@@ -1,6 +1,6 @@
 package org.github.akarkin1.ui.screen;
 
-import org.github.akarkin1.ecs.TaskInfo;
+import org.github.akarkin1.ecs.EcsNode;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.regions.Region;
@@ -13,12 +13,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class NodeScreensTest {
 
   private static final String TASK_ID = "0123456789abcdef0123456789abcdef";
-  private static final TaskInfo NODE = TaskInfo.builder()
+  private static final EcsNode NODE = EcsNode.builder()
       .id(TASK_ID)
       .hostName("alex-frankfurt-1")
       .region(Region.EU_CENTRAL_1)
       .publicIp("1.2.3.4")
-      .runBy("alex")
+      .runBy("7")
+      .runByName("alex")
       .chatId("100")
       .languageCode("ru")
       .build();
@@ -49,9 +50,32 @@ class NodeScreensTest {
   }
 
   @Test
+  @DisplayName("4 §4.1: confirmStop names the owner by RunByName (the username), not by the id in RunBy")
+  void confirmStopShowsRunByName() {
+    Screen screen = screens.confirmStop(NODE);
+
+    assertEquals(List.of("alex-frankfurt-1", "@alex"), screen.params());
+  }
+
+  @Test
+  @DisplayName("4 §4.1, D-3: confirmStop falls back to RunBy for a node started before Phase 4 (RunBy = username)")
+  void confirmStopFallsBackToRunBy() {
+    EcsNode legacy = EcsNode.builder()
+        .id(TASK_ID)
+        .hostName("alex-frankfurt-1")
+        .region(Region.EU_CENTRAL_1)
+        .runBy("alex")
+        .build();
+
+    Screen screen = screens.confirmStop(legacy);
+
+    assertEquals(List.of("alex-frankfurt-1", "@alex"), screen.params());
+  }
+
+  @Test
   @DisplayName("2b D-11: confirmStop shows — instead of @null for a task without RunBy")
   void confirmStopWithoutRunBy() {
-    TaskInfo untagged = TaskInfo.builder()
+    EcsNode untagged = EcsNode.builder()
         .id(TASK_ID)
         .hostName("legacy-frankfurt-1")
         .region(Region.EU_CENTRAL_1)
@@ -97,10 +121,10 @@ class NodeScreensTest {
   @Test
   @DisplayName("2b AC-7: node screens' placeholders match params, no null params (also without a host name)")
   void placeholdersMatchParams() {
-    TaskInfo withoutHost = TaskInfo.builder()
+    EcsNode withoutHost = EcsNode.builder()
         .id(TASK_ID)
         .region(Region.US_EAST_1)
-        .runBy("bob")
+        .runBy("8")
         .build();
 
     List.of(screens.stopping(NODE),

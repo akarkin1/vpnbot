@@ -3,8 +3,9 @@ package org.github.akarkin1.dispatcher.command;
 import lombok.RequiredArgsConstructor;
 import org.github.akarkin1.auth.Authorizer;
 import org.github.akarkin1.auth.Permission;
+import org.github.akarkin1.auth.TgUser;
 import org.github.akarkin1.dispatcher.response.TextCommandResponse;
-import org.github.akarkin1.ecs.TaskInfo;
+import org.github.akarkin1.ecs.EcsNode;
 import org.github.akarkin1.tailscale.TailscaleNodeService;
 import org.github.akarkin1.tg.TgRequestContext;
 
@@ -18,31 +19,31 @@ public final class ListNodesCommand implements BotCommand<TextCommandResponse> {
 
   @Override
   public TextCommandResponse run(List<String> args) {
-    String username = TgRequestContext.getUsername();
+    TgUser user = TgRequestContext.getUser();
 
-    if (username == null) {
+    if (user == null || user.id() == null) {
       return new TextCommandResponse("${command.list-nodes.no-permission}");
     }
 
-    if (authorizer.hasPermission(username, Permission.ROOT_ACCESS)) {
-      // no username restriction is required, just list all nodes running
-      username = null;
-    }
+    // root: no owner restriction is required, just list all nodes running
+    String ownerId = authorizer.hasPermission(user, Permission.ROOT_ACCESS)
+        ? null
+        : String.valueOf(user.id());
 
-    List<TaskInfo> taskInfos = tailscaleNodeService.listTasks(username);
+    List<EcsNode> ecsNodes = tailscaleNodeService.listTasks(ownerId);
 
-    if (taskInfos.isEmpty()) {
+    if (ecsNodes.isEmpty()) {
       return new TextCommandResponse("${command.list-nodes.no-nodes-run.message}");
     }
 
     StringBuilder responseBuilder = new StringBuilder();
     responseBuilder.append("${command.list-nodes.running-nodes.message}: ").append("\n");
 
-    taskInfos.forEach(taskInfo ->
-                          responseBuilder.append("\t– ${common.node.name.message}: %s%n".formatted(taskInfo.getHostName()))
-                              .append("\t\t${common.node.status.message}: %s%n".formatted(taskInfo.getState()))
-                              .append("\t\t${common.node.public-ip.message}: %s%n".formatted(taskInfo.getPublicIp()))
-                              .append("\t\t${common.node.region.message}: %s (%s)%n".formatted(taskInfo.getLocation(), taskInfo.getRegion())));
+    ecsNodes.forEach(ecsNode ->
+                          responseBuilder.append("\t– ${common.node.name.message}: %s%n".formatted(ecsNode.getHostName()))
+                              .append("\t\t${common.node.status.message}: %s%n".formatted(ecsNode.getState()))
+                              .append("\t\t${common.node.public-ip.message}: %s%n".formatted(ecsNode.getPublicIp()))
+                              .append("\t\t${common.node.region.message}: %s (%s)%n".formatted(ecsNode.getLocation(), ecsNode.getRegion())));
 
     return new TextCommandResponse(responseBuilder.toString());
   }

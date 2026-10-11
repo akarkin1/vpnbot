@@ -4,13 +4,14 @@ import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.github.akarkin1.auth.Permission;
 import org.github.akarkin1.auth.PermissionsService;
+import org.github.akarkin1.auth.TgUser;
 import org.github.akarkin1.dispatcher.response.EmptyResponse;
 import org.github.akarkin1.message.MessageConsumer;
 import org.github.akarkin1.util.UserNameUtil;
 
 import java.util.List;
 import java.util.Map;
-import java.util.function.Predicate;
+import java.util.Optional;
 
 @RequiredArgsConstructor
 public class DeleteUsersCommand implements BotCommand<EmptyResponse> {
@@ -30,25 +31,24 @@ public class DeleteUsersCommand implements BotCommand<EmptyResponse> {
       return EmptyResponse.NONE;
     }
 
-    Map<String, List<Permission>> userPermissions = permissionsService.getUserPermissions();
-    List<String> notFoundUsers = usersNames.stream()
-        .filter(Predicate.not(userPermissions::containsKey))
-        .toList();
+    Map<TgUser, List<Permission>> users = permissionsService.getUsers();
 
     boolean atLeastOneDeleted = false;
     for (String userName : usersNames) {
-      if (notFoundUsers.contains(userName)) {
+      Optional<TgUser> user = resolveUser(userName, users);
+      if (user.isEmpty()) {
         messageConsumer.accept("${command.delete-users.user-not-found.error} %s.".formatted(userName));
         continue;
       }
 
       // do not allow to delete the root user
-      if (userPermissions.get(userName).contains(Permission.ROOT_ACCESS)) {
+      List<Permission> permissions = users.getOrDefault(user.get(), List.of());
+      if (permissions.contains(Permission.ROOT_ACCESS)) {
         messageConsumer.accept("${command.delete-users.root-cannot-be-deleted.error} %s.".formatted(userName));
         continue;
       }
 
-      permissionsService.deleteUser(userName);
+      permissionsService.deleteUser(user.get());
       messageConsumer.accept("${command.delete-users.user-is-deleted.message}", userName);
       atLeastOneDeleted = true;
     }
@@ -58,6 +58,16 @@ public class DeleteUsersCommand implements BotCommand<EmptyResponse> {
     }
 
     return EmptyResponse.NONE;
+  }
+
+  /** A known user by id (all digits) or by username. */
+  private Optional<TgUser> resolveUser(String userName, Map<TgUser, List<Permission>> users) {
+    Optional<Long> id = UserArguments.parseId(userName);
+    if (id.isPresent()) {
+      TgUser byId = new TgUser(id.get(), null);
+      return users.keySet().stream().filter(byId::equals).findFirst();
+    }
+    return permissionsService.findByUsername(userName);
   }
 
   @Override

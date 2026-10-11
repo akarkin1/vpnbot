@@ -2,7 +2,7 @@ package org.github.akarkin1.ui.screen;
 
 import org.apache.commons.lang3.StringUtils;
 import org.github.akarkin1.ecs.RunTaskStatus;
-import org.github.akarkin1.ecs.TaskInfo;
+import org.github.akarkin1.ecs.EcsNode;
 
 import java.util.List;
 
@@ -32,7 +32,7 @@ final class NodeFormat {
     return value.replace("%", "%%");
   }
 
-  static List<Object> nodeParams(TaskInfo node, RegionLabels regionLabels) {
+  static List<Object> nodeParams(EcsNode node, RegionLabels regionLabels) {
     String regionLabel = node.getRegion() == null ? null : regionLabels.label(node.getRegion().id());
     return List.of(statusEmoji(node.getState()),
                    orDash(node.getHostName()),

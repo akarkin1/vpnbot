@@ -18,6 +18,7 @@ import org.telegram.telegrambots.meta.api.objects.Update;
 import java.util.List;
 
 import static org.github.akarkin1.ui.TelegramUpdates.CHAT_ID;
+import static org.github.akarkin1.ui.TelegramUpdates.USER_ID;
 import static org.github.akarkin1.ui.TelegramUpdates.messageUpdate;
 import static org.github.akarkin1.ui.TelegramUpdates.user;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -30,7 +31,7 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class RunNodeCommandTest {
 
-  private static final UiContext EXPECTED_CONTEXT = new UiContext(CHAT_ID, "alex", null, "ru");
+  private static final UiContext EXPECTED_CONTEXT = new UiContext(CHAT_ID, USER_ID, "alex", null, null, "ru");
 
   @Mock
   private TailscaleNodeService nodeService;

@@ -2,7 +2,7 @@ package org.github.akarkin1.ui.screen;
 
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
-import org.github.akarkin1.ecs.TaskInfo;
+import org.github.akarkin1.ecs.EcsNode;
 import org.github.akarkin1.ui.NodeRef;
 import org.github.akarkin1.ui.UiAction;
 
@@ -17,6 +17,10 @@ public class HomeScreen {
   private static final List<Button> REFRESH_HELP_ROW = List.of(
       Button.action("🔄 ${ui.button.refresh}", UiAction.home()),
       Button.action("❓ ${ui.button.help}", UiAction.help()));
+  private static final List<Button> REQUEST_ACCESS_ROW = List.of(
+      Button.action("🙋 ${ui.button.request-access}", UiAction.requestAccess()));
+  private static final List<Button> USERS_ROW = List.of(
+      Button.action("👥 ${ui.button.users}", UiAction.users()));
 
   private final RegionLabels regionLabels;
 
@@ -24,7 +28,7 @@ public class HomeScreen {
     StringBuilder template = new StringBuilder();
     List<Object> params = new ArrayList<>();
     appendGreeting(model, template, params);
-    if (!model.canListNodes() && !model.canRunNodes()) {
+    if (!model.hasAccess()) {
       template.append("\n\n${ui.home.no-access}");
     }
     if (model.canListNodes()) {
@@ -62,7 +66,7 @@ public class HomeScreen {
       template.append("\n${ui.home.no-nodes}");
       return;
     }
-    for (TaskInfo node : model.nodes()) {
+    for (EcsNode node : model.nodes()) {
       template.append("\n%s <b>%s</b> · %s · <code>%s</code>");
       params.addAll(NodeFormat.nodeParams(node, regionLabels));
     }
@@ -77,10 +81,16 @@ public class HomeScreen {
 
   private List<List<Button>> keyboard(HomeModel model) {
     List<List<Button>> keyboard = new ArrayList<>();
+    if (!model.hasAccess()) {
+      keyboard.add(REQUEST_ACCESS_ROW);
+    }
     if (model.canRunNodes()) {
       keyboard.addAll(regionRows(model.regionIds()));
     }
     keyboard.addAll(stopRows(model));
+    if (model.canManageUsers()) {
+      keyboard.add(USERS_ROW);
+    }
     keyboard.add(REFRESH_HELP_ROW);
     return keyboard;
   }
@@ -104,7 +114,7 @@ public class HomeScreen {
         .toList();
   }
 
-  private static Button stopButton(TaskInfo node) {
+  private static Button stopButton(EcsNode node) {
     NodeRef nodeRef = new NodeRef(node.getRegion().id(), node.getId());
     String hostName = NodeFormat.escapePercent(NodeFormat.orDash(node.getHostName()));
     return Button.action("🛑 " + hostName, UiAction.stop(nodeRef));

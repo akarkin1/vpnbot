@@ -9,14 +9,14 @@ import java.util.Set;
 
 public interface EcsManager {
 
-  TaskInfo startTask(Region region,
-                     String hostName,
-                     Map<String, String> tags,
-                     Map<String, String> environment);
+  EcsNode startTask(Region region,
+                    String hostName,
+                    Map<String, String> tags,
+                    Map<String, String> environment);
 
-  List<TaskInfo> listTasks(Map<String, String> matchingTags);
+  List<EcsNode> listTasks(Map<String, String> matchingTags);
 
-  Optional<TaskInfo> getTask(Region region, String taskId);
+  Optional<EcsNode> getTask(Region region, String taskId);
 
   void stopTask(Region region, String taskId, String reason);
 
