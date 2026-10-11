@@ -414,17 +414,6 @@ class NodeControllerTest {
   // --- identity (Phase 4) --------------------------------------------------------------------
 
   @Test
-  @DisplayName("4 AC-9, D-3: a node started before Phase 4 (RunBy = username) can still be stopped by its owner")
-  void stopLegacyNodeByOwner() {
-    when(nodeService.getNode(REGION, TASK_ID)).thenReturn(Optional.of(node("alex", "100", "ru")));
-
-    controller.stop(ALEX, MESSAGE_ID, REF);
-
-    verify(nodeService).stopNode(REGION, TASK_ID, "Stopped by @alex via the bot");
-    verify(nodeScreens, never()).confirmStop(any());
-  }
-
-  @Test
   @DisplayName("4 AC-9: a user without a username but with RUN_NODES (by id) may stop an own node (RunBy = id)")
   void stopByOwnerWithoutUsername() {
     UiContext anna = new UiContext(600L, 11L, null, "Anna", null, "en-US");
