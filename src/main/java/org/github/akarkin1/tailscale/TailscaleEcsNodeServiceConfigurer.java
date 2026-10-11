@@ -12,6 +12,8 @@ import org.github.akarkin1.ecs.EcsManager;
 import org.github.akarkin1.ecs.EcsManagerImpl;
 import org.github.akarkin1.metrics.RequestMetrics;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbTable;
+import software.amazon.awssdk.services.ec2.Ec2Client;
+import software.amazon.awssdk.services.ecs.EcsClient;
 
 import java.time.Clock;
 import java.util.concurrent.ExecutorService;
@@ -25,8 +27,10 @@ public class TailscaleEcsNodeServiceConfigurer {
     YamlApplicationConfiguration appConfig = ConfigManager.getApplicationYaml();
 
     TaskConfigService configService = configureTaskConfigService(regions, metrics);
-    EcsClientPool ecsClientPool = new EcsClientPool();
-    Ec2ClientPool ec2ClientPool = new Ec2ClientPool();
+    EcsClientPool ecsClientPool = new EcsClientPool(
+        region -> EcsClient.builder().region(region).build());
+    Ec2ClientPool ec2ClientPool = new Ec2ClientPool(
+        region -> Ec2Client.builder().region(region).build());
     ExecutorService executor = Executors.newFixedThreadPool(
         ECS_THREADS, Thread.ofPlatform().daemon().factory());
     EcsManager ecsManager = new EcsManagerImpl(configService, ecsClientPool,

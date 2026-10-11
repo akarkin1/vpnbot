@@ -1,36 +1,27 @@
 package org.github.akarkin1.ec2;
 
+import lombok.RequiredArgsConstructor;
+import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.ec2.Ec2Client;
 import software.amazon.awssdk.services.ec2.model.DescribeNetworkInterfacesRequest;
 import software.amazon.awssdk.services.ec2.model.Filter;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 
-public class Ec2ClientPool implements Ec2ClientProvider {
+/** One EC2 client per region, created by {@code clients} on the region's first use. */
+@RequiredArgsConstructor
+public class Ec2ClientPool {
 
   /** A well-formed network interface id that no interface has: the lookup matches nothing. */
   static final String PRIMER_NETWORK_INTERFACE_ID = "eni-00000000000000000";
 
-  private final Ec2ClientProvider delegate;
+  private final Function<Region, Ec2Client> clients;
   private final Map<String, Ec2Client> pool = new ConcurrentHashMap<>();
 
-  public Ec2ClientPool() {
-    this(new SimpleEc2ClientProvider());
-  }
-
-  public Ec2ClientPool(Ec2ClientProvider delegate) {
-    this.delegate = delegate;
-  }
-
-  @Override
   public Ec2Client getForRegion(String regionName) {
-    return pool.computeIfAbsent(regionName, delegate::getForRegion);
-  }
-
-  @Override
-  public Ec2Client getForGlobal() {
-    return pool.computeIfAbsent("GLOBAL", delegate::getForRegion);
+    return pool.computeIfAbsent(regionName, name -> clients.apply(Region.of(name)));
   }
 
   /**
