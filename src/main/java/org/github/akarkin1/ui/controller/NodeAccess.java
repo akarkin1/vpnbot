@@ -35,16 +35,10 @@ public class NodeAccess {
     return user != null && authorizer.hasPermission(user, Permission.ROOT_ACCESS);
   }
 
-  /**
-   * The {@code RunBy} tag holds the owner's user id; nodes started before Phase 4 hold the
-   * username there, so it matches too during the transition (D-3).
-   */
+  /** The {@code RunBy} tag holds the owner's Telegram user id; nothing else makes a user the owner. */
   private static boolean isOwner(TgUser user, EcsNode node) {
-    if (user == null || node.getRunBy() == null) {
-      return false;
-    }
-    return user.id() != null && String.valueOf(user.id()).equals(node.getRunBy())
-           || user.username() != null && user.username().equals(node.getRunBy());
+    return user != null && user.id() != null
+           && String.valueOf(user.id()).equals(node.getRunBy());
   }
 
 }

@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.lenient;
 
-/** Nodes are owned by user id ({@code RunBy} = id); during the transition also by username (D-3). */
+/** Nodes are owned by user id ({@code RunBy} = id) only. */
 @ExtendWith(MockitoExtension.class)
 class NodeAccessTest {
 
@@ -78,23 +78,6 @@ class NodeAccessTest {
         () -> assertFalse(access.needsConfirmation(anna, annasNode)),
         () -> assertTrue(access.canView(anna, annasNode)),
         () -> assertFalse(access.canView(anna, ALEX_NODE)));
-  }
-
-  @Test
-  @DisplayName("4 AC-9, D-3: during the transition a node started before Phase 4 (RunBy = username) is still the user's own")
-  void transitionUsernameMatch() {
-    EcsNode legacyNode = EcsNode.builder()
-        .id("0123456789abcdef0123456789abcdef")
-        .hostName("alex-frankfurt-1")
-        .runBy("alex")
-        .build();
-
-    assertAll(
-        () -> assertTrue(access.canStop(ALEX, legacyNode)),
-        () -> assertFalse(access.needsConfirmation(ALEX, legacyNode)),
-        () -> assertTrue(access.canView(ALEX, legacyNode)),
-        () -> assertFalse(access.canView(BOB, legacyNode)),
-        () -> assertFalse(access.canStop(BOB, legacyNode)));
   }
 
   @Test
