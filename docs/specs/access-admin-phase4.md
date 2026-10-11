@@ -102,11 +102,12 @@ the current selection as a bitmask `m` of `UserRole` bits (`RoleSet.encode/decod
   gone → `alreadyHandled()`; else redraw the same message with the role flipped (✅/☐) and the new
   mask on every button. Nothing is written.
 - `[✅ Grant]` → `UiAction.accessGrant(userId, m)` (`ACCESS_GRANT:<id>:<m>`); with `m = 0` the tap only
-  answers the callback (nothing changes); otherwise `AccessController.decide(..., Optional.of(roles))`.
-- `[✖ Decline]` → `UiAction.accessDecline(userId)` (`ACCESS_DECLINE:<id>`) → `decide(..., empty)`.
+  answers the callback (nothing changes); otherwise `AccessController.grant(..., roles)`.
+- `[✖ Decline]` → `UiAction.accessDecline(userId)` (`ACCESS_DECLINE:<id>`) → `AccessController.decline(...)`.
 Each admin's message keeps its own selection; the first decision wins (see step 2 below).
 
-`AccessController.decide(context, messageId, userId, Optional<Set<UserRole>> roles)`:
+`AccessController.grant(context, messageId, userId, Set<UserRole> roles)` /
+`AccessController.decline(context, messageId, userId)` (D-25):
 1. Caller must have `USER_MANAGEMENT` (or root), else edit to `accessScreens.notAllowed()`.
 2. Read the request record; if missing → edit to `accessScreens.alreadyHandled()`
    (`${ui.access.already-handled}`), done.
@@ -249,7 +250,7 @@ UiAction: requestAccess(), accessToggle(long userId, int mask, UserRole role), a
          + Optional<Long> userId(), Optional<String> userKey(), OptionalInt roleMask(), Optional<UserRole> role()
 public final class RoleSet { static int encode(Set<UserRole>); static Set<UserRole> decode(int); }   // auth
 // ui.controller
-public class AccessController { request(UiContext, Integer messageId); toggle(UiContext, Integer messageId, long userId, int mask, UserRole role); decide(UiContext, Integer messageId, long userId, Optional<Set<UserRole>> roles); }
+public class AccessController { request(UiContext, Integer messageId); toggle(UiContext, Integer messageId, long userId, int mask, UserRole role); grant(UiContext, Integer messageId, long userId, Set<UserRole> roles); decline(UiContext, Integer messageId, long userId); }
 public class UsersController  { show(UiContext, Integer messageId); showUser(UiContext, Integer messageId, String key); toggleRole(UiContext, Integer messageId, String key, UserRole role); confirmDelete(UiContext, Integer messageId, String key); delete(UiContext, Integer messageId, String key); }
 // ui.screen
 public class AccessScreens { requested(); alreadyRequested(); adminRequest(AccessRequest, Set<UserRole> selected); granted(AccessRequest, Set<UserRole>); declined(AccessRequest); alreadyHandled(); accessGranted(Set<UserRole>); accessDeclined(); notAllowed(); }
@@ -277,7 +278,7 @@ NodeOwner(long userId, String username, Long chatId, String languageCode); TaskI
 - AC-4 `AccessController.request`: the three branches of §4.2; the admin notification goes to each
   admin's user id as chat id, not to non-admins; records the request with `expiresAt` = +7 days.
 - AC-5 `AccessController.toggle`: redraws with the flipped role and the new mask on every button,
-  writes nothing, permission check, missing record → already handled. `decide`: permission check;
+  writes nothing, permission check, missing record → already handled. `grant`/`decline`: permission check;
   missing record → already handled; grant with the selected roles assigns their union and notifies in
   the requester's language naming the roles; an empty mask on Grant changes nothing; decline
   notifies; the record is deleted on grant/decline; a failing requester notification doesn't fail the
@@ -393,7 +394,7 @@ Order: H1 → T1/T2 (deploy, observe the migration) → T3/T4 (deploy).
 - D-22 (T4) The admin request message shows the first name only (`AccessRequest` holds no last
   name), without "@null" when there is no username. A node admin shows Read-only as ticked too
   (its permissions are a subset), and unticking Node admin leaves Read-only. Users are listed sorted by
-  username case-insensitively, users without a username last. `decide` with an empty role set is a
+  username case-insensitively, users without a username last. `grant` with an empty role set is a
   no-op (in addition to the router skipping mask 0).
 - D-23 (review) The root bootstrap is keyed by `TG_ROOT_USER_ID`, not by a pending username record:
   the "not registered yet" check on a pending record would pass again after the root's activation, so
@@ -404,3 +405,7 @@ Order: H1 → T1/T2 (deploy, observe the migration) → T3/T4 (deploy).
   behind it was hidden. `PendingUserActivator.activate(TgUser)` does the activation explicitly, once
   per request, from the Lambda handler before routing; `WhiteListAuthorizer` only reads the `USER`
   record. The handler is static wiring without a test, so the call order is covered by review only.
+- D-25 (review) `AccessController.decide(..., Optional<Set<UserRole>> roles)` is split into
+  `grant(..., Set<UserRole> roles)` and `decline(...)`: an `Optional` parameter is an anti-pattern
+  (callers wrap values, the method branches on presence). Both share the permission and
+  missing-record checks; behaviour is unchanged.

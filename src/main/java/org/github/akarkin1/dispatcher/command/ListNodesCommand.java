@@ -5,7 +5,7 @@ import org.github.akarkin1.auth.Authorizer;
 import org.github.akarkin1.auth.Permission;
 import org.github.akarkin1.auth.TgUser;
 import org.github.akarkin1.dispatcher.response.TextCommandResponse;
-import org.github.akarkin1.ecs.TaskInfo;
+import org.github.akarkin1.ecs.EcsNode;
 import org.github.akarkin1.tailscale.TailscaleNodeService;
 import org.github.akarkin1.tg.TgRequestContext;
 
@@ -30,16 +30,16 @@ public final class ListNodesCommand implements BotCommand<TextCommandResponse> {
         ? null
         : String.valueOf(user.id());
 
-    List<TaskInfo> taskInfos = tailscaleNodeService.listTasks(ownerId);
+    List<EcsNode> ecsNodes = tailscaleNodeService.listTasks(ownerId);
 
-    if (taskInfos.isEmpty()) {
+    if (ecsNodes.isEmpty()) {
       return new TextCommandResponse("${command.list-nodes.no-nodes-run.message}");
     }
 
     StringBuilder responseBuilder = new StringBuilder();
     responseBuilder.append("${command.list-nodes.running-nodes.message}: ").append("\n");
 
-    taskInfos.forEach(taskInfo ->
+    ecsNodes.forEach(taskInfo ->
                           responseBuilder.append("\t– ${common.node.name.message}: %s%n".formatted(taskInfo.getHostName()))
                               .append("\t\t${common.node.status.message}: %s%n".formatted(taskInfo.getState()))
                               .append("\t\t${common.node.public-ip.message}: %s%n".formatted(taskInfo.getPublicIp()))

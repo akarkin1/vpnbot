@@ -1,6 +1,6 @@
 package org.github.akarkin1.ui.screen;
 
-import org.github.akarkin1.ecs.TaskInfo;
+import org.github.akarkin1.ecs.EcsNode;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.regions.Region;
@@ -72,7 +72,7 @@ class LaunchScreensTest {
   @Test
   @DisplayName("2b AC-7: existingNodes shows the region, one use button per node (USE:<region>:<task>), then start-another (RUN_NEW:<region>), then menu")
   void existingNodes() {
-    List<TaskInfo> nodes = List.of(node("task-a", "alex-frankfurt-1"), node("task-b", "alex-frankfurt-2"));
+    List<EcsNode> nodes = List.of(node("task-a", "alex-frankfurt-1"), node("task-b", "alex-frankfurt-2"));
 
     Screen screen = screens.existingNodes(REGION, nodes);
 
@@ -222,8 +222,8 @@ class LaunchScreensTest {
     return new Button("🛑 ${ui.button.stop}", callbackData, null);
   }
 
-  private static TaskInfo node(String id, String hostName) {
-    return TaskInfo.builder()
+  private static EcsNode node(String id, String hostName) {
+    return EcsNode.builder()
         .id(id)
         .hostName(hostName)
         .region(Region.EU_CENTRAL_1)

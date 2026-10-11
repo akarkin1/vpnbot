@@ -125,16 +125,16 @@ class EcsManagerImplTest {
     stubListTasks(usClient, allRegionsQuerying, 0, "us");
     stubListTasks(ukClient, allRegionsQuerying, 100, "uk");
 
-    List<TaskInfo> tasks = ecsManager.listTasks(MATCHING_TAGS);
+    List<EcsNode> tasks = ecsManager.listTasks(MATCHING_TAGS);
 
-    assertEquals(List.of("task-eu", "task-us", "task-uk"), tasks.stream().map(TaskInfo::getId).toList());
+    assertEquals(List.of("task-eu", "task-us", "task-uk"), tasks.stream().map(EcsNode::getId).toList());
     assertEquals(List.of("host-eu", "host-us", "host-uk"),
-                 tasks.stream().map(TaskInfo::getHostName).toList());
-    assertEquals(REGIONS, tasks.stream().map(TaskInfo::getRegion).toList());
+                 tasks.stream().map(EcsNode::getHostName).toList());
+    assertEquals(REGIONS, tasks.stream().map(EcsNode::getRegion).toList());
     assertEquals(List.of("Frankfurt", "N. Virginia", "London"),
-                 tasks.stream().map(TaskInfo::getLocation).toList());
+                 tasks.stream().map(EcsNode::getLocation).toList());
     assertEquals(List.of("HEALTHY", "HEALTHY", "HEALTHY"),
-                 tasks.stream().map(TaskInfo::getState).toList());
+                 tasks.stream().map(EcsNode::getState).toList());
   }
 
   @Test
@@ -160,9 +160,9 @@ class EcsManagerImplTest {
     stubEni("eni-a", NetworkInterface.builder().networkInterfaceId("eni-a").build());
     stubEni("eni-b", networkInterfaceWithIp("eni-b", "1.2.3.4"));
 
-    List<TaskInfo> tasks = ecsManager.listTasks(MATCHING_TAGS);
+    List<EcsNode> tasks = ecsManager.listTasks(MATCHING_TAGS);
 
-    assertEquals(List.of("task-a", "task-b"), tasks.stream().map(TaskInfo::getId).toList());
+    assertEquals(List.of("task-a", "task-b"), tasks.stream().map(EcsNode::getId).toList());
     assertNull(tasks.get(0).getPublicIp());
     assertEquals("1.2.3.4", tasks.get(1).getPublicIp());
   }
@@ -176,10 +176,10 @@ class EcsManagerImplTest {
         .thenThrow(Ec2Exception.builder().message("InvalidNetworkInterfaceID.NotFound").build());
     stubEni("eni-b", networkInterfaceWithIp("eni-b", "1.2.3.4"));
 
-    List<TaskInfo> tasks = ecsManager.listTasks(MATCHING_TAGS);
+    List<EcsNode> tasks = ecsManager.listTasks(MATCHING_TAGS);
 
-    assertEquals(List.of("task-a", "task-b"), tasks.stream().map(TaskInfo::getId).toList());
-    assertEquals(List.of("host-a", "host-b"), tasks.stream().map(TaskInfo::getHostName).toList());
+    assertEquals(List.of("task-a", "task-b"), tasks.stream().map(EcsNode::getId).toList());
+    assertEquals(List.of("host-a", "host-b"), tasks.stream().map(EcsNode::getHostName).toList());
     assertNull(tasks.get(0).getPublicIp());
     assertEquals("1.2.3.4", tasks.get(1).getPublicIp());
   }
@@ -192,7 +192,7 @@ class EcsManagerImplTest {
     when(euClient.runTask(any(RunTaskRequest.class))).thenReturn(
         RunTaskResponse.builder().tasks(Task.builder().taskArn(arn(TASK_ID)).build()).build());
 
-    TaskInfo started = ecsManager.startTask(Region.EU_CENTRAL_1, "alex-frankfurt-1", tags, Map.of());
+    EcsNode started = ecsManager.startTask(Region.EU_CENTRAL_1, "alex-frankfurt-1", tags, Map.of());
 
     ArgumentCaptor<RunTaskRequest> request = ArgumentCaptor.forClass(RunTaskRequest.class);
     verify(euClient).runTask(request.capture());
@@ -215,7 +215,7 @@ class EcsManagerImplTest {
             Tag.builder().key("ChatId").value("100").build(),
             Tag.builder().key("Lang").value("ru").build())).build());
 
-    Optional<TaskInfo> task = ecsManager.getTask(Region.EU_CENTRAL_1, TASK_ID);
+    Optional<EcsNode> task = ecsManager.getTask(Region.EU_CENTRAL_1, TASK_ID);
 
     ArgumentCaptor<DescribeTasksRequest> request = ArgumentCaptor.forClass(DescribeTasksRequest.class);
     verify(euClient).describeTasks(request.capture());
@@ -248,9 +248,9 @@ class EcsManagerImplTest {
     when(ec2ClientPool.getForRegion("eu-central-1")).thenReturn(ec2Client);
     stubEni("eni-a", networkInterfaceWithIp("eni-a", "1.2.3.4"));
 
-    Optional<TaskInfo> task = ecsManager.getTask(Region.EU_CENTRAL_1, TASK_ID);
+    Optional<EcsNode> task = ecsManager.getTask(Region.EU_CENTRAL_1, TASK_ID);
 
-    assertEquals("1.2.3.4", task.map(TaskInfo::getPublicIp).orElse(null));
+    assertEquals("1.2.3.4", task.map(EcsNode::getPublicIp).orElse(null));
   }
 
   @Test
@@ -262,7 +262,7 @@ class EcsManagerImplTest {
             .tasks(runningTask(Tag.builder().key("Service").value("vpn").build()))
             .build());
 
-    Optional<TaskInfo> task = ecsManager.getTask(Region.EU_CENTRAL_1, TASK_ID);
+    Optional<EcsNode> task = ecsManager.getTask(Region.EU_CENTRAL_1, TASK_ID);
 
     assertTrue(task.isPresent(), "task not found");
     assertNull(task.get().getRunBy());
@@ -360,9 +360,9 @@ class EcsManagerImplTest {
     when(usClient.listTasks(any(ListTasksRequest.class))).thenReturn(emptyList());
     when(ukClient.listTasks(any(ListTasksRequest.class))).thenReturn(emptyList());
 
-    List<TaskInfo> tasks = ecsManager.listTasks(MATCHING_TAGS);
+    List<EcsNode> tasks = ecsManager.listTasks(MATCHING_TAGS);
 
-    assertEquals(List.of("task-a", "task-b"), tasks.stream().map(TaskInfo::getId).toList());
+    assertEquals(List.of("task-a", "task-b"), tasks.stream().map(EcsNode::getId).toList());
     assertEquals("7", tasks.get(0).getRunBy());
     assertEquals("alex", tasks.get(0).getRunByName());
     assertEquals("bob", tasks.get(1).getRunBy());

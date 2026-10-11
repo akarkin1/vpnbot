@@ -1,6 +1,6 @@
 package org.github.akarkin1.tailscale;
 
-import org.github.akarkin1.ecs.TaskInfo;
+import org.github.akarkin1.ecs.EcsNode;
 
 import java.util.List;
 import java.util.Map;
@@ -15,17 +15,17 @@ public interface TailscaleNodeService {
 
   boolean isHostnameAvailable(String userRegion, String userHostName);
 
-  TaskInfo runNode(String regionId, NodeOwner owner, String hostName,
-                   Map<String, String> environment);
+  EcsNode runNode(String regionId, NodeOrigin origin, String hostName,
+                  Map<String, String> environment);
 
-  Optional<TaskInfo> getNode(String regionId, String taskId);
+  Optional<EcsNode> getNode(String regionId, String taskId);
 
   void stopNode(String regionId, String taskId, String reason);
 
   String toRegionId(String userRegion);
 
   /** The nodes started by the user with this Telegram user id (its {@code RunBy} tag); null: all nodes. */
-  List<TaskInfo> listTasks(String userTgId);
+  List<EcsNode> listTasks(String userTgId);
 
   List<String> getSupportedRegionDescriptions();
 

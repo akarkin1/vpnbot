@@ -25,7 +25,7 @@ public class WhiteListAuthorizer implements Authorizer {
   public boolean hasPermission(TgUser user, Permission permission) {
     log.debug("auth debug: user={}, action={}, isWhiteListEnabled={}",
               user, permission, config.isEnabled());
-    if (!Boolean.TRUE.equals(config.isEnabled())) {
+    if (!config.isEnabled()) {
       return true;
     }
     if (user == null || user.id() == null) {

@@ -9,7 +9,7 @@ import software.amazon.awssdk.regions.Region;
 @Getter
 @Builder
 @ToString
-public class TaskInfo {
+public class EcsNode {
 
   private String id;
   private String hostName;

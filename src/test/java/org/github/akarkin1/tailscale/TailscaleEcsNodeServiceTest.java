@@ -3,7 +3,7 @@ package org.github.akarkin1.tailscale;
 import org.github.akarkin1.config.YamlApplicationConfiguration.AWSConfiguration;
 import org.github.akarkin1.config.YamlApplicationConfiguration.EcsConfiguration;
 import org.github.akarkin1.ecs.EcsManager;
-import org.github.akarkin1.ecs.TaskInfo;
+import org.github.akarkin1.ecs.EcsNode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -32,7 +32,7 @@ class TailscaleEcsNodeServiceTest {
   private static final String REGION = "eu-central-1";
   private static final String TASK_ID = "0123456789abcdef0123456789abcdef";
   private static final Map<String, String> ENV = Map.of("TG_CHAT_ID", "100");
-  private static final TaskInfo TASK = TaskInfo.builder().id(TASK_ID).build();
+  private static final EcsNode TASK = EcsNode.builder().id(TASK_ID).build();
 
   @Mock
   private EcsManager ecsManager;
@@ -68,7 +68,7 @@ class TailscaleEcsNodeServiceTest {
     when(ecsManager.startTask(eq(Region.EU_CENTRAL_1), eq("alex-frankfurt-1"), any(), eq(ENV)))
         .thenReturn(TASK);
 
-    TaskInfo started = service.runNode(REGION, new NodeOwner(7L, "alex", 100L, "ru"),
+    EcsNode started = service.runNode(REGION, new NodeOrigin(7L, "alex", 100L, "ru"),
                                        "alex-frankfurt-1", ENV);
 
     assertSame(TASK, started);
@@ -83,7 +83,7 @@ class TailscaleEcsNodeServiceTest {
     when(ecsManager.startTask(eq(Region.EU_CENTRAL_1), eq("node-11"), any(), eq(ENV)))
         .thenReturn(TASK);
 
-    service.runNode(REGION, new NodeOwner(11L, null, 100L, "en"), "node-11", ENV);
+    service.runNode(REGION, new NodeOrigin(11L, null, 100L, "en"), "node-11", ENV);
 
     verify(ecsManager).startTask(eq(Region.EU_CENTRAL_1), eq("node-11"), sentTags.capture(), eq(ENV));
     assertEquals("11", sentTags.getValue().get("RunBy"));
@@ -97,7 +97,7 @@ class TailscaleEcsNodeServiceTest {
     when(ecsManager.startTask(eq(Region.EU_CENTRAL_1), eq("alex-frankfurt-1"), any(), eq(ENV)))
         .thenReturn(TASK);
 
-    service.runNode(REGION, new NodeOwner(7L, "alex", 100L, "ru"), null, ENV);
+    service.runNode(REGION, new NodeOrigin(7L, "alex", 100L, "ru"), null, ENV);
 
     verify(ecsManager).startTask(eq(Region.EU_CENTRAL_1), eq("alex-frankfurt-1"), sentTags.capture(),
                                  eq(ENV));
@@ -107,7 +107,7 @@ class TailscaleEcsNodeServiceTest {
   @Test
   @DisplayName("4 §4.1: listTasks(userTgId) matches RunBy against the given user id")
   void listTasksByUserId() {
-    List<TaskInfo> tasks = List.of(TASK);
+    List<EcsNode> tasks = List.of(TASK);
     when(ecsManager.listTasks(Map.of("ServiceName", "tailscale-node", "RunBy", "7")))
         .thenReturn(tasks);
 
@@ -117,7 +117,7 @@ class TailscaleEcsNodeServiceTest {
   @Test
   @DisplayName("4 §4.1: listTasks(null) lists every node of the service (root)")
   void listTasksOfAll() {
-    List<TaskInfo> tasks = List.of(TASK);
+    List<EcsNode> tasks = List.of(TASK);
     when(ecsManager.listTasks(Map.of("ServiceName", "tailscale-node"))).thenReturn(tasks);
 
     assertSame(tasks, service.listTasks(null));

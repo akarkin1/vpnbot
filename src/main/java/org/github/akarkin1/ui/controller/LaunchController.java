@@ -5,8 +5,8 @@ import lombok.extern.log4j.Log4j2;
 import org.github.akarkin1.auth.Authorizer;
 import org.github.akarkin1.auth.Permission;
 import org.github.akarkin1.auth.TgUser;
-import org.github.akarkin1.ecs.TaskInfo;
-import org.github.akarkin1.tailscale.NodeOwner;
+import org.github.akarkin1.ecs.EcsNode;
+import org.github.akarkin1.tailscale.NodeOrigin;
 import org.github.akarkin1.tailscale.TailscaleNodeService;
 import org.github.akarkin1.ui.NodeLauncher;
 import org.github.akarkin1.ui.UiContext;
@@ -49,7 +49,7 @@ public class LaunchController implements NodeLauncher {
     }
 
     if (offerExistingNodes) {
-      List<TaskInfo> existing;
+      List<EcsNode> existing;
       try {
         existing = ownNodesInRegion(String.valueOf(user.id()), regionId);
       } catch (RuntimeException e) {
@@ -82,7 +82,7 @@ public class LaunchController implements NodeLauncher {
     return true;
   }
 
-  private List<TaskInfo> ownNodesInRegion(String userId, String regionId) {
+  private List<EcsNode> ownNodesInRegion(String userId, String regionId) {
     return nodeService.listTasks(userId)
         .stream()
         .filter(node -> userId.equals(node.getRunBy()))
@@ -92,7 +92,7 @@ public class LaunchController implements NodeLauncher {
 
   private void startNode(UiContext context, Integer messageId, String regionId, String hostName) {
     Map<String, String> environment = nodeNotifications.build(context, messageId, regionId);
-    NodeOwner owner = new NodeOwner(context.userId(), context.username(), context.chatId(),
+    NodeOrigin owner = new NodeOrigin(context.userId(), context.username(), context.chatId(),
                                     context.languageCode());
     try {
       nodeService.runNode(regionId, owner, hostName, environment);

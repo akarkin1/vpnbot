@@ -1,6 +1,6 @@
 package org.github.akarkin1.ui.screen;
 
-import org.github.akarkin1.ecs.TaskInfo;
+import org.github.akarkin1.ecs.EcsNode;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.regions.Region;
@@ -85,7 +85,7 @@ class HomeScreenTest {
   @Test
   @DisplayName("4 AC-7, §4.4: a user admin gets the Users row (USERS) between the stop rows and Refresh/Help")
   void usersRow() {
-    TaskInfo node = stoppable("task-1", "alex-frankfurt-1", Region.EU_CENTRAL_1);
+    EcsNode node = stoppable("task-1", "alex-frankfurt-1", Region.EU_CENTRAL_1);
 
     Screen screen = homeScreen.home(new HomeModel("Alex", "alex", true, true, false, List.of(node),
                                                   List.of("eu-central-1"), List.of("task-1"), true, true));
@@ -119,7 +119,7 @@ class HomeScreenTest {
   @Test
   @DisplayName("AC-5: nodes are listed with status emoji, host, region label and IP, — for nulls")
   void listsNodes() {
-    List<TaskInfo> nodes = List.of(
+    List<EcsNode> nodes = List.of(
         node("HEALTHY", "node-1", Region.EU_CENTRAL_1, "1.2.3.4"),
         node("UNHEALTHY", "node-2", Region.US_EAST_1, "5.6.7.8"),
         node(null, null, null, null));
@@ -139,7 +139,7 @@ class HomeScreenTest {
   @Test
   @DisplayName("AC-5: blank host and IP are shown as —")
   void blankNodeValues() {
-    List<TaskInfo> nodes = List.of(node("PROVISIONING", " ", Region.EU_CENTRAL_1, ""));
+    List<EcsNode> nodes = List.of(node("PROVISIONING", " ", Region.EU_CENTRAL_1, ""));
 
     Screen screen = homeScreen.home(new HomeModel("Alex", "alex", true, false, false, nodes, List.of(),
                                                   List.of(), false, true));
@@ -223,7 +223,7 @@ class HomeScreenTest {
   @Test
   @DisplayName("AC-5, AC-6: nodes section comes before the start-node section")
   void sectionOrder() {
-    List<TaskInfo> nodes = List.of(node("HEALTHY", "node-1", Region.EU_CENTRAL_1, "1.2.3.4"));
+    List<EcsNode> nodes = List.of(node("HEALTHY", "node-1", Region.EU_CENTRAL_1, "1.2.3.4"));
 
     Screen screen = homeScreen.home(new HomeModel("Alex", "alex", true, true, false, nodes,
                                                   List.of("eu-central-1"), List.of(), false, true));
@@ -238,9 +238,9 @@ class HomeScreenTest {
   @Test
   @DisplayName("2b AC-8: one stop row per stoppable node, in order, between the region rows and Refresh/Help")
   void stopButtons() {
-    TaskInfo first = stoppable("task-1", "alex-frankfurt-1", Region.EU_CENTRAL_1);
-    TaskInfo notStoppable = stoppable("task-2", "bob-london-1", Region.EU_WEST_2);
-    TaskInfo third = stoppable("task-3", "alex-tokyo-1", Region.AP_NORTHEAST_1);
+    EcsNode first = stoppable("task-1", "alex-frankfurt-1", Region.EU_CENTRAL_1);
+    EcsNode notStoppable = stoppable("task-2", "bob-london-1", Region.EU_WEST_2);
+    EcsNode third = stoppable("task-3", "alex-tokyo-1", Region.AP_NORTHEAST_1);
 
     Screen screen = homeScreen.home(new HomeModel("Alex", "alex", true, true, false,
                                                   List.of(first, notStoppable, third),
@@ -257,7 +257,7 @@ class HomeScreenTest {
   @Test
   @DisplayName("2b AC-8: no stop rows when no node is stoppable")
   void noStopButtons() {
-    TaskInfo node = stoppable("task-1", "bob-frankfurt-1", Region.EU_CENTRAL_1);
+    EcsNode node = stoppable("task-1", "bob-frankfurt-1", Region.EU_CENTRAL_1);
 
     Screen screen = homeScreen.home(new HomeModel("Alex", "alex", true, true, true, List.of(node),
                                                   List.of("eu-central-1"), List.of(), false, true));
@@ -269,8 +269,8 @@ class HomeScreenTest {
   @Test
   @DisplayName("2b AC-8: stop rows do not change the home text")
   void stopButtonsKeepText() {
-    TaskInfo node = node("HEALTHY", "node-1", Region.EU_CENTRAL_1, "1.2.3.4");
-    TaskInfo stoppableNode = stoppable("task-1", "node-1", Region.EU_CENTRAL_1);
+    EcsNode node = node("HEALTHY", "node-1", Region.EU_CENTRAL_1, "1.2.3.4");
+    EcsNode stoppableNode = stoppable("task-1", "node-1", Region.EU_CENTRAL_1);
 
     Screen without = homeScreen.home(new HomeModel("Alex", "alex", true, true, false, List.of(node),
                                                    List.of("eu-central-1"), List.of(), false, true));
@@ -284,7 +284,7 @@ class HomeScreenTest {
   @Test
   @DisplayName("2b AC-8: % in a host name is escaped as %% in the stop button label")
   void stopButtonEscapesPercent() {
-    TaskInfo node = stoppable("task-1", "100%-node", Region.EU_CENTRAL_1);
+    EcsNode node = stoppable("task-1", "100%-node", Region.EU_CENTRAL_1);
 
     Screen screen = homeScreen.home(new HomeModel("Alex", "alex", true, false, false, List.of(node),
                                                   List.of(), List.of("task-1"), false, true));
@@ -297,7 +297,7 @@ class HomeScreenTest {
   @Test
   @DisplayName("AC-7: home template placeholders match params for every kind of model")
   void placeholdersMatchParams() {
-    List<TaskInfo> nodes = List.of(node("HEALTHY", "node-1", Region.EU_CENTRAL_1, "1.2.3.4"),
+    List<EcsNode> nodes = List.of(node("HEALTHY", "node-1", Region.EU_CENTRAL_1, "1.2.3.4"),
                                    node(null, null, null, null));
     List<HomeModel> models = List.of(
         noAccess("Alex", "alex"),
@@ -327,8 +327,8 @@ class HomeScreenTest {
         .toList();
   }
 
-  private static TaskInfo node(String state, String hostName, Region region, String publicIp) {
-    return TaskInfo.builder()
+  private static EcsNode node(String state, String hostName, Region region, String publicIp) {
+    return EcsNode.builder()
         .id("task-0")
         .state(state)
         .hostName(hostName)
@@ -337,8 +337,8 @@ class HomeScreenTest {
         .build();
   }
 
-  private static TaskInfo stoppable(String id, String hostName, Region region) {
-    return TaskInfo.builder()
+  private static EcsNode stoppable(String id, String hostName, Region region) {
+    return EcsNode.builder()
         .id(id)
         .state("HEALTHY")
         .hostName(hostName)

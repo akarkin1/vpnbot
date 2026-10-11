@@ -58,55 +58,59 @@ public class AccessController {
 
   /** An admin's tap on a role checkbox: redraws the message with the role flipped, writes nothing. */
   public void toggle(UiContext context, Integer messageId, long userId, int mask, UserRole role) {
-    if (!UserAccess.canManageUsers(authorizer, context.user())) {
-      messenger.edit(context, messageId, accessScreens.notAllowed());
-      return;
-    }
-    Optional<AccessRequest> request = accessRequests.find(userId);
-    if (request.isEmpty()) {
-      messenger.edit(context, messageId, accessScreens.alreadyHandled());
-      return;
-    }
-
-    Set<UserRole> selected = EnumSet.noneOf(UserRole.class);
-    selected.addAll(RoleSet.decode(mask));
-    if (!selected.remove(role)) {
-      selected.add(role);
-    }
-    messenger.edit(context, messageId, accessScreens.adminRequest(request.get(), selected));
+    findDecidable(context, messageId, userId).ifPresent(request -> {
+      Set<UserRole> selected = EnumSet.noneOf(UserRole.class);
+      selected.addAll(RoleSet.decode(mask));
+      if (selected.contains(role)) {
+        selected.remove(role);
+      } else {
+        selected.add(role);
+      }
+      messenger.edit(context, messageId, accessScreens.adminRequest(request, selected));
+    });
   }
 
   /**
-   * An admin's Grant (with the selected roles) or Decline (empty): assigns the roles, deletes the
-   * request and notifies the requester. An empty role set changes nothing.
+   * An admin's Grant: assigns the selected roles, deletes the request and notifies the requester.
+   * An empty role set changes nothing.
    */
-  public void decide(UiContext context, Integer messageId, long userId,
-                     Optional<Set<UserRole>> roles) {
-    if (roles.isPresent() && roles.get().isEmpty()) {
+  public void grant(UiContext context, Integer messageId, long userId, Set<UserRole> roles) {
+    if (roles.isEmpty()) {
       return;
     }
+    findDecidable(context, messageId, userId).ifPresent(request -> {
+      permissionsService.assignRolesToUser(request.user(), roles);
+      accessRequests.delete(userId);
+      log.info("Access request of user {} granted {} by user {}", userId, roles, context.userId());
+
+      messenger.edit(context, messageId, accessScreens.granted(request, roles));
+      notifyRequester(request, accessScreens.accessGranted(roles));
+    });
+  }
+
+  /** An admin's Decline: deletes the request and notifies the requester. */
+  public void decline(UiContext context, Integer messageId, long userId) {
+    findDecidable(context, messageId, userId).ifPresent(request -> {
+      accessRequests.delete(userId);
+      log.info("Access request of user {} declined by user {}", userId, context.userId());
+
+      messenger.edit(context, messageId, accessScreens.declined(request));
+      notifyRequester(request, accessScreens.accessDeclined());
+    });
+  }
+
+  /** The pending request if the admin may decide it; otherwise edits the message and returns empty. */
+  private Optional<AccessRequest> findDecidable(UiContext context, Integer messageId, long userId) {
     if (!UserAccess.canManageUsers(authorizer, context.user())) {
       messenger.edit(context, messageId, accessScreens.notAllowed());
-      return;
+      return Optional.empty();
     }
     Optional<AccessRequest> found = accessRequests.find(userId);
     if (found.isEmpty()) {
       messenger.edit(context, messageId, accessScreens.alreadyHandled());
-      return;
+      return Optional.empty();
     }
-
-    AccessRequest request = found.get();
-    roles.ifPresent(granted -> permissionsService.assignRolesToUser(request.user(), granted));
-    accessRequests.delete(userId);
-    log.info("Access request of user {} {} by user {}", userId,
-             roles.map(granted -> "granted " + granted).orElse("declined"), context.userId());
-
-    messenger.edit(context, messageId, roles
-        .map(granted -> accessScreens.granted(request, granted))
-        .orElseGet(() -> accessScreens.declined(request)));
-    notifyRequester(request, roles
-        .map(accessScreens::accessGranted)
-        .orElseGet(accessScreens::accessDeclined));
+    return found;
   }
 
   /** Sends the request to every admin; a private chat's id equals the user id (D-4). */
@@ -135,10 +139,10 @@ public class AccessController {
   }
 
   private void notifyRequester(AccessRequest request, Screen screen) {
-    UiContext requester = new UiContext(request.userId(), request.userId(), request.username(),
+    UiContext requesterContext = new UiContext(request.userId(), request.userId(), request.username(),
                                         request.firstName(), request.languageCode());
     try {
-      messenger.send(requester, screen);
+      messenger.send(requesterContext, screen);
     } catch (RuntimeException e) {
       log.error("Failed to notify user {} of the access decision", request.userId(), e);
     }

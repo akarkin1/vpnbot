@@ -4,7 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.github.akarkin1.auth.Authorizer;
 import org.github.akarkin1.auth.Permission;
 import org.github.akarkin1.auth.TgUser;
-import org.github.akarkin1.ecs.TaskInfo;
+import org.github.akarkin1.ecs.EcsNode;
 
 @RequiredArgsConstructor
 public class NodeAccess {
@@ -17,17 +17,17 @@ public class NodeAccess {
            || user != null && authorizer.hasPermission(user, Permission.RUN_NODES);
   }
 
-  public boolean canStop(TgUser user, TaskInfo node) {
+  public boolean canStop(TgUser user, EcsNode node) {
     return isRoot(user)
            || isOwner(user, node) && authorizer.hasPermission(user, Permission.RUN_NODES);
   }
 
   /** Root stopping someone else's node has to confirm it first. */
-  public boolean needsConfirmation(TgUser user, TaskInfo node) {
+  public boolean needsConfirmation(TgUser user, EcsNode node) {
     return isRoot(user) && !isOwner(user, node);
   }
 
-  public boolean canView(TgUser user, TaskInfo node) {
+  public boolean canView(TgUser user, EcsNode node) {
     return isOwner(user, node) || isRoot(user);
   }
 
@@ -39,7 +39,7 @@ public class NodeAccess {
    * The {@code RunBy} tag holds the owner's user id; nodes started before Phase 4 hold the
    * username there, so it matches too during the transition (D-3).
    */
-  private static boolean isOwner(TgUser user, TaskInfo node) {
+  private static boolean isOwner(TgUser user, EcsNode node) {
     if (user == null || node.getRunBy() == null) {
       return false;
     }

@@ -4,7 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.github.akarkin1.auth.Authorizer;
 import org.github.akarkin1.auth.Permission;
 import org.github.akarkin1.auth.TgUser;
-import org.github.akarkin1.ecs.TaskInfo;
+import org.github.akarkin1.ecs.EcsNode;
 import org.github.akarkin1.tailscale.TailscaleNodeService;
 import org.github.akarkin1.ui.UiContext;
 import org.github.akarkin1.ui.messenger.UiMessenger;
@@ -51,7 +51,7 @@ public class HomeController {
     boolean hasAccess = canListNodes || canRunNodes || canManageUsers
                         || UserAccess.hasAccess(authorizer, user);
 
-    List<TaskInfo> nodes = canListNodes
+    List<EcsNode> nodes = canListNodes
         ? nodeService.listTasks(allNodes ? null : String.valueOf(user.id()))
         : List.of();
     List<String> regionIds = canRunNodes
@@ -59,7 +59,7 @@ public class HomeController {
         : List.of();
     List<String> stoppableTaskIds = nodes.stream()
         .filter(node -> nodeAccess.canStop(user, node))
-        .map(TaskInfo::getId)
+        .map(EcsNode::getId)
         .toList();
 
     return new HomeModel(context.firstName(), context.username(), canListNodes, canRunNodes,

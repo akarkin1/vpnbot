@@ -1,14 +1,17 @@
 package org.github.akarkin1.metrics;
 
+import com.fasterxml.jackson.annotation.JsonAnyGetter;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 
 import java.time.Clock;
+import java.util.ArrayList;
 import java.util.EnumMap;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Consumer;
@@ -39,6 +42,14 @@ public class EmfRequestMetrics implements RequestMetrics {
   private final Map<MetricComponent, LongAdder> totals = createTotals();
   private volatile String updateKind;
   private volatile long startMs;
+
+  private static Map<MetricComponent, LongAdder> createTotals() {
+    Map<MetricComponent, LongAdder> totals = new EnumMap<>(MetricComponent.class);
+    for (MetricComponent component : MetricComponent.values()) {
+      totals.put(component, new LongAdder());
+    }
+    return totals;
+  }
 
   @Override
   public void start(String updateKind) {
@@ -86,35 +97,34 @@ public class EmfRequestMetrics implements RequestMetrics {
     }
   }
 
-  private ObjectNode emfDocument(String kind, long now) {
-    ObjectNode root = MAPPER.createObjectNode();
-    ObjectNode aws = root.putObject("_aws");
-    aws.put("Timestamp", now);
-    ObjectNode directive = aws.putArray("CloudWatchMetrics").addObject();
-    directive.put("Namespace", NAMESPACE);
-    directive.putArray("Dimensions").addArray().add(DIMENSION);
-    ArrayNode metrics = directive.putArray("Metrics");
-    addMetricDefinition(metrics, TOTAL_METRIC);
-    METRIC_NAMES.values().forEach(name -> addMetricDefinition(metrics, name));
+  private EmfDocument emfDocument(String kind, long now) {
+    List<MetricDefinition> definitions = new ArrayList<>();
+    definitions.add(new MetricDefinition(TOTAL_METRIC, UNIT));
+    METRIC_NAMES.values().forEach(name -> definitions.add(new MetricDefinition(name, UNIT)));
+    MetricDirective directive = new MetricDirective(NAMESPACE, List.of(List.of(DIMENSION)), definitions);
 
-    root.put(DIMENSION, kind);
-    root.put(TOTAL_METRIC, now - startMs);
-    METRIC_NAMES.forEach((component, name) -> root.put(name, totals.get(component).sum()));
-    return root;
+    Map<String, Long> componentMs = new LinkedHashMap<>();
+    METRIC_NAMES.forEach((component, name) -> componentMs.put(name, totals.get(component).sum()));
+    return new EmfDocument(new AwsMetadata(now, List.of(directive)), kind, now - startMs, componentMs);
   }
 
-  private static void addMetricDefinition(ArrayNode metrics, String name) {
-    metrics.addObject()
-        .put("Name", name)
-        .put("Unit", UNIT);
+  private record EmfDocument(@JsonProperty("_aws") AwsMetadata aws,
+                             @JsonProperty(DIMENSION) String updateKind,
+                             @JsonProperty(TOTAL_METRIC) long totalMs,
+                             @JsonAnyGetter Map<String, Long> componentMs) {
   }
 
-  private static Map<MetricComponent, LongAdder> createTotals() {
-    Map<MetricComponent, LongAdder> totals = new EnumMap<>(MetricComponent.class);
-    for (MetricComponent component : MetricComponent.values()) {
-      totals.put(component, new LongAdder());
-    }
-    return totals;
+  private record AwsMetadata(@JsonProperty("Timestamp") long timestamp,
+                             @JsonProperty("CloudWatchMetrics") List<MetricDirective> cloudWatchMetrics) {
+  }
+
+  private record MetricDirective(@JsonProperty("Namespace") String namespace,
+                                 @JsonProperty("Dimensions") List<List<String>> dimensions,
+                                 @JsonProperty("Metrics") List<MetricDefinition> metrics) {
+  }
+
+  private record MetricDefinition(@JsonProperty("Name") String name,
+                                  @JsonProperty("Unit") String unit) {
   }
 
 }

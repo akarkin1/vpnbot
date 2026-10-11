@@ -1,6 +1,6 @@
 package org.github.akarkin1.ui.screen;
 
-import org.github.akarkin1.ecs.TaskInfo;
+import org.github.akarkin1.ecs.EcsNode;
 
 import java.util.List;
 
@@ -10,7 +10,7 @@ import java.util.List;
  *                       request access
  */
 public record HomeModel(String firstName, String username, boolean canListNodes, boolean canRunNodes,
-                        boolean allNodes, List<TaskInfo> nodes, List<String> regionIds,
+                        boolean allNodes, List<EcsNode> nodes, List<String> regionIds,
                         List<String> stoppableTaskIds, boolean canManageUsers, boolean hasAccess) {
 
 }

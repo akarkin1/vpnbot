@@ -3,7 +3,7 @@ package org.github.akarkin1.ui.controller;
 import org.github.akarkin1.auth.Authorizer;
 import org.github.akarkin1.auth.Permission;
 import org.github.akarkin1.auth.TgUser;
-import org.github.akarkin1.ecs.TaskInfo;
+import org.github.akarkin1.ecs.EcsNode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -25,9 +25,9 @@ class NodeAccessTest {
   private static final TgUser READER = new TgUser(9L, "reader");
   private static final TgUser ROOT = new TgUser(1L, "root");
 
-  private static final TaskInfo ALEX_NODE = node("7", "alex");
-  private static final TaskInfo BOB_NODE = node("8", "bob");
-  private static final TaskInfo ROOT_NODE = node("1", "root");
+  private static final EcsNode ALEX_NODE = node("7", "alex");
+  private static final EcsNode BOB_NODE = node("8", "bob");
+  private static final EcsNode ROOT_NODE = node("1", "root");
 
   @Mock
   private Authorizer authorizer;
@@ -70,7 +70,7 @@ class NodeAccessTest {
   void ownerWithoutUsername() {
     TgUser anna = new TgUser(11L, null);
     grant(anna, Permission.RUN_NODES);
-    TaskInfo annasNode = node("11", null);
+    EcsNode annasNode = node("11", null);
 
     assertAll(
         () -> assertTrue(access.canManageNodes(anna)),
@@ -83,7 +83,7 @@ class NodeAccessTest {
   @Test
   @DisplayName("4 AC-9, D-3: during the transition a node started before Phase 4 (RunBy = username) is still the user's own")
   void transitionUsernameMatch() {
-    TaskInfo legacyNode = TaskInfo.builder()
+    EcsNode legacyNode = EcsNode.builder()
         .id("0123456789abcdef0123456789abcdef")
         .hostName("alex-frankfurt-1")
         .runBy("alex")
@@ -102,7 +102,7 @@ class NodeAccessTest {
   void runByNameIsNotOwnership() {
     TgUser impostor = new TgUser(99L, "alex_new");
     grant(impostor, Permission.RUN_NODES);
-    TaskInfo node = node("7", "alex_new");
+    EcsNode node = node("7", "alex_new");
 
     assertAll(
         () -> assertFalse(access.canStop(impostor, node)),
@@ -112,7 +112,7 @@ class NodeAccessTest {
   @Test
   @DisplayName("2b AC-2: owner without RUN_NODES may not stop but may view")
   void ownerWithoutRunNodes() {
-    TaskInfo readerNode = node("9", "reader");
+    EcsNode readerNode = node("9", "reader");
 
     assertAll(
         () -> assertFalse(access.canManageNodes(READER)),
@@ -174,7 +174,7 @@ class NodeAccessTest {
   @Test
   @DisplayName("2b AC-2: a node without RunBy tag is nobody's own node")
   void nodeWithoutRunBy() {
-    TaskInfo untagged = node(null, null);
+    EcsNode untagged = node(null, null);
 
     assertAll(
         () -> assertFalse(access.canStop(ALEX, untagged)),
@@ -200,8 +200,8 @@ class NodeAccessTest {
     }
   }
 
-  private static TaskInfo node(String runBy, String runByName) {
-    return TaskInfo.builder()
+  private static EcsNode node(String runBy, String runByName) {
+    return EcsNode.builder()
         .id("0123456789abcdef0123456789abcdef")
         .hostName("node-1")
         .runBy(runBy)

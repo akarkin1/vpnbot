@@ -18,7 +18,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 
 import static org.github.akarkin1.ui.TelegramUpdates.CALLBACK_ID;
@@ -92,18 +91,19 @@ class UiRouterTest {
     InOrder inOrder = inOrder(messenger, accessController);
     inOrder.verify(messenger).answerCallback(CALLBACK_ID);
     inOrder.verify(accessController).toggle(CONTEXT, MESSAGE_ID, 9_999_999_999L, 5, UserRole.READ_ONLY);
-    verify(accessController, never()).decide(any(), any(), anyLong(), any());
+    verify(accessController, never()).grant(any(), any(), anyLong(), any());
+    verify(accessController, never()).decline(any(), any(), anyLong());
   }
 
   @Test
-  @DisplayName("4 AC-8: ACCESS_GRANT callback decides with the roles of the mask")
+  @DisplayName("4 AC-8: ACCESS_GRANT callback grants the roles of the mask")
   void accessGrantCallback() {
     router.handle(callbackUpdate("ACCESS_GRANT:123:5"));
 
     InOrder inOrder = inOrder(messenger, accessController);
     inOrder.verify(messenger).answerCallback(CALLBACK_ID);
-    inOrder.verify(accessController).decide(CONTEXT, MESSAGE_ID, 123L,
-                                            Optional.of(Set.of(UserRole.NODE_ADMIN, UserRole.USER_ADMIN)));
+    inOrder.verify(accessController).grant(CONTEXT, MESSAGE_ID, 123L,
+                                           Set.of(UserRole.NODE_ADMIN, UserRole.USER_ADMIN));
   }
 
   @Test
@@ -118,13 +118,13 @@ class UiRouterTest {
   }
 
   @Test
-  @DisplayName("4 AC-8: ACCESS_DECLINE callback decides without roles")
+  @DisplayName("4 AC-8: ACCESS_DECLINE callback declines")
   void accessDeclineCallback() {
     router.handle(callbackUpdate("ACCESS_DECLINE:123"));
 
     InOrder inOrder = inOrder(messenger, accessController);
     inOrder.verify(messenger).answerCallback(CALLBACK_ID);
-    inOrder.verify(accessController).decide(CONTEXT, MESSAGE_ID, 123L, Optional.empty());
+    inOrder.verify(accessController).decline(CONTEXT, MESSAGE_ID, 123L);
   }
 
   @Test

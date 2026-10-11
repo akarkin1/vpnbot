@@ -2,7 +2,7 @@ package org.github.akarkin1.ui.controller;
 
 import org.github.akarkin1.auth.Authorizer;
 import org.github.akarkin1.auth.Permission;
-import org.github.akarkin1.ecs.TaskInfo;
+import org.github.akarkin1.ecs.EcsNode;
 import org.github.akarkin1.tailscale.TailscaleNodeService;
 import org.github.akarkin1.ui.NodeRef;
 import org.github.akarkin1.ui.UiContext;
@@ -56,7 +56,7 @@ class NodeControllerTest {
   private static final UiContext ROOT = new UiContext(200L, 1L, "root", "Root", "en-US");
 
   /** alex's node, started in Phase 4: RunBy = alex's id, tagged with alex's chat id and language. */
-  private static final TaskInfo ALEX_NODE = node("7", "100", "ru");
+  private static final EcsNode ALEX_NODE = node("7", "100", "ru");
 
   private static final Screen ALREADY_STOPPED = screen("alreadyStopped");
   private static final Screen NOT_ALLOWED = screen("notAllowed");
@@ -186,7 +186,7 @@ class NodeControllerTest {
   @Test
   @DisplayName("2b AC-3, D-9: root on its own node stops at once without confirmation, stopping edited first")
   void stopByRootOnOwnNode() {
-    TaskInfo rootNode = node("1", "200", "en");
+    EcsNode rootNode = node("1", "200", "en");
     when(nodeService.getNode(REGION, TASK_ID)).thenReturn(Optional.of(rootNode));
 
     controller.stop(ROOT, MESSAGE_ID, REF);
@@ -450,8 +450,8 @@ class NodeControllerTest {
     }
   }
 
-  private static TaskInfo node(String runBy, String chatId, String languageCode) {
-    return TaskInfo.builder()
+  private static EcsNode node(String runBy, String chatId, String languageCode) {
+    return EcsNode.builder()
         .id(TASK_ID)
         .hostName("alex-frankfurt-1")
         .region(Region.EU_CENTRAL_1)

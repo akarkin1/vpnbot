@@ -2,7 +2,7 @@ package org.github.akarkin1.ui.screen;
 
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
-import org.github.akarkin1.ecs.TaskInfo;
+import org.github.akarkin1.ecs.EcsNode;
 import org.github.akarkin1.ui.NodeRef;
 import org.github.akarkin1.ui.UiAction;
 
@@ -66,7 +66,7 @@ public class HomeScreen {
       template.append("\n${ui.home.no-nodes}");
       return;
     }
-    for (TaskInfo node : model.nodes()) {
+    for (EcsNode node : model.nodes()) {
       template.append("\n%s <b>%s</b> · %s · <code>%s</code>");
       params.addAll(NodeFormat.nodeParams(node, regionLabels));
     }
@@ -114,7 +114,7 @@ public class HomeScreen {
         .toList();
   }
 
-  private static Button stopButton(TaskInfo node) {
+  private static Button stopButton(EcsNode node) {
     NodeRef nodeRef = new NodeRef(node.getRegion().id(), node.getId());
     String hostName = NodeFormat.escapePercent(NodeFormat.orDash(node.getHostName()));
     return Button.action("🛑 " + hostName, UiAction.stop(nodeRef));

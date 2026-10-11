@@ -27,7 +27,32 @@ public final class RoleSet {
     return mask;
   }
 
-  /** @throws IllegalArgumentException for a mask outside {@code 0..7} */
+  /** @throws IllegalArgumentException for a mask outside {@code 0..7} <br/>
+   * <p>Selected Roles Mask Decoding: Dec -> Bin:</p>
+   * <pre>
+   * 0: 000
+   * 1: 001
+   * 2: 010
+   * 3: 011
+   * 4: 100
+   * 5: 101
+   * 6: 110
+   * 7: 111
+   * </pre>
+   * <p>Role bit mapping (as if a single role was picked only):</p>
+   * <pre>
+   * NODE_ADMIN -> 1: 001 (SUPPORTED_REGIONS, LIST_NODES, RUN_NODES)
+   * READ_ONLY -> 2: 010 (SUPPORTED_REGIONS, LIST_NODES)
+   * USER_ADMIN -> 4: 100 (USER_MANAGEMENT)
+   * </pre>
+   * Conjunction of the user choice mask with a role's bit position tells us whether the role was chosen or not by user.
+   * For example, given the user mask {@code 101}, we can deduct that the bellow roles are selected:
+   * <ul>
+   *  <li>NODE_ADMIN ({@code 101 & 001 = 001 != 0})</li>
+   *  <li>USER_ADMIN ({@code 101 & 100 = 100 != 0}</li>
+   * </ul>
+   * but not READ_ONLY, because ({@code 101 & 010 = 0})
+   */
   public static Set<UserRole> decode(int mask) {
     if (!isValid(mask)) {
       throw new IllegalArgumentException("Invalid role mask: " + mask);

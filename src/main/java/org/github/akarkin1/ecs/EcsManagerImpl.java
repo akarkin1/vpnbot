@@ -65,14 +65,14 @@ public class EcsManagerImpl implements EcsManager {
   private final RequestMetrics metrics;
 
   @Override
-  public TaskInfo startTask(Region region, String hostName, Map<String, String> tags,
-                            Map<String, String> environment) {
+  public EcsNode startTask(Region region, String hostName, Map<String, String> tags,
+                           Map<String, String> environment) {
     return metrics.time(MetricComponent.ECS,
                         () -> runTask(region, hostName, tags, environment));
   }
 
-  private TaskInfo runTask(Region region, String hostName, Map<String, String> tags,
-                           Map<String, String> environment) {
+  private EcsNode runTask(Region region, String hostName, Map<String, String> tags,
+                          Map<String, String> environment) {
     TaskRuntimeParameters taskParams = taskConfigService.getTaskRuntimeParameters(region);
     AwsVpcConfiguration awsVpcConfig = AwsVpcConfiguration.builder()
         .assignPublicIp(AssignPublicIp.ENABLED)
@@ -107,7 +107,7 @@ public class EcsManagerImpl implements EcsManager {
 
     Task task = resp.tasks().getFirst();
 
-    return TaskInfo.builder()
+    return EcsNode.builder()
         .id(taskIdFromArn(task.taskArn()))
         .cluster(taskParams.getEcsClusterName())
         .region(region)
@@ -149,19 +149,19 @@ public class EcsManagerImpl implements EcsManager {
   }
 
   @Override
-  public List<TaskInfo> listTasks(Map<String, String> matchingTags) {
+  public List<EcsNode> listTasks(Map<String, String> matchingTags) {
     return metrics.time(MetricComponent.ECS, () -> listTasksInAllRegions(matchingTags));
   }
 
-  private List<TaskInfo> listTasksInAllRegions(Map<String, String> matchingTags) {
-    List<CompletableFuture<List<TaskInfo>>> regionResults = taskConfigService.getSupportedRegions()
+  private List<EcsNode> listTasksInAllRegions(Map<String, String> matchingTags) {
+    List<CompletableFuture<List<EcsNode>>> regionResults = taskConfigService.getSupportedRegions()
         .stream()
         .map(region -> CompletableFuture.supplyAsync(
             () -> listTasksInRegion(region, matchingTags), executor))
         .toList();
 
-    List<TaskInfo> foundTasks = new ArrayList<>();
-    for (CompletableFuture<List<TaskInfo>> regionResult : regionResults) {
+    List<EcsNode> foundTasks = new ArrayList<>();
+    for (CompletableFuture<List<EcsNode>> regionResult : regionResults) {
       foundTasks.addAll(join(regionResult));
     }
     return foundTasks;
@@ -178,8 +178,8 @@ public class EcsManagerImpl implements EcsManager {
     }
   }
 
-  private List<TaskInfo> listTasksInRegion(Region region, Map<String, String> matchingTags) {
-    List<TaskInfo> foundTasks = new ArrayList<>();
+  private List<EcsNode> listTasksInRegion(Region region, Map<String, String> matchingTags) {
+    List<EcsNode> foundTasks = new ArrayList<>();
     TaskRuntimeParameters taskRuntimeParameters = taskConfigService.getTaskRuntimeParameters(
         region);
     String clusterName = taskRuntimeParameters.getEcsClusterName();
@@ -217,9 +217,9 @@ public class EcsManagerImpl implements EcsManager {
     return foundTasks;
   }
 
-  private TaskInfo toTaskInfo(Region region, String clusterName, Task task) {
+  private EcsNode toTaskInfo(Region region, String clusterName, Task task) {
     log.debug("Task attachments: {}", task.attachments());
-    return TaskInfo.builder()
+    return EcsNode.builder()
         .hostName(tagValue(task, config.getHostNameTag()))
         .id(taskIdFromArn(task.taskArn()))
         .state(getContainerHealthStatus(task).name())
@@ -244,11 +244,11 @@ public class EcsManagerImpl implements EcsManager {
   }
 
   @Override
-  public Optional<TaskInfo> getTask(Region region, String taskId) {
+  public Optional<EcsNode> getTask(Region region, String taskId) {
     return metrics.time(MetricComponent.ECS, () -> describeTask(region, taskId));
   }
 
-  private Optional<TaskInfo> describeTask(Region region, String taskId) {
+  private Optional<EcsNode> describeTask(Region region, String taskId) {
     String clusterName = taskConfigService.getTaskRuntimeParameters(region).getEcsClusterName();
     DescribeTasksRequest request = DescribeTasksRequest.builder()
         .cluster(clusterName)

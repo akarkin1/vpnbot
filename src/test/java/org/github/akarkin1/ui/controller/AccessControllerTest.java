@@ -280,14 +280,14 @@ class AccessControllerTest {
     assertNothingWritten();
   }
 
-  // --- decide ----------------------------------------------------------------------------------
+  // --- grant / decline -------------------------------------------------------------------------
 
   @Test
-  @DisplayName("4 AC-5: decide by a user without USER_MANAGEMENT/root shows notAllowed and changes nothing")
-  void decideNotAllowed() {
+  @DisplayName("4 AC-5: grant by a user without USER_MANAGEMENT/root shows notAllowed and changes nothing")
+  void grantNotAllowed() {
     lenient().when(requests.find(REQUESTER_ID)).thenReturn(Optional.of(REQUEST));
 
-    controller.decide(READER, MESSAGE_ID, REQUESTER_ID, Optional.of(Set.of(UserRole.NODE_ADMIN)));
+    controller.grant(READER, MESSAGE_ID, REQUESTER_ID, Set.of(UserRole.NODE_ADMIN));
 
     verify(messenger).edit(READER, MESSAGE_ID, NOT_ALLOWED);
     assertNothingWritten();
@@ -295,11 +295,35 @@ class AccessControllerTest {
   }
 
   @Test
-  @DisplayName("4 AC-5: decide on a request that is gone (first decision wins) shows alreadyHandled and changes nothing")
-  void decideAlreadyHandled() {
+  @DisplayName("4 AC-5: decline by a user without USER_MANAGEMENT/root shows notAllowed and changes nothing")
+  void declineNotAllowed() {
+    lenient().when(requests.find(REQUESTER_ID)).thenReturn(Optional.of(REQUEST));
+
+    controller.decline(READER, MESSAGE_ID, REQUESTER_ID);
+
+    verify(messenger).edit(READER, MESSAGE_ID, NOT_ALLOWED);
+    assertNothingWritten();
+    verify(messenger, never()).send(any(), any());
+  }
+
+  @Test
+  @DisplayName("4 AC-5: grant on a request that is gone (first decision wins) shows alreadyHandled and changes nothing")
+  void grantAlreadyHandled() {
     when(requests.find(REQUESTER_ID)).thenReturn(Optional.empty());
 
-    controller.decide(ADMIN, MESSAGE_ID, REQUESTER_ID, Optional.of(Set.of(UserRole.NODE_ADMIN)));
+    controller.grant(ADMIN, MESSAGE_ID, REQUESTER_ID, Set.of(UserRole.NODE_ADMIN));
+
+    verify(messenger).edit(ADMIN, MESSAGE_ID, ALREADY_HANDLED);
+    assertNothingWritten();
+    verify(messenger, never()).send(any(), any());
+  }
+
+  @Test
+  @DisplayName("4 AC-5: decline on a request that is gone (first decision wins) shows alreadyHandled and changes nothing")
+  void declineAlreadyHandled() {
+    when(requests.find(REQUESTER_ID)).thenReturn(Optional.empty());
+
+    controller.decline(ADMIN, MESSAGE_ID, REQUESTER_ID);
 
     verify(messenger).edit(ADMIN, MESSAGE_ID, ALREADY_HANDLED);
     assertNothingWritten();
@@ -311,8 +335,7 @@ class AccessControllerTest {
   void grantAssignsUnion() {
     when(requests.find(REQUESTER_ID)).thenReturn(Optional.of(REQUEST));
 
-    controller.decide(ADMIN, MESSAGE_ID, REQUESTER_ID,
-                      Optional.of(Set.of(UserRole.NODE_ADMIN, UserRole.USER_ADMIN)));
+    controller.grant(ADMIN, MESSAGE_ID, REQUESTER_ID, Set.of(UserRole.NODE_ADMIN, UserRole.USER_ADMIN));
 
     assertEquals(Set.of(Permission.SUPPORTED_REGIONS, Permission.LIST_NODES, Permission.RUN_NODES,
                         Permission.USER_MANAGEMENT),
@@ -327,7 +350,7 @@ class AccessControllerTest {
     when(requests.find(REQUESTER_ID)).thenReturn(Optional.of(REQUEST));
     Set<UserRole> roles = Set.of(UserRole.READ_ONLY);
 
-    controller.decide(ROOT, MESSAGE_ID, REQUESTER_ID, Optional.of(roles));
+    controller.grant(ROOT, MESSAGE_ID, REQUESTER_ID, roles);
 
     verify(requests).delete(REQUESTER_ID);
     verify(screens).granted(REQUEST, roles);
@@ -345,7 +368,7 @@ class AccessControllerTest {
   void grantWithoutRolesChangesNothing() {
     lenient().when(requests.find(REQUESTER_ID)).thenReturn(Optional.of(REQUEST));
 
-    controller.decide(ADMIN, MESSAGE_ID, REQUESTER_ID, Optional.of(Set.of()));
+    controller.grant(ADMIN, MESSAGE_ID, REQUESTER_ID, Set.of());
 
     assertNothingWritten();
     verify(screens, never()).granted(any(), any());
@@ -358,9 +381,9 @@ class AccessControllerTest {
   void decline() {
     when(requests.find(REQUESTER_ID)).thenReturn(Optional.of(REQUEST));
 
-    controller.decide(ADMIN, MESSAGE_ID, REQUESTER_ID, Optional.empty());
+    controller.decline(ADMIN, MESSAGE_ID, REQUESTER_ID);
 
-    assertEquals(Set.of(), permissions.permissionsOf(REQUESTER_ID));
+    assertEquals(Set.of(),permissions.permissionsOf(REQUESTER_ID));
     assertEquals(List.of(), permissions.writes());
     verify(requests).delete(REQUESTER_ID);
     verify(screens).declined(REQUEST);
@@ -377,8 +400,7 @@ class AccessControllerTest {
     when(requests.find(REQUESTER_ID)).thenReturn(Optional.of(REQUEST));
     doThrow(new IllegalStateException("bot was blocked by the user")).when(messenger).send(any(), any());
 
-    assertDoesNotThrow(() -> controller.decide(ADMIN, MESSAGE_ID, REQUESTER_ID,
-                                               Optional.of(Set.of(UserRole.READ_ONLY))));
+    assertDoesNotThrow(() -> controller.grant(ADMIN, MESSAGE_ID, REQUESTER_ID, Set.of(UserRole.READ_ONLY)));
 
     assertEquals(Set.of(Permission.SUPPORTED_REGIONS, Permission.LIST_NODES),
                  permissions.permissionsOf(REQUESTER_ID));
@@ -392,7 +414,7 @@ class AccessControllerTest {
     when(requests.find(REQUESTER_ID)).thenReturn(Optional.of(REQUEST));
     doThrow(new IllegalStateException("bot was blocked by the user")).when(messenger).send(any(), any());
 
-    assertDoesNotThrow(() -> controller.decide(ADMIN, MESSAGE_ID, REQUESTER_ID, Optional.empty()));
+    assertDoesNotThrow(() -> controller.decline(ADMIN, MESSAGE_ID, REQUESTER_ID));
 
     verify(requests).delete(REQUESTER_ID);
     verify(messenger).edit(ADMIN, MESSAGE_ID, DECLINED);

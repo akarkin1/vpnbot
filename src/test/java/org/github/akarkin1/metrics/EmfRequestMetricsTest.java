@@ -14,6 +14,7 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -79,6 +80,10 @@ class EmfRequestMetricsTest {
     assertEquals(7, json.get("EcsMs").asLong());
     assertEquals(3, json.get("TelegramMs").asLong());
     assertFalse(json.has("S3Ms"), "S3Ms must be gone: " + line);
+    List<String> fields = new ArrayList<>();
+    json.fieldNames().forEachRemaining(fields::add);
+    assertEquals(Set.of("_aws", "UpdateKind", "TotalMs", "DynamoDbMs", "EcsMs", "TelegramMs"),
+                 Set.copyOf(fields));
   }
 
   @Test

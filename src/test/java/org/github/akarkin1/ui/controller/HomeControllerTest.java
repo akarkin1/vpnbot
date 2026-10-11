@@ -3,7 +3,7 @@ package org.github.akarkin1.ui.controller;
 import org.github.akarkin1.auth.Authorizer;
 import org.github.akarkin1.auth.Permission;
 import org.github.akarkin1.auth.TgUser;
-import org.github.akarkin1.ecs.TaskInfo;
+import org.github.akarkin1.ecs.EcsNode;
 import org.github.akarkin1.tailscale.TailscaleNodeService;
 import org.github.akarkin1.ui.UiContext;
 import org.github.akarkin1.ui.messenger.UiMessenger;
@@ -40,7 +40,7 @@ class HomeControllerTest {
   private static final Integer MESSAGE_ID = 42;
   private static final Screen HOME = new Screen("home", List.of(), List.of());
   private static final Screen HELP = new Screen("help", List.of(), List.of());
-  private static final List<TaskInfo> NODES = List.of(TaskInfo.builder().id("task-1").build());
+  private static final List<EcsNode> NODES = List.of(EcsNode.builder().id("task-1").build());
 
   @Mock
   private TailscaleNodeService nodeService;
@@ -138,7 +138,7 @@ class HomeControllerTest {
   void userWithoutUsername() {
     UiContext anna = new UiContext(100L, 11L, null, "Anna", "en-US");
     TgUser annaUser = new TgUser(11L, null);
-    TaskInfo node = TaskInfo.builder().id("task-1").runBy("11").build();
+    EcsNode node = EcsNode.builder().id("task-1").runBy("11").build();
     lenient().when(authorizer.hasPermission(annaUser, Permission.LIST_NODES)).thenReturn(true);
     lenient().when(authorizer.hasPermission(annaUser, Permission.RUN_NODES)).thenReturn(true);
     when(nodeService.listTasks("11")).thenReturn(List.of(node));
@@ -212,10 +212,10 @@ class HomeControllerTest {
   @Test
   @DisplayName("2b AC-8: stoppableTaskIds holds the ids of the listed nodes the user may stop, in list order")
   void stoppableTaskIds() {
-    TaskInfo first = TaskInfo.builder().id("task-1").runBy("7").build();
-    TaskInfo second = TaskInfo.builder().id("task-2").runBy("8").build();
-    TaskInfo third = TaskInfo.builder().id("task-3").runBy("7").build();
-    List<TaskInfo> nodes = List.of(first, second, third);
+    EcsNode first = EcsNode.builder().id("task-1").runBy("7").build();
+    EcsNode second = EcsNode.builder().id("task-2").runBy("8").build();
+    EcsNode third = EcsNode.builder().id("task-3").runBy("7").build();
+    List<EcsNode> nodes = List.of(first, second, third);
     grant(Permission.LIST_NODES, Permission.RUN_NODES);
     when(nodeService.listTasks("7")).thenReturn(nodes);
     when(nodeService.getSupportedRegionIds()).thenReturn(Set.of("eu-central-1"));
@@ -234,7 +234,7 @@ class HomeControllerTest {
   @Test
   @DisplayName("2b AC-8: refreshHome computes the stoppable nodes as well")
   void refreshHomeStoppableTaskIds() {
-    TaskInfo node = TaskInfo.builder().id("task-9").runBy("8").build();
+    EcsNode node = EcsNode.builder().id("task-9").runBy("8").build();
     grant(Permission.LIST_NODES, Permission.RUN_NODES, Permission.ROOT_ACCESS);
     when(nodeService.listTasks(null)).thenReturn(List.of(node));
     when(nodeService.getSupportedRegionIds()).thenReturn(Set.of());

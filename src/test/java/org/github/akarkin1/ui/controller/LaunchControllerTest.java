@@ -3,8 +3,8 @@ package org.github.akarkin1.ui.controller;
 import org.github.akarkin1.auth.Authorizer;
 import org.github.akarkin1.auth.Permission;
 import org.github.akarkin1.auth.TgUser;
-import org.github.akarkin1.ecs.TaskInfo;
-import org.github.akarkin1.tailscale.NodeOwner;
+import org.github.akarkin1.ecs.EcsNode;
+import org.github.akarkin1.tailscale.NodeOrigin;
 import org.github.akarkin1.tailscale.TailscaleNodeService;
 import org.github.akarkin1.ui.UiContext;
 import org.github.akarkin1.ui.messenger.NodeNotifications;
@@ -40,20 +40,20 @@ class LaunchControllerTest {
   private static final String REGION = "eu-central-1";
   private static final UiContext CONTEXT = new UiContext(100L, 7L, "alex", "Alex", "en-US");
   private static final TgUser ALEX = new TgUser(7L, "alex");
-  private static final NodeOwner OWNER = new NodeOwner(7L, "alex", 100L, "en-US");
+  private static final NodeOrigin OWNER = new NodeOrigin(7L, "alex", 100L, "en-US");
   private static final Integer MESSAGE_ID = 42;
   private static final Integer NEW_MESSAGE_ID = 77;
   private static final String HOST_NAME = "node-7";
   private static final Map<String, String> ENV = Map.of("TG_CHAT_ID", "100", "TG_MESSAGE_ID", "42");
   private static final Map<String, String> NEW_MESSAGE_ENV = Map.of("TG_CHAT_ID", "100",
                                                                     "TG_MESSAGE_ID", "77");
-  private static final TaskInfo TASK = TaskInfo.builder()
+  private static final EcsNode TASK = EcsNode.builder()
       .id("task-1")
       .cluster("cluster-1")
       .region(Region.EU_CENTRAL_1)
       .build();
-  private static final TaskInfo OWN_NODE_HERE = node("task-1", "alex-frankfurt-1", Region.EU_CENTRAL_1);
-  private static final TaskInfo OWN_NODE_ELSEWHERE = node("task-2", "alex-nvirginia-1", Region.US_EAST_1);
+  private static final EcsNode OWN_NODE_HERE = node("task-1", "alex-frankfurt-1", Region.EU_CENTRAL_1);
+  private static final EcsNode OWN_NODE_ELSEWHERE = node("task-2", "alex-nvirginia-1", Region.US_EAST_1);
 
   private static final Screen NOT_ALLOWED = screen("notAllowed");
   private static final Screen REGION_UNAVAILABLE = screen("regionUnavailable");
@@ -208,7 +208,7 @@ class LaunchControllerTest {
   void existingNodesFilteredToRegion() {
     allowRun();
     supportRegion();
-    TaskInfo secondHere = node("task-3", "alex-frankfurt-2", Region.EU_CENTRAL_1);
+    EcsNode secondHere = node("task-3", "alex-frankfurt-2", Region.EU_CENTRAL_1);
     when(nodeService.listTasks("7"))
         .thenReturn(List.of(OWN_NODE_HERE, OWN_NODE_ELSEWHERE, secondHere));
     when(launchScreens.existingNodes(REGION, List.of(OWN_NODE_HERE, secondHere)))
@@ -241,8 +241,8 @@ class LaunchControllerTest {
   void foreignOrUntaggedNodesInRegionIgnored() {
     allowRun();
     supportRegion();
-    TaskInfo untagged = node("task-4", "legacy-frankfurt-1", Region.EU_CENTRAL_1, null);
-    TaskInfo bobs = node("task-5", "bob-frankfurt-1", Region.EU_CENTRAL_1, "8");
+    EcsNode untagged = node("task-4", "legacy-frankfurt-1", Region.EU_CENTRAL_1, null);
+    EcsNode bobs = node("task-5", "bob-frankfurt-1", Region.EU_CENTRAL_1, "8");
     when(nodeService.listTasks("7")).thenReturn(List.of(untagged, bobs));
     when(nodeNotifications.build(CONTEXT, MESSAGE_ID, REGION)).thenReturn(ENV);
     when(nodeService.runNode(REGION, OWNER, null, ENV)).thenReturn(TASK);
@@ -259,8 +259,8 @@ class LaunchControllerTest {
   void existingNodesOnlyOwnRunBy() {
     allowRun();
     supportRegion();
-    TaskInfo untagged = node("task-4", "legacy-frankfurt-1", Region.EU_CENTRAL_1, null);
-    TaskInfo bobs = node("task-5", "bob-frankfurt-1", Region.EU_CENTRAL_1, "8");
+    EcsNode untagged = node("task-4", "legacy-frankfurt-1", Region.EU_CENTRAL_1, null);
+    EcsNode bobs = node("task-5", "bob-frankfurt-1", Region.EU_CENTRAL_1, "8");
     when(nodeService.listTasks("7")).thenReturn(List.of(untagged, OWN_NODE_HERE, bobs));
     when(launchScreens.existingNodes(REGION, List.of(OWN_NODE_HERE))).thenReturn(EXISTING);
 
@@ -313,7 +313,7 @@ class LaunchControllerTest {
 
     controller.launch(russian, MESSAGE_ID, REGION);
 
-    verify(nodeService).runNode(REGION, new NodeOwner(12L, "masha", 555L, "ru"), null, ENV);
+    verify(nodeService).runNode(REGION, new NodeOrigin(12L, "masha", 555L, "ru"), null, ENV);
   }
 
   @Test
@@ -463,7 +463,7 @@ class LaunchControllerTest {
     controller.launch(anna, MESSAGE_ID, REGION);
 
     verify(nodeService).listTasks("11");
-    verify(nodeService).runNode(REGION, new NodeOwner(11L, null, 100L, "en-US"), null, ENV);
+    verify(nodeService).runNode(REGION, new NodeOrigin(11L, null, 100L, "en-US"), null, ENV);
     verify(messenger).edit(anna, MESSAGE_ID, WAITING);
   }
 
@@ -489,12 +489,12 @@ class LaunchControllerTest {
     when(nodeService.getSupportedRegionIds()).thenReturn(Set.of(REGION, "us-east-1"));
   }
 
-  private static TaskInfo node(String id, String hostName, Region region) {
+  private static EcsNode node(String id, String hostName, Region region) {
     return node(id, hostName, region, "7");
   }
 
-  private static TaskInfo node(String id, String hostName, Region region, String runBy) {
-    return TaskInfo.builder()
+  private static EcsNode node(String id, String hostName, Region region, String runBy) {
+    return EcsNode.builder()
         .id(id)
         .hostName(hostName)
         .region(region)

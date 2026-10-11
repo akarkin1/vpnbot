@@ -14,7 +14,6 @@ import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 
-import java.util.Optional;
 import java.util.Set;
 
 @Log4j2
@@ -99,8 +98,7 @@ public class UiRouter {
                                                     action.roleMask().orElseThrow(),
                                                     action.role().orElseThrow());
       case ACCESS_GRANT -> grant(context, messageId, action);
-      case ACCESS_DECLINE -> accessController.decide(context, messageId, action.userId().orElseThrow(),
-                                                     Optional.empty());
+      case ACCESS_DECLINE -> accessController.decline(context, messageId, action.userId().orElseThrow());
       case USERS -> usersController.show(context, messageId);
       case USER -> usersController.showUser(context, messageId, action.userKey().orElseThrow());
       case USER_ROLE -> usersController.toggleRole(context, messageId, action.userKey().orElseThrow(),
@@ -116,8 +114,7 @@ public class UiRouter {
     if (mask == 0) {
       return;
     }
-    accessController.decide(context, messageId, action.userId().orElseThrow(),
-                            Optional.of(RoleSet.decode(mask)));
+    accessController.grant(context, messageId, action.userId().orElseThrow(), RoleSet.decode(mask));
   }
 
   private void sendGenericError(UiContext context) {

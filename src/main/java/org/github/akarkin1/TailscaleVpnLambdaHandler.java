@@ -40,6 +40,7 @@ import org.github.akarkin1.translation.Translator;
 import org.github.akarkin1.ui.UiComponents;
 import org.github.akarkin1.ui.UiConfigurer;
 import org.github.akarkin1.ui.UiRouter;
+import org.github.akarkin1.util.LambdaHandler;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.User;
@@ -59,11 +60,12 @@ import static org.github.akarkin1.config.ConfigManager.isMetricsEnabled;
 import static org.github.akarkin1.tg.TelegramBotFactory.sender;
 
 @Log4j2
+@LambdaHandler
 public class TailscaleVpnLambdaHandler implements
     RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
-  private static final CommandDispatcher COMMAND_DISPATCHER;
+  private static final CommandDispatcher SYSTEM_COMMANDS_DISPATCHER;
   private static final BotCommunicator COMMUNICATOR;
   private static final UpdateEventsRegistry EVENTS_REGISTRY;
   private static final String BOT_SERVER_ERROR = "${bot.internal.error}";
@@ -102,25 +104,25 @@ public class TailscaleVpnLambdaHandler implements
     UI_ROUTER = ui.router();
 
     COMMUNICATOR = new BotCommunicator(sender, translator, METRICS);
-    COMMAND_DISPATCHER = new CommandDispatcher(COMMUNICATOR, authorizer);
+    SYSTEM_COMMANDS_DISPATCHER = new CommandDispatcher(COMMUNICATOR, authorizer);
 
-    COMMAND_DISPATCHER.registerCommand("/version", new VersionCommand());
-    COMMAND_DISPATCHER.registerCommand("/listRunningNodes", new ListNodesCommand(
+    SYSTEM_COMMANDS_DISPATCHER.registerCommand("/version", new VersionCommand());
+    SYSTEM_COMMANDS_DISPATCHER.registerCommand("/listRunningNodes", new ListNodesCommand(
         nodeService, authorizer));
-    COMMAND_DISPATCHER.registerCommand("/runNodeIn",
+    SYSTEM_COMMANDS_DISPATCHER.registerCommand("/runNodeIn",
                                        new RunNodeCommand(nodeService,
                                                           COMMUNICATOR::sendMessageToTheBot,
                                                           ui.nodeLauncher()));
-    COMMAND_DISPATCHER.registerCommand("/supportedRegions",
+    SYSTEM_COMMANDS_DISPATCHER.registerCommand("/supportedRegions",
                                        new SupportedRegionCommand(nodeService));
-    COMMAND_DISPATCHER.registerCommand("/assignRoles",
+    SYSTEM_COMMANDS_DISPATCHER.registerCommand("/assignRoles",
                                        new AssignRolesCommand(permissionsService));
-    COMMAND_DISPATCHER.registerCommand("/describeRoles",
+    SYSTEM_COMMANDS_DISPATCHER.registerCommand("/describeRoles",
                                        new DescribeRolesCommand(permissionsService));
-    COMMAND_DISPATCHER.registerCommand("/deleteUsers",
+    SYSTEM_COMMANDS_DISPATCHER.registerCommand("/deleteUsers",
                                        new DeleteUsersCommand(permissionsService,
                                                               COMMUNICATOR::sendMessageToTheBot));
-    COMMAND_DISPATCHER.registerCommand("/listRegisteredUsers",
+    SYSTEM_COMMANDS_DISPATCHER.registerCommand("/listRegisteredUsers",
                                        new ListUsersCommand(permissionsService));
 
     new SnapStartPrimer(nodeService, nodeServices.ec2ClientPool(), permissionsService,
@@ -226,7 +228,7 @@ public class TailscaleVpnLambdaHandler implements
         .map(User::getUserName)
         .orElse("<Unknown>");
     log.info("User {} has started communication with the bot", userName);
-    COMMAND_DISPATCHER.handle(update);
+    SYSTEM_COMMANDS_DISPATCHER.handle(update);
   }
 
 }

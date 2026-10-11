@@ -3,7 +3,7 @@ package org.github.akarkin1.ui.controller;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.github.akarkin1.auth.TgUser;
-import org.github.akarkin1.ecs.TaskInfo;
+import org.github.akarkin1.ecs.EcsNode;
 import org.github.akarkin1.tailscale.TailscaleNodeService;
 import org.github.akarkin1.ui.NodeRef;
 import org.github.akarkin1.ui.UiContext;
@@ -31,7 +31,7 @@ public class NodeController {
   }
 
   public void stop(UiContext context, Integer messageId, NodeRef node) {
-    Optional<TaskInfo> task = findNode(context, messageId, node, nodeAccess::canStop);
+    Optional<EcsNode> task = findNode(context, messageId, node, nodeAccess::canStop);
     if (task.isEmpty()) {
       return;
     }
@@ -45,7 +45,7 @@ public class NodeController {
   }
 
   public void confirmStop(UiContext context, Integer messageId, NodeRef node) {
-    Optional<TaskInfo> task = findNode(context, messageId, node, nodeAccess::canStop);
+    Optional<EcsNode> task = findNode(context, messageId, node, nodeAccess::canStop);
     if (task.isEmpty()) {
       return;
     }
@@ -60,8 +60,8 @@ public class NodeController {
    * Checks the user and the region before any AWS call, then fetches the node from ECS.
    * Edits the message and returns empty when the node is gone or not accessible.
    */
-  private Optional<TaskInfo> findNode(UiContext context, Integer messageId, NodeRef node,
-                                      BiPredicate<TgUser, TaskInfo> access) {
+  private Optional<EcsNode> findNode(UiContext context, Integer messageId, NodeRef node,
+                                     BiPredicate<TgUser, EcsNode> access) {
     if (!nodeAccess.canManageNodes(context.user())) {
       messenger.edit(context, messageId, nodeScreens.notAllowed());
       return Optional.empty();
@@ -71,7 +71,7 @@ public class NodeController {
       return Optional.empty();
     }
 
-    Optional<TaskInfo> task = nodeService.getNode(node.regionId(), node.taskId());
+    Optional<EcsNode> task = nodeService.getNode(node.regionId(), node.taskId());
     if (task.isEmpty()) {
       messenger.edit(context, messageId, nodeScreens.alreadyStopped());
       return Optional.empty();
@@ -83,13 +83,13 @@ public class NodeController {
     return task;
   }
 
-  private void stopNode(UiContext context, Integer messageId, NodeRef node, TaskInfo task) {
+  private void stopNode(UiContext context, Integer messageId, NodeRef node, EcsNode task) {
     String reason = "Stopped by %s via the bot".formatted(stoppedBy(context));
     messenger.edit(context, messageId, nodeScreens.stopping(task));
     nodeService.stopNode(node.regionId(), node.taskId(), reason);
   }
 
-  private void notifyOwner(TaskInfo task) {
+  private void notifyOwner(EcsNode task) {
     Long ownerChatId = parseId(task.getChatId());
     if (ownerChatId == null) {
       log.info("Node {} has no valid owner chat id ({}), the owner is not notified",
