@@ -366,3 +366,9 @@ Order: H1 → T1/T2 (deploy, observe the migration) → T3/T4 (deploy).
   access until it runs.
 - D-15 (T1) `WhiteListAuthorizer` answers from the pending permissions even if the activation write
   fails (logged); activation is retried on the next request.
+- D-16 (T2) Activation finds the `PENDING_USER` record case-insensitively (like `findByUsername`).
+- D-17 (T2) A user without a username is authorised and lists nodes by id (the old code stopped on a
+  null username); the `RunByName` tag is omitted when there is no username; the generated host name
+  is still built from the username (falls back to the id).
+- D-18 (T2) `/listRegisteredUsers` keeps printing permission names (role names are a Users-screen
+  concern); the pending marker is asserted loosely.
