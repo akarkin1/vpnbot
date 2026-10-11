@@ -1,7 +1,10 @@
 package org.github.akarkin1.auth;
 
+import java.util.Collections;
 import java.util.EnumSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -78,6 +81,15 @@ public final class RoleSet {
       case NODE_ADMIN -> List.of(Permission.SUPPORTED_REGIONS, Permission.LIST_NODES,
                                  Permission.RUN_NODES);
     };
+  }
+
+  /** Every role with the permissions it grants, in {@link #ROLES} order (for {@code /describeRoles}). */
+  public static Map<UserRole, List<Permission>> describe() {
+    Map<UserRole, List<Permission>> roles = new LinkedHashMap<>();
+    for (UserRole role : ROLES) {
+      roles.put(role, permissions(role));
+    }
+    return Collections.unmodifiableMap(roles);
   }
 
   /** The roles whose permissions are all among the given ones. */
