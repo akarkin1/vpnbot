@@ -216,7 +216,7 @@ class AccessControllerTest {
   void toggleOn() {
     when(requests.find(REQUESTER_ID)).thenReturn(Optional.of(REQUEST));
 
-    controller.toggle(ADMIN, MESSAGE_ID, REQUESTER_ID, 1, UserRole.READ_ONLY);
+    controller.toggle(ADMIN, MESSAGE_ID, REQUESTER_ID, Set.of(UserRole.NODE_ADMIN), UserRole.READ_ONLY);
 
     verify(screens).adminRequest(REQUEST, Set.of(UserRole.NODE_ADMIN, UserRole.READ_ONLY));
     verify(messenger).edit(ADMIN, MESSAGE_ID, ADMIN_REQUEST);
@@ -228,7 +228,8 @@ class AccessControllerTest {
   void toggleOff() {
     when(requests.find(REQUESTER_ID)).thenReturn(Optional.of(REQUEST));
 
-    controller.toggle(ROOT, MESSAGE_ID, REQUESTER_ID, 3, UserRole.NODE_ADMIN);
+    controller.toggle(ROOT, MESSAGE_ID, REQUESTER_ID, Set.of(UserRole.NODE_ADMIN, UserRole.READ_ONLY),
+                      UserRole.NODE_ADMIN);
 
     verify(screens).adminRequest(REQUEST, Set.of(UserRole.READ_ONLY));
     verify(messenger).edit(ROOT, MESSAGE_ID, ADMIN_REQUEST);
@@ -243,7 +244,7 @@ class AccessControllerTest {
                                                             new AccessScreens(), CLOCK);
     when(requests.find(REQUESTER_ID)).thenReturn(Optional.of(REQUEST));
 
-    withRealScreens.toggle(ADMIN, MESSAGE_ID, REQUESTER_ID, 2, UserRole.USER_ADMIN);
+    withRealScreens.toggle(ADMIN, MESSAGE_ID, REQUESTER_ID, Set.of(UserRole.READ_ONLY), UserRole.USER_ADMIN);
 
     ArgumentCaptor<Screen> screen = ArgumentCaptor.forClass(Screen.class);
     verify(messenger).edit(eq(ADMIN), eq(MESSAGE_ID), screen.capture());
@@ -262,7 +263,7 @@ class AccessControllerTest {
   void toggleNotAllowed() {
     lenient().when(requests.find(REQUESTER_ID)).thenReturn(Optional.of(REQUEST));
 
-    controller.toggle(READER, MESSAGE_ID, REQUESTER_ID, 1, UserRole.READ_ONLY);
+    controller.toggle(READER, MESSAGE_ID, REQUESTER_ID, Set.of(UserRole.NODE_ADMIN), UserRole.READ_ONLY);
 
     verify(messenger).edit(READER, MESSAGE_ID, NOT_ALLOWED);
     verify(screens, never()).adminRequest(any(), any());
@@ -274,7 +275,7 @@ class AccessControllerTest {
   void toggleAlreadyHandled() {
     when(requests.find(REQUESTER_ID)).thenReturn(Optional.empty());
 
-    controller.toggle(ADMIN, MESSAGE_ID, REQUESTER_ID, 1, UserRole.READ_ONLY);
+    controller.toggle(ADMIN, MESSAGE_ID, REQUESTER_ID, Set.of(UserRole.NODE_ADMIN), UserRole.READ_ONLY);
 
     verify(messenger).edit(ADMIN, MESSAGE_ID, ALREADY_HANDLED);
     verify(screens, never()).adminRequest(any(), any());

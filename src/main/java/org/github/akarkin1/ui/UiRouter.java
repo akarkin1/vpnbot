@@ -2,7 +2,23 @@ package org.github.akarkin1.ui;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
-import org.github.akarkin1.auth.RoleSet;
+import org.github.akarkin1.auth.UserRole;
+import org.github.akarkin1.ui.UiAction.AccessDecline;
+import org.github.akarkin1.ui.UiAction.AccessGrant;
+import org.github.akarkin1.ui.UiAction.AccessToggle;
+import org.github.akarkin1.ui.UiAction.ConfirmDeleteUser;
+import org.github.akarkin1.ui.UiAction.ConfirmStop;
+import org.github.akarkin1.ui.UiAction.DeleteUser;
+import org.github.akarkin1.ui.UiAction.Help;
+import org.github.akarkin1.ui.UiAction.Home;
+import org.github.akarkin1.ui.UiAction.RequestAccess;
+import org.github.akarkin1.ui.UiAction.Run;
+import org.github.akarkin1.ui.UiAction.RunNew;
+import org.github.akarkin1.ui.UiAction.ShowUser;
+import org.github.akarkin1.ui.UiAction.Stop;
+import org.github.akarkin1.ui.UiAction.ToggleRole;
+import org.github.akarkin1.ui.UiAction.Use;
+import org.github.akarkin1.ui.UiAction.Users;
 import org.github.akarkin1.ui.controller.AccessController;
 import org.github.akarkin1.ui.controller.HomeController;
 import org.github.akarkin1.ui.controller.LaunchController;
@@ -85,36 +101,33 @@ public class UiRouter {
   }
 
   private void dispatch(UiContext context, Integer messageId, UiAction action) {
-    switch (action.type()) {
-      case HOME -> homeController.refreshHome(context, messageId);
-      case HELP -> homeController.showHelp(context, messageId);
-      case RUN -> launchController.launch(context, messageId, action.arg());
-      case RUN_NEW -> launchController.launchAnother(context, messageId, action.arg());
-      case USE -> nodeController.use(context, messageId, action.nodeRef().orElseThrow());
-      case STOP -> nodeController.stop(context, messageId, action.nodeRef().orElseThrow());
-      case STOP_CONFIRM -> nodeController.confirmStop(context, messageId, action.nodeRef().orElseThrow());
-      case REQUEST_ACCESS -> accessController.request(context, messageId);
-      case ACCESS_TOGGLE -> accessController.toggle(context, messageId, action.userId().orElseThrow(),
-                                                    action.roleMask().orElseThrow(),
-                                                    action.role().orElseThrow());
-      case ACCESS_GRANT -> grant(context, messageId, action);
-      case ACCESS_DECLINE -> accessController.decline(context, messageId, action.userId().orElseThrow());
-      case USERS -> usersController.show(context, messageId);
-      case USER -> usersController.showUser(context, messageId, action.userKey().orElseThrow());
-      case USER_ROLE -> usersController.toggleRole(context, messageId, action.userKey().orElseThrow(),
-                                                   action.role().orElseThrow());
-      case USER_DEL -> usersController.confirmDelete(context, messageId, action.userKey().orElseThrow());
-      case USER_DEL_CONFIRM -> usersController.delete(context, messageId, action.userKey().orElseThrow());
+    switch (action) {
+      case Home() -> homeController.refreshHome(context, messageId);
+      case Help() -> homeController.showHelp(context, messageId);
+      case Run(var regionId) -> launchController.launch(context, messageId, regionId);
+      case RunNew(var regionId) -> launchController.launchAnother(context, messageId, regionId);
+      case Use(var node) -> nodeController.use(context, messageId, node);
+      case Stop(var node) -> nodeController.stop(context, messageId, node);
+      case ConfirmStop(var node) -> nodeController.confirmStop(context, messageId, node);
+      case RequestAccess() -> accessController.request(context, messageId);
+      case AccessToggle(var userId, var selected, var role) ->
+          accessController.toggle(context, messageId, userId, selected, role);
+      case AccessGrant(var userId, var selected) -> grant(context, messageId, userId, selected);
+      case AccessDecline(var userId) -> accessController.decline(context, messageId, userId);
+      case Users() -> usersController.show(context, messageId);
+      case ShowUser(var key) -> usersController.showUser(context, messageId, key);
+      case ToggleRole(var key, var role) -> usersController.toggleRole(context, messageId, key, role);
+      case DeleteUser(var key) -> usersController.confirmDelete(context, messageId, key);
+      case ConfirmDeleteUser(var key) -> usersController.delete(context, messageId, key);
     }
   }
 
   /** Grant with no role selected only answers the callback (already done). */
-  private void grant(UiContext context, Integer messageId, UiAction action) {
-    int mask = action.roleMask().orElseThrow();
-    if (mask == 0) {
+  private void grant(UiContext context, Integer messageId, long userId, Set<UserRole> selected) {
+    if (selected.isEmpty()) {
       return;
     }
-    accessController.grant(context, messageId, action.userId().orElseThrow(), RoleSet.decode(mask));
+    accessController.grant(context, messageId, userId, selected);
   }
 
   private void sendGenericError(UiContext context) {

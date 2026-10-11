@@ -6,7 +6,6 @@ import org.github.akarkin1.auth.AccessRequest;
 import org.github.akarkin1.auth.AccessRequestService;
 import org.github.akarkin1.auth.Authorizer;
 import org.github.akarkin1.auth.PermissionsService;
-import org.github.akarkin1.auth.RoleSet;
 import org.github.akarkin1.auth.TgUser;
 import org.github.akarkin1.auth.UserRole;
 import org.github.akarkin1.ui.UiContext;
@@ -58,16 +57,17 @@ public class AccessController {
   }
 
   /** An admin's tap on a role checkbox: redraws the message with the role flipped, writes nothing. */
-  public void toggle(UiContext context, Integer messageId, long userId, int mask, UserRole role) {
+  public void toggle(UiContext context, Integer messageId, long userId, Set<UserRole> selected,
+                     UserRole role) {
     findDecidable(context, messageId, userId).ifPresent(request -> {
-      Set<UserRole> selected = EnumSet.noneOf(UserRole.class);
-      selected.addAll(RoleSet.decode(mask));
-      if (selected.contains(role)) {
-        selected.remove(role);
+      Set<UserRole> toggled = EnumSet.noneOf(UserRole.class);
+      toggled.addAll(selected);
+      if (toggled.contains(role)) {
+        toggled.remove(role);
       } else {
-        selected.add(role);
+        toggled.add(role);
       }
-      messenger.edit(context, messageId, accessScreens.adminRequest(request, selected));
+      messenger.edit(context, messageId, accessScreens.adminRequest(request, toggled));
     });
   }
 

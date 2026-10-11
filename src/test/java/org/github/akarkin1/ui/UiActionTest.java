@@ -7,9 +7,10 @@ import org.junit.jupiter.api.function.Executable;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalInt;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -27,7 +28,7 @@ class UiActionTest {
     UiAction home = UiAction.home();
 
     assertEquals("HOME", home.encode());
-    assertEquals(Optional.of(new UiAction(UiAction.Type.HOME, null)), UiAction.decode(home.encode()));
+    assertEquals(Optional.of(new UiAction.Home()), UiAction.decode(home.encode()));
   }
 
   @Test
@@ -36,7 +37,7 @@ class UiActionTest {
     UiAction help = UiAction.help();
 
     assertEquals("HELP", help.encode());
-    assertEquals(Optional.of(new UiAction(UiAction.Type.HELP, null)), UiAction.decode(help.encode()));
+    assertEquals(Optional.of(new UiAction.Help()), UiAction.decode(help.encode()));
   }
 
   @Test
@@ -45,8 +46,7 @@ class UiActionTest {
     UiAction run = UiAction.run("eu-central-1");
 
     assertEquals("RUN:eu-central-1", run.encode());
-    assertEquals(Optional.of(new UiAction(UiAction.Type.RUN, "eu-central-1")),
-                 UiAction.decode(run.encode()));
+    assertEquals(Optional.of(new UiAction.Run("eu-central-1")), UiAction.decode(run.encode()));
   }
 
   @Test
@@ -85,45 +85,43 @@ class UiActionTest {
   @DisplayName("AC-1: RUN requires a non-blank argument")
   void runRequiresArgument() {
     assertAll(
-        () -> assertThrows(IllegalArgumentException.class, () -> new UiAction(UiAction.Type.RUN, null)),
-        () -> assertThrows(IllegalArgumentException.class, () -> new UiAction(UiAction.Type.RUN, " ")));
+        () -> assertThrows(IllegalArgumentException.class, () -> new UiAction.Run(null)),
+        () -> assertThrows(IllegalArgumentException.class, () -> new UiAction.Run(" ")));
   }
 
   @Test
   @DisplayName("AC-1: HOME and HELP must not have an argument")
   void homeAndHelpRejectArgument() {
     assertAll(
-        () -> assertThrows(IllegalArgumentException.class, () -> new UiAction(UiAction.Type.HOME, "x")),
-        () -> assertThrows(IllegalArgumentException.class, () -> new UiAction(UiAction.Type.HELP, "x")));
+        () -> assertEquals(Optional.empty(), UiAction.Home.parse("x")),
+        () -> assertEquals(Optional.empty(), UiAction.Help.parse("x")));
   }
 
   @Test
-  @DisplayName("2b AC-1: RUN_NEW encodes to \"RUN_NEW:<regionId>\" and decodes back, without a node reference")
+  @DisplayName("2b AC-1: RUN_NEW encodes to \"RUN_NEW:<regionId>\" and decodes back")
   void runNewRoundTrip() {
     UiAction runNew = UiAction.runNew("eu-central-1");
 
     assertEquals("RUN_NEW:eu-central-1", runNew.encode());
-    assertEquals(Optional.of(new UiAction(UiAction.Type.RUN_NEW, "eu-central-1")),
-                 UiAction.decode(runNew.encode()));
-    assertEquals(Optional.empty(), runNew.nodeRef());
+    assertEquals(Optional.of(new UiAction.RunNew("eu-central-1")), UiAction.decode(runNew.encode()));
   }
 
   @Test
   @DisplayName("2b AC-1: USE encodes to \"USE:<regionId>:<taskId>\" and decodes back with its node reference")
   void useRoundTrip() {
-    assertNodeActionRoundTrip(UiAction.use(NODE), UiAction.Type.USE, "USE:");
+    assertNodeActionRoundTrip(UiAction.use(NODE), "USE:");
   }
 
   @Test
   @DisplayName("2b AC-1: STOP encodes to \"STOP:<regionId>:<taskId>\" and decodes back with its node reference")
   void stopRoundTrip() {
-    assertNodeActionRoundTrip(UiAction.stop(NODE), UiAction.Type.STOP, "STOP:");
+    assertNodeActionRoundTrip(UiAction.stop(NODE), "STOP:");
   }
 
   @Test
   @DisplayName("2b AC-1: STOP_CONFIRM encodes to \"STOP_CONFIRM:<regionId>:<taskId>\" and decodes back with its node reference")
   void confirmStopRoundTrip() {
-    assertNodeActionRoundTrip(UiAction.confirmStop(NODE), UiAction.Type.STOP_CONFIRM, "STOP_CONFIRM:");
+    assertNodeActionRoundTrip(UiAction.confirmStop(NODE), "STOP_CONFIRM:");
   }
 
   @Test
@@ -131,8 +129,7 @@ class UiActionTest {
   void stopWithPlaceholderDecodes() {
     Optional<UiAction> action = UiAction.decode("STOP:eu-central-1:{{TASK_ID}}");
 
-    assertEquals(Optional.of(new NodeRef("eu-central-1", "{{TASK_ID}}")),
-                 action.flatMap(UiAction::nodeRef));
+    assertEquals(Optional.of(new UiAction.Stop(new NodeRef("eu-central-1", "{{TASK_ID}}"))), action);
   }
 
   @Test
@@ -155,15 +152,6 @@ class UiActionTest {
   }
 
   @Test
-  @DisplayName("2b AC-1: RUN, HOME and HELP have no node reference")
-  void otherActionsHaveNoNodeRef() {
-    assertAll(
-        () -> assertEquals(Optional.empty(), UiAction.run("eu-central-1").nodeRef()),
-        () -> assertEquals(Optional.empty(), UiAction.home().nodeRef()),
-        () -> assertEquals(Optional.empty(), UiAction.help().nodeRef()));
-  }
-
-  @Test
   @DisplayName("2b AC-1: decode rejects new types with missing or invalid arguments")
   void decodeRejectsInvalidNewTypes() {
     String[] invalid = {"RUN_NEW", "RUN_NEW:", "RUN_NEW: ", "USE", "USE:", "USE:eu-central-1",
@@ -179,17 +167,17 @@ class UiActionTest {
   @DisplayName("2b AC-1: the constructor rejects new types with missing or invalid arguments")
   void constructorRejectsInvalidNewTypes() {
     assertAll(
-        () -> assertThrows(IllegalArgumentException.class, () -> new UiAction(UiAction.Type.RUN_NEW, null)),
-        () -> assertThrows(IllegalArgumentException.class, () -> new UiAction(UiAction.Type.RUN_NEW, " ")),
-        () -> assertThrows(IllegalArgumentException.class, () -> new UiAction(UiAction.Type.USE, null)),
-        () -> assertThrows(IllegalArgumentException.class, () -> new UiAction(UiAction.Type.STOP, "eu-central-1")),
-        () -> assertThrows(IllegalArgumentException.class,
-                           () -> new UiAction(UiAction.Type.STOP_CONFIRM, "eu-central-1:")));
+        () -> assertThrows(IllegalArgumentException.class, () -> new UiAction.RunNew(null)),
+        () -> assertThrows(IllegalArgumentException.class, () -> new UiAction.RunNew(" ")),
+        () -> assertThrows(IllegalArgumentException.class, () -> new UiAction.Use(null)),
+        () -> assertThrows(IllegalArgumentException.class, () -> new UiAction.Stop(null)),
+        () -> assertThrows(IllegalArgumentException.class, () -> new UiAction.ConfirmStop(null)));
   }
 
   // --- Phase 4: access requests and the Users screen (§4.5) ----------------------------------
 
   private static final String USERNAME_32 = "u".repeat(32);
+  private static final Set<UserRole> ALL_ROLES = EnumSet.allOf(UserRole.class);
 
   @Test
   @DisplayName("4 AC-8: REQUEST_ACCESS encodes to \"REQUEST_ACCESS\" and decodes back")
@@ -197,58 +185,52 @@ class UiActionTest {
     UiAction action = UiAction.requestAccess();
 
     assertEquals("REQUEST_ACCESS", action.encode());
-    assertEquals(UiAction.Type.REQUEST_ACCESS, action.type());
-    assertEquals(Optional.of(action), UiAction.decode(action.encode()));
+    assertEquals(Optional.of(new UiAction.RequestAccess()), UiAction.decode(action.encode()));
   }
 
   @Test
-  @DisplayName("4 AC-8: ACCESS_TOGGLE encodes to \"ACCESS_TOGGLE:<id>:<mask>:<ROLE>\" and decodes back with id, mask and role")
+  @DisplayName("4 AC-8: ACCESS_TOGGLE encodes to \"ACCESS_TOGGLE:<id>:<mask>:<ROLE>\" and decodes back with id, roles and role")
   void accessToggleRoundTrip() {
-    UiAction action = UiAction.accessToggle(123L, 5, UserRole.READ_ONLY);
+    UiAction action = UiAction.accessToggle(123L, Set.of(UserRole.NODE_ADMIN, UserRole.USER_ADMIN),
+                                            UserRole.READ_ONLY);
 
     assertEquals("ACCESS_TOGGLE:123:5:READ_ONLY", action.encode());
     Optional<UiAction> decoded = UiAction.decode(action.encode());
     assertEquals(Optional.of(action), decoded);
-    UiAction restored = decoded.orElseThrow();
-    assertEquals(UiAction.Type.ACCESS_TOGGLE, restored.type());
-    assertEquals(Optional.of(123L), restored.userId());
-    assertEquals(OptionalInt.of(5), restored.roleMask());
-    assertEquals(Optional.of(UserRole.READ_ONLY), restored.role());
+    UiAction.AccessToggle restored = (UiAction.AccessToggle) decoded.orElseThrow();
+    assertEquals(123L, restored.userId());
+    assertEquals(Set.of(UserRole.NODE_ADMIN, UserRole.USER_ADMIN), restored.selected());
+    assertEquals(UserRole.READ_ONLY, restored.role());
   }
 
   @Test
-  @DisplayName("4 AC-8: ACCESS_GRANT encodes to \"ACCESS_GRANT:<id>:<mask>\" and decodes back with id and mask, no role")
+  @DisplayName("4 AC-8: ACCESS_GRANT encodes to \"ACCESS_GRANT:<id>:<mask>\" and decodes back with id and roles")
   void accessGrantRoundTrip() {
-    UiAction action = UiAction.accessGrant(123L, 3);
+    UiAction action = UiAction.accessGrant(123L, Set.of(UserRole.NODE_ADMIN, UserRole.READ_ONLY));
 
     assertEquals("ACCESS_GRANT:123:3", action.encode());
-    UiAction restored = UiAction.decode(action.encode()).orElseThrow();
+    UiAction.AccessGrant restored = (UiAction.AccessGrant) UiAction.decode(action.encode()).orElseThrow();
     assertEquals(action, restored);
-    assertEquals(Optional.of(123L), restored.userId());
-    assertEquals(OptionalInt.of(3), restored.roleMask());
-    assertEquals(Optional.empty(), restored.role());
+    assertEquals(123L, restored.userId());
+    assertEquals(Set.of(UserRole.NODE_ADMIN, UserRole.READ_ONLY), restored.selected());
   }
 
   @Test
-  @DisplayName("4 AC-8: ACCESS_GRANT with mask 0 round-trips (the router ignores it)")
+  @DisplayName("4 AC-8: ACCESS_GRANT with no role round-trips as mask 0 (the router ignores it)")
   void accessGrantZeroMaskRoundTrip() {
-    UiAction action = UiAction.accessGrant(123L, 0);
+    UiAction action = UiAction.accessGrant(123L, Set.of());
 
     assertEquals("ACCESS_GRANT:123:0", action.encode());
-    assertEquals(OptionalInt.of(0), UiAction.decode(action.encode()).orElseThrow().roleMask());
+    assertEquals(Optional.of(new UiAction.AccessGrant(123L, Set.of())), UiAction.decode(action.encode()));
   }
 
   @Test
-  @DisplayName("4 AC-8: ACCESS_DECLINE encodes to \"ACCESS_DECLINE:<id>\" and decodes back with the id, no mask")
+  @DisplayName("4 AC-8: ACCESS_DECLINE encodes to \"ACCESS_DECLINE:<id>\" and decodes back with the id")
   void accessDeclineRoundTrip() {
     UiAction action = UiAction.accessDecline(123L);
 
     assertEquals("ACCESS_DECLINE:123", action.encode());
-    UiAction restored = UiAction.decode(action.encode()).orElseThrow();
-    assertEquals(action, restored);
-    assertEquals(Optional.of(123L), restored.userId());
-    assertEquals(OptionalInt.empty(), restored.roleMask());
-    assertEquals(Optional.empty(), restored.role());
+    assertEquals(Optional.of(new UiAction.AccessDecline(123L)), UiAction.decode(action.encode()));
   }
 
   @Test
@@ -267,10 +249,7 @@ class UiActionTest {
       UiAction action = UiAction.user(key);
 
       assertEquals("USER:" + key, action.encode());
-      UiAction restored = UiAction.decode(action.encode()).orElseThrow();
-      assertEquals(action, restored);
-      assertEquals(UiAction.Type.USER, restored.type());
-      assertEquals(Optional.of(key), restored.userKey());
+      assertEquals(Optional.of(new UiAction.ShowUser(key)), UiAction.decode(action.encode()));
     }
   }
 
@@ -282,11 +261,7 @@ class UiActionTest {
         UiAction action = UiAction.toggleRole(key, role);
 
         assertEquals("USER_ROLE:" + key + ":" + role.name(), action.encode());
-        UiAction restored = UiAction.decode(action.encode()).orElseThrow();
-        assertEquals(action, restored);
-        assertEquals(UiAction.Type.USER_ROLE, restored.type());
-        assertEquals(Optional.of(key), restored.userKey());
-        assertEquals(Optional.of(role), restored.role());
+        assertEquals(Optional.of(new UiAction.ToggleRole(key, role)), UiAction.decode(action.encode()));
       }
     }
   }
@@ -297,10 +272,7 @@ class UiActionTest {
     UiAction action = UiAction.deleteUser("@carol");
 
     assertEquals("USER_DEL:@carol", action.encode());
-    UiAction restored = UiAction.decode(action.encode()).orElseThrow();
-    assertEquals(action, restored);
-    assertEquals(UiAction.Type.USER_DEL, restored.type());
-    assertEquals(Optional.of("@carol"), restored.userKey());
+    assertEquals(Optional.of(new UiAction.DeleteUser("@carol")), UiAction.decode(action.encode()));
   }
 
   @Test
@@ -309,23 +281,20 @@ class UiActionTest {
     UiAction action = UiAction.confirmDeleteUser("123");
 
     assertEquals("USER_DEL_CONFIRM:123", action.encode());
-    UiAction restored = UiAction.decode(action.encode()).orElseThrow();
-    assertEquals(action, restored);
-    assertEquals(UiAction.Type.USER_DEL_CONFIRM, restored.type());
-    assertEquals(Optional.of("123"), restored.userKey());
+    assertEquals(Optional.of(new UiAction.ConfirmDeleteUser("123")), UiAction.decode(action.encode()));
   }
 
   @Test
   @DisplayName("4 AC-7, §4.5: the longest new callbacks fit: USER_ROLE:@<32 chars>:NODE_ADMIN = 54, ACCESS_TOGGLE:9999999999:7:USER_ADMIN = 37 bytes")
   void longestNewCallbacksFit() {
     String toggleRole = UiAction.toggleRole("@" + USERNAME_32, UserRole.NODE_ADMIN).encode();
-    String accessToggle = UiAction.accessToggle(9_999_999_999L, 7, UserRole.USER_ADMIN).encode();
+    String accessToggle = UiAction.accessToggle(9_999_999_999L, ALL_ROLES, UserRole.USER_ADMIN).encode();
 
     assertEquals(54, toggleRole.getBytes(StandardCharsets.UTF_8).length);
     assertEquals("ACCESS_TOGGLE:9999999999:7:USER_ADMIN", accessToggle);
     assertEquals(37, accessToggle.getBytes(StandardCharsets.UTF_8).length);
-    assertEquals(Optional.of(9_999_999_999L),
-                 UiAction.decode(accessToggle).flatMap(UiAction::userId));
+    assertEquals(Optional.of(new UiAction.AccessToggle(9_999_999_999L, ALL_ROLES, UserRole.USER_ADMIN)),
+                 UiAction.decode(accessToggle));
   }
 
   @Test
@@ -335,10 +304,10 @@ class UiActionTest {
     String usernameKey = "@" + USERNAME_32;
     List<UiAction> actions = List.of(
         UiAction.requestAccess(),
-        UiAction.accessToggle(id, 7, UserRole.NODE_ADMIN),
-        UiAction.accessToggle(id, 7, UserRole.READ_ONLY),
-        UiAction.accessToggle(id, 7, UserRole.USER_ADMIN),
-        UiAction.accessGrant(id, 7),
+        UiAction.accessToggle(id, ALL_ROLES, UserRole.NODE_ADMIN),
+        UiAction.accessToggle(id, ALL_ROLES, UserRole.READ_ONLY),
+        UiAction.accessToggle(id, ALL_ROLES, UserRole.USER_ADMIN),
+        UiAction.accessGrant(id, ALL_ROLES),
         UiAction.accessDecline(id),
         UiAction.users(),
         UiAction.user(usernameKey),
@@ -354,22 +323,6 @@ class UiActionTest {
       assertTrue(data.getBytes(StandardCharsets.UTF_8).length < 64, data);
       assertEquals(Optional.of(action), UiAction.decode(data), data);
     }
-  }
-
-  @Test
-  @DisplayName("4 AC-8: the typed accessors are empty for actions without that part")
-  void accessorsEmptyForOtherTypes() {
-    assertAll(
-        () -> assertEquals(Optional.empty(), UiAction.home().userId()),
-        () -> assertEquals(OptionalInt.empty(), UiAction.home().roleMask()),
-        () -> assertEquals(Optional.empty(), UiAction.home().role()),
-        () -> assertEquals(Optional.empty(), UiAction.home().userKey()),
-        () -> assertEquals(Optional.empty(), UiAction.run("eu-central-1").userId()),
-        () -> assertEquals(Optional.empty(), UiAction.users().userKey()),
-        () -> assertEquals(Optional.empty(), UiAction.requestAccess().userId()),
-        () -> assertEquals(Optional.empty(), UiAction.user("123").role()),
-        () -> assertEquals(OptionalInt.empty(), UiAction.toggleRole("123", UserRole.READ_ONLY).roleMask()),
-        () -> assertEquals(Optional.empty(), UiAction.stop(NODE).userId()));
   }
 
   @Test
@@ -398,28 +351,19 @@ class UiActionTest {
   @DisplayName("4 AC-8: the constructor rejects the new types with invalid arguments")
   void constructorRejectsInvalidPhase4Types() {
     assertAll(
+        () -> assertThrows(IllegalArgumentException.class, () -> new UiAction.ShowUser(null)),
+        () -> assertThrows(IllegalArgumentException.class, () -> new UiAction.ShowUser("alice")),
+        () -> assertThrows(IllegalArgumentException.class, () -> new UiAction.AccessDecline(0)),
+        () -> assertThrows(IllegalArgumentException.class, () -> new UiAction.AccessGrant(123, null)),
         () -> assertThrows(IllegalArgumentException.class,
-                           () -> new UiAction(UiAction.Type.REQUEST_ACCESS, "x")),
-        () -> assertThrows(IllegalArgumentException.class,
-                           () -> new UiAction(UiAction.Type.USERS, "x")),
-        () -> assertThrows(IllegalArgumentException.class,
-                           () -> new UiAction(UiAction.Type.USER, null)),
-        () -> assertThrows(IllegalArgumentException.class,
-                           () -> new UiAction(UiAction.Type.ACCESS_DECLINE, "abc")),
-        () -> assertThrows(IllegalArgumentException.class,
-                           () -> new UiAction(UiAction.Type.ACCESS_GRANT, "123")),
-        () -> assertThrows(IllegalArgumentException.class,
-                           () -> new UiAction(UiAction.Type.USER_ROLE, "123:ROOT")));
+                           () -> new UiAction.ToggleRole("123", null)));
   }
 
-  private static void assertNodeActionRoundTrip(UiAction action, UiAction.Type type, String prefix) {
+  private static void assertNodeActionRoundTrip(UiAction action, String prefix) {
     String data = action.encode();
 
     assertEquals(prefix + "eu-central-1:" + TASK_ID, data);
-    Optional<UiAction> decoded = UiAction.decode(data);
-    assertEquals(Optional.of(new UiAction(type, "eu-central-1:" + TASK_ID)), decoded);
-    assertEquals(Optional.of(NODE), decoded.flatMap(UiAction::nodeRef));
-    assertEquals(Optional.of(NODE), action.nodeRef());
+    assertEquals(Optional.of(action), UiAction.decode(data));
   }
 
 }

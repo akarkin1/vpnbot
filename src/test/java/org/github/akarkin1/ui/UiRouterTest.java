@@ -90,7 +90,9 @@ class UiRouterTest {
 
     InOrder inOrder = inOrder(messenger, accessController);
     inOrder.verify(messenger).answerCallback(CALLBACK_ID);
-    inOrder.verify(accessController).toggle(CONTEXT, MESSAGE_ID, 9_999_999_999L, 5, UserRole.READ_ONLY);
+    inOrder.verify(accessController).toggle(CONTEXT, MESSAGE_ID, 9_999_999_999L,
+                                            Set.of(UserRole.NODE_ADMIN, UserRole.USER_ADMIN),
+                                            UserRole.READ_ONLY);
     verify(accessController, never()).grant(any(), any(), anyLong(), any());
     verify(accessController, never()).decline(any(), any(), anyLong());
   }
