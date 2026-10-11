@@ -5,7 +5,6 @@ import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -86,27 +85,6 @@ public class FakePermissionsService implements PermissionsService {
     pending.forEach((username, permissions) -> result.put(new TgUser(null, username),
                                                           sorted(permissions)));
     return result;
-  }
-
-  @Override
-  public Optional<TgUser> findByUsername(String username) {
-    if (username == null) {
-      return Optional.empty();
-    }
-    String wanted = (username.startsWith("@") ? username.substring(1) : username)
-        .toLowerCase(Locale.ROOT);
-    Optional<TgUser> user = users.entrySet().stream()
-        .filter(entry -> entry.getValue().username() != null
-                         && entry.getValue().username().toLowerCase(Locale.ROOT).equals(wanted))
-        .map(entry -> new TgUser(entry.getKey(), entry.getValue().username()))
-        .findFirst();
-    if (user.isPresent()) {
-      return user;
-    }
-    return pending.keySet().stream()
-        .filter(name -> name.toLowerCase(Locale.ROOT).equals(wanted))
-        .map(name -> new TgUser(null, name))
-        .findFirst();
   }
 
   @Override

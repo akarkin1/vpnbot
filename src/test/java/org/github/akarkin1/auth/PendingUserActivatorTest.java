@@ -51,7 +51,7 @@ class PendingUserActivatorTest {
   }
 
   @Test
-  @DisplayName("4 AC-2a, D-16: the PENDING_USER lookup is case-insensitive like findByUsername (@Alice pre-registered, alice writes)")
+  @DisplayName("4 AC-2a, D-16: the PENDING_USER lookup is case-insensitive (@Alice pre-registered, alice writes)")
   void pendingLookupIgnoresCase() {
     permissions.withPending("Alice", Permission.RUN_NODES);
 

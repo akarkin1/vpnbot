@@ -16,7 +16,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -244,37 +243,6 @@ class DynamoDbPermissionsServiceTest {
     assertEquals(List.of(), pendingUsers.deletes());
   }
 
-  // --- findByUsername -----------------------------------------------------------------------
-
-  @Test
-  @DisplayName("4 AC-3: findByUsername ignores case and a leading @, and prefers a USER record over a PENDING_USER")
-  void findByUsernamePrefersUser() {
-    users.withPages(List.of(user("42", "Alice", "RUN_NODES")));
-    pendingUsers.withPages(List.of(pending("alice", "LIST_NODES")));
-
-    assertEquals(Optional.of(new TgUser(42L, "Alice")), service.findByUsername("@ALICE"));
-    assertEquals(Optional.of(new TgUser(42L, "Alice")), service.findByUsername("alice"));
-  }
-
-  @Test
-  @DisplayName("4 AC-3: findByUsername finds a pending user (no id) case-insensitively")
-  void findByUsernamePending() {
-    users.withPages(List.of(user("42", "alice", "RUN_NODES")));
-    pendingUsers.withPages(List.of(pending("Bob_99", "LIST_NODES")));
-
-    assertEquals(Optional.of(new TgUser(null, "Bob_99")), service.findByUsername("@bob_99"));
-  }
-
-  @Test
-  @DisplayName("4 AC-3: findByUsername of an unknown username is empty; a USER record without username never matches")
-  void findByUsernameUnknown() {
-    users.withPages(List.of(user("42", "alice", "RUN_NODES"), user("43", null, "LIST_NODES")));
-    pendingUsers.withPages(List.of(pending("bob", "LIST_NODES")));
-
-    assertEquals(Optional.empty(), service.findByUsername("carol"));
-    assertEquals(Optional.empty(), service.findByUsername("@carol"));
-  }
-
   // --- metrics ------------------------------------------------------------------------------
 
   @Test
@@ -285,7 +253,6 @@ class DynamoDbPermissionsServiceTest {
     pendingUsers.withPages(List.of(pending("bob", "LIST_NODES")));
 
     service.getUsers();
-    service.findByUsername("bob");
     service.updateUserPermissions(new TgUser(42L, null), Set.of(Permission.LIST_NODES));
     service.updateUserPermissions(new TgUser(1L, "root"), Set.of());
     service.updateUserPermissions(new TgUser(null, "bob"), Set.of(Permission.RUN_NODES));
