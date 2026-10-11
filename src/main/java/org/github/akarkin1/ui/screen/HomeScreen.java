@@ -17,6 +17,10 @@ public class HomeScreen {
   private static final List<Button> REFRESH_HELP_ROW = List.of(
       Button.action("🔄 ${ui.button.refresh}", UiAction.home()),
       Button.action("❓ ${ui.button.help}", UiAction.help()));
+  private static final List<Button> REQUEST_ACCESS_ROW = List.of(
+      Button.action("🙋 ${ui.button.request-access}", UiAction.requestAccess()));
+  private static final List<Button> USERS_ROW = List.of(
+      Button.action("👥 ${ui.button.users}", UiAction.users()));
 
   private final RegionLabels regionLabels;
 
@@ -24,7 +28,7 @@ public class HomeScreen {
     StringBuilder template = new StringBuilder();
     List<Object> params = new ArrayList<>();
     appendGreeting(model, template, params);
-    if (!model.canListNodes() && !model.canRunNodes()) {
+    if (!model.hasAccess()) {
       template.append("\n\n${ui.home.no-access}");
     }
     if (model.canListNodes()) {
@@ -77,10 +81,16 @@ public class HomeScreen {
 
   private List<List<Button>> keyboard(HomeModel model) {
     List<List<Button>> keyboard = new ArrayList<>();
+    if (!model.hasAccess()) {
+      keyboard.add(REQUEST_ACCESS_ROW);
+    }
     if (model.canRunNodes()) {
       keyboard.addAll(regionRows(model.regionIds()));
     }
     keyboard.addAll(stopRows(model));
+    if (model.canManageUsers()) {
+      keyboard.add(USERS_ROW);
+    }
     keyboard.add(REFRESH_HELP_ROW);
     return keyboard;
   }

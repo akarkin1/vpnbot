@@ -41,7 +41,7 @@ class UsersScreenTest {
   // --- list --------------------------------------------------------------------------------------
 
   @Test
-  @DisplayName("4 AC-6, AC-7: list shows the title, one button per user (USER:<key>) in the given order, then the menu")
+  @DisplayName("4 AC-6, AC-7: list shows the title, one button per user (USER:<key>) sorted by username, then the menu")
   void list() {
     Screen list = screen.list(new UsersModel(List.of(ALICE, BOB_PENDING, ZED_ROOT)));
 
@@ -85,10 +85,10 @@ class UsersScreenTest {
 
     List<String> labels = renderedLabels(screen.list(new UsersModel(List.of(ALICE, percent))), "en");
 
-    assertTrue(labels.get(0).startsWith("@alice · "), labels.get(0));
-    assertTrue(labels.get(0).contains("Node admin"), labels.get(0));
-    assertTrue(labels.get(1).startsWith("@50%off · "), labels.get(1));
-    assertTrue(labels.get(1).endsWith(" · pending"), labels.get(1));
+    String alice = labels.stream().filter(l -> l.startsWith("@alice · ")).findFirst().orElseThrow();
+    String pending = labels.stream().filter(l -> l.startsWith("@50%off · ")).findFirst().orElseThrow();
+    assertTrue(alice.contains("Node admin"), alice);
+    assertTrue(pending.endsWith(" · pending"), pending);
     labels.forEach(label -> assertFalse(label.contains("${"), label));
   }
 
@@ -198,7 +198,7 @@ class UsersScreenTest {
   // --- confirm delete --------------------------------------------------------------------------
 
   @Test
-  @DisplayName("4 AC-6, AC-7: confirmDelete asks \"Remove @username from the bot?\" with Yes, remove (USER_DEL_CONFIRM) and Cancel (USER)")
+  @DisplayName("4 AC-6, AC-7, D-19: confirmDelete asks \"Remove the user <b>@username</b>?\" with Yes, remove (USER_DEL_CONFIRM) and Cancel (USER)")
   void confirmDelete() {
     Screen confirm = screen.confirmDelete(ALICE);
 
@@ -207,9 +207,7 @@ class UsersScreenTest {
                          new Button("✖ ${ui.button.cancel}", "USER:1", null)),
                  buttons(confirm));
     String text = render(confirm, "en").text();
-    assertTrue(text.contains("Remove "), text);
-    assertTrue(text.contains("@alice"), text);
-    assertTrue(text.contains(" from the bot?"), text);
+    assertTrue(text.contains("Remove the user <b>@alice</b>?"), text);
     assertFalse(text.contains("%s"), text);
   }
 

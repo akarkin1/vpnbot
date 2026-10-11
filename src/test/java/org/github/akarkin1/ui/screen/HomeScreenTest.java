@@ -59,15 +59,12 @@ class HomeScreenTest {
   }
 
   @Test
-  @DisplayName("4 AC-7, §4.2: a user without access gets the Request access row (REQUEST_ACCESS) first, no region or users buttons")
+  @DisplayName("4 AC-7, §4.2, D-21: a user without access gets the Request access row (REQUEST_ACCESS), then Refresh/Help")
   void noAccessKeyboard() {
     Screen screen = homeScreen.home(new HomeModel("Alex", "alex", false, false, false, List.of(),
                                                   List.of("eu-central-1"), List.of(), false, false));
 
-    assertEquals(List.of(REQUEST_ACCESS), screen.keyboard().getFirst());
-    List<String> data = callbackData(screen);
-    assertFalse(data.stream().anyMatch(d -> d.startsWith("RUN") || d.startsWith("STOP")), data.toString());
-    assertFalse(data.contains("USERS"), data.toString());
+    assertEquals(List.of(List.of(REQUEST_ACCESS), REFRESH_HELP), screen.keyboard());
   }
 
   @Test

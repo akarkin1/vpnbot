@@ -20,14 +20,17 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -51,6 +54,8 @@ import static org.mockito.Mockito.when;
 class AccessControllerTest {
 
   private static final Integer MESSAGE_ID = 42;
+  private static final Instant NOW = Instant.parse("2026-10-11T12:00:00.123Z");
+  private static final Clock CLOCK = Clock.fixed(NOW, ZoneOffset.UTC);
   private static final long REQUESTER_ID = 7L;
 
   private static final UiContext ROOT = new UiContext(1L, 1L, "root", "Root", "en");
@@ -89,12 +94,15 @@ class AccessControllerTest {
   @BeforeEach
   void setUp() {
     permissions = new FakePermissionsService()
-        .with(ROOT.user(), Permission.ROOT_ACCESS)
-        .with(ADMIN.user(), Permission.USER_MANAGEMENT)
-        .with(READER.user(), Permission.LIST_NODES, Permission.SUPPORTED_REGIONS)
-        .with(PENDING_ADMIN, Permission.USER_MANAGEMENT);
+        .withUser(1L, "root", Permission.ROOT_ACCESS)
+        .withUser(10L, "admin", Permission.USER_MANAGEMENT)
+        .withUser(20L, "reader", Permission.LIST_NODES, Permission.SUPPORTED_REGIONS)
+        .withPending(PENDING_ADMIN.username(), Permission.USER_MANAGEMENT);
     lenient().when(authorizer.hasPermission(any(), any())).thenAnswer(invocation -> {
-      Set<Permission> granted = permissions.permissionsOf(invocation.getArgument(0));
+      TgUser user = invocation.getArgument(0);
+      Set<Permission> granted = user.id() != null
+          ? permissions.permissionsOf(user.id())
+          : permissions.pendingPermissionsOf(user.username());
       return granted.contains(Permission.ROOT_ACCESS) || granted.contains(invocation.getArgument(1));
     });
     lenient().when(screens.requested()).thenReturn(REQUESTED);
@@ -106,8 +114,8 @@ class AccessControllerTest {
     lenient().when(screens.accessGranted(any())).thenReturn(ACCESS_GRANTED);
     lenient().when(screens.accessDeclined()).thenReturn(ACCESS_DECLINED);
     lenient().when(screens.notAllowed()).thenReturn(NOT_ALLOWED);
-    controller = new AccessController(requests, permissions, authorizer, messenger, screens,
-                                      homeController);
+    controller = new AccessController(requests, permissions, authorizer, homeController, messenger,
+                                      screens, CLOCK);
   }
 
   // --- request ---------------------------------------------------------------------------------
@@ -115,7 +123,7 @@ class AccessControllerTest {
   @Test
   @DisplayName("4 AC-4: a user granted meanwhile gets the home screen; nothing is recorded or sent")
   void requestWhenGrantedMeanwhile() {
-    permissions.with(REQUESTER.user(), Permission.LIST_NODES, Permission.SUPPORTED_REGIONS);
+    permissions.withUser(REQUESTER_ID, "newbie", Permission.LIST_NODES, Permission.SUPPORTED_REGIONS);
 
     controller.request(REQUESTER, MESSAGE_ID);
 
@@ -141,18 +149,15 @@ class AccessControllerTest {
   @DisplayName("4 AC-4: a new request is recorded with the requester's details, the requester sees requested")
   void requestRecorded() {
     when(requests.find(REQUESTER_ID)).thenReturn(Optional.empty());
-    long before = System.currentTimeMillis();
 
     controller.request(REQUESTER, MESSAGE_ID);
 
-    long after = System.currentTimeMillis();
     AccessRequest created = createdRequest();
     assertEquals(REQUESTER_ID, created.userId());
     assertEquals("newbie", created.username());
     assertEquals("Newbie", created.firstName());
     assertEquals("ru", created.languageCode());
-    assertTrue(created.requestedAt() >= before && created.requestedAt() <= after,
-               "requestedAt " + created.requestedAt() + " not in [" + before + ", " + after + "]");
+    assertEquals(NOW.toEpochMilli(), created.requestedAt());
     verify(messenger).edit(REQUESTER, MESSAGE_ID, REQUESTED);
     verifyNoInteractions(homeController);
   }
@@ -165,6 +170,9 @@ class AccessControllerTest {
     controller.request(REQUESTER, MESSAGE_ID);
 
     assertEquals(Set.of(1L, 10L), sentChatIds(ADMIN_REQUEST, 2));
+    assertEquals(Set.of(), sentLanguages(ADMIN_REQUEST).stream().filter(Objects::nonNull)
+                     .collect(Collectors.toSet()),
+                 "D-21: admins are notified in the bot's default language (no language code)");
     verify(screens, atLeastOnce()).adminRequest(argThat(request -> request.userId() == REQUESTER_ID),
                                                 eq(Set.of()));
     verify(screens, never()).adminRequest(any(), argThat(selected -> !selected.isEmpty()));
@@ -173,12 +181,13 @@ class AccessControllerTest {
   @Test
   @DisplayName("4 §4.2: with no admin known the request is still recorded and the requester sees requested")
   void requestWithoutAdmins() {
-    permissions.updateUserPermissions(ROOT.user(), null);
-    permissions.updateUserPermissions(ADMIN.user(), null);
-    permissions.updateUserPermissions(PENDING_ADMIN, null);
+    FakePermissionsService noAdmins = new FakePermissionsService()
+        .withUser(20L, "reader", Permission.LIST_NODES, Permission.SUPPORTED_REGIONS);
+    AccessController withoutAdmins = new AccessController(requests, noAdmins, authorizer,
+                                                          homeController, messenger, screens, CLOCK);
     when(requests.find(REQUESTER_ID)).thenReturn(Optional.empty());
 
-    controller.request(REQUESTER, MESSAGE_ID);
+    withoutAdmins.request(REQUESTER, MESSAGE_ID);
 
     verify(requests).create(any());
     verify(messenger).edit(REQUESTER, MESSAGE_ID, REQUESTED);
@@ -229,8 +238,8 @@ class AccessControllerTest {
   @DisplayName("4 AC-5: the redrawn message carries the new mask on every button (real screens)")
   void toggleRedrawsWithNewMask() {
     AccessController withRealScreens = new AccessController(requests, permissions, authorizer,
-                                                            messenger, new AccessScreens(),
-                                                            homeController);
+                                                            homeController, messenger,
+                                                            new AccessScreens(), CLOCK);
     when(requests.find(REQUESTER_ID)).thenReturn(Optional.of(REQUEST));
 
     withRealScreens.toggle(ADMIN, MESSAGE_ID, REQUESTER_ID, 2, UserRole.USER_ADMIN);
@@ -305,11 +314,11 @@ class AccessControllerTest {
     controller.decide(ADMIN, MESSAGE_ID, REQUESTER_ID,
                       Optional.of(Set.of(UserRole.NODE_ADMIN, UserRole.USER_ADMIN)));
 
-    TgUser requester = new TgUser(REQUESTER_ID, null);
     assertEquals(Set.of(Permission.SUPPORTED_REGIONS, Permission.LIST_NODES, Permission.RUN_NODES,
                         Permission.USER_MANAGEMENT),
-                 permissions.permissionsOf(requester));
-    assertEquals("newbie", permissions.storedKey(requester).username());
+                 permissions.permissionsOf(REQUESTER_ID));
+    assertEquals(Optional.of("newbie"),
+                 permissions.storedUser(REQUESTER_ID).map(TgUser::username));
   }
 
   @Test
@@ -328,7 +337,7 @@ class AccessControllerTest {
     assertEquals(REQUESTER_ID, requester.chatId());
     assertEquals("ru", requester.languageCode());
     assertEquals(Set.of(Permission.SUPPORTED_REGIONS, Permission.LIST_NODES),
-                 permissions.permissionsOf(new TgUser(REQUESTER_ID, null)));
+                 permissions.permissionsOf(REQUESTER_ID));
   }
 
   @Test
@@ -351,8 +360,8 @@ class AccessControllerTest {
 
     controller.decide(ADMIN, MESSAGE_ID, REQUESTER_ID, Optional.empty());
 
-    assertEquals(Set.of(), permissions.permissionsOf(new TgUser(REQUESTER_ID, null)));
-    assertEquals(0, permissions.writes());
+    assertEquals(Set.of(), permissions.permissionsOf(REQUESTER_ID));
+    assertEquals(List.of(), permissions.writes());
     verify(requests).delete(REQUESTER_ID);
     verify(screens).declined(REQUEST);
     verify(messenger).edit(ADMIN, MESSAGE_ID, DECLINED);
@@ -372,7 +381,7 @@ class AccessControllerTest {
                                                Optional.of(Set.of(UserRole.READ_ONLY))));
 
     assertEquals(Set.of(Permission.SUPPORTED_REGIONS, Permission.LIST_NODES),
-                 permissions.permissionsOf(new TgUser(REQUESTER_ID, null)));
+                 permissions.permissionsOf(REQUESTER_ID));
     verify(requests).delete(REQUESTER_ID);
     verify(messenger).edit(ADMIN, MESSAGE_ID, GRANTED);
   }
@@ -392,7 +401,7 @@ class AccessControllerTest {
   // --- helpers ---------------------------------------------------------------------------------
 
   private void assertNothingWritten() {
-    assertEquals(0, permissions.writes(), "permissions were written");
+    assertEquals(List.of(), permissions.writes(), "permissions were written");
     verify(requests, never()).create(any());
     verify(requests, never()).delete(anyLong());
   }
@@ -407,6 +416,12 @@ class AccessControllerTest {
     ArgumentCaptor<UiContext> captor = ArgumentCaptor.forClass(UiContext.class);
     verify(messenger).send(captor.capture(), eq(screen));
     return captor.getValue();
+  }
+
+  private List<String> sentLanguages(Screen screen) {
+    ArgumentCaptor<UiContext> captor = ArgumentCaptor.forClass(UiContext.class);
+    verify(messenger, atLeastOnce()).send(captor.capture(), eq(screen));
+    return captor.getAllValues().stream().map(UiContext::languageCode).toList();
   }
 
   private Set<Long> sentChatIds(Screen screen, int times) {

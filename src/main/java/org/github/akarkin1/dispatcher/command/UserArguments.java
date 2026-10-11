@@ -25,12 +25,12 @@ final class UserArguments {
     }
   }
 
-  /** {@code @username (id)}, {@code @username (pending)} or the id alone. */
+  /** {@code @username (id)}, {@code @username (${ui.users.pending})} or the id alone. */
   static String describe(TgUser user) {
     if (user.username() == null) {
       return String.valueOf(user.id());
     }
-    return "@%s (%s)".formatted(user.username(), user.pending() ? "pending" : user.id());
+    return "@%s (%s)".formatted(user.username(), user.pending() ? "${ui.users.pending}" : user.id());
   }
 
 }

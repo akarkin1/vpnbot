@@ -39,7 +39,7 @@ class LaunchControllerTest {
 
   private static final String REGION = "eu-central-1";
   private static final UiContext CONTEXT = new UiContext(100L, 7L, "alex", "Alex", "en-US");
-  private static final TgUser ALEX = CONTEXT.user();
+  private static final TgUser ALEX = new TgUser(7L, "alex");
   private static final NodeOwner OWNER = new NodeOwner(7L, "alex", 100L, "en-US");
   private static final Integer MESSAGE_ID = 42;
   private static final Integer NEW_MESSAGE_ID = 77;
@@ -87,9 +87,9 @@ class LaunchControllerTest {
   }
 
   @Test
-  @DisplayName("2a AC-1: null username is not allowed and makes no service calls")
-  void nullUsernameNotAllowed() {
-    UiContext anonymous = new UiContext(100L, null, null, "Alex", "en-US");
+  @DisplayName("2a AC-1: a user without a username and without RUN_NODES is not allowed and makes no service calls")
+  void noUsernameNotAllowed() {
+    UiContext anonymous = new UiContext(100L, 11L, null, "Alex", "en-US");
 
     controller.launch(anonymous, MESSAGE_ID, REGION);
 
@@ -242,7 +242,7 @@ class LaunchControllerTest {
     allowRun();
     supportRegion();
     TaskInfo untagged = node("task-4", "legacy-frankfurt-1", Region.EU_CENTRAL_1, null);
-    TaskInfo bobs = node("task-5", "bob-frankfurt-1", Region.EU_CENTRAL_1, "bob");
+    TaskInfo bobs = node("task-5", "bob-frankfurt-1", Region.EU_CENTRAL_1, "8");
     when(nodeService.listTasks("7")).thenReturn(List.of(untagged, bobs));
     when(nodeNotifications.build(CONTEXT, MESSAGE_ID, REGION)).thenReturn(ENV);
     when(nodeService.runNode(REGION, OWNER, null, ENV)).thenReturn(TASK);
@@ -260,7 +260,7 @@ class LaunchControllerTest {
     allowRun();
     supportRegion();
     TaskInfo untagged = node("task-4", "legacy-frankfurt-1", Region.EU_CENTRAL_1, null);
-    TaskInfo bobs = node("task-5", "bob-frankfurt-1", Region.EU_CENTRAL_1, "bob");
+    TaskInfo bobs = node("task-5", "bob-frankfurt-1", Region.EU_CENTRAL_1, "8");
     when(nodeService.listTasks("7")).thenReturn(List.of(untagged, OWN_NODE_HERE, bobs));
     when(launchScreens.existingNodes(REGION, List.of(OWN_NODE_HERE))).thenReturn(EXISTING);
 
@@ -304,16 +304,16 @@ class LaunchControllerTest {
   }
 
   @Test
-  @DisplayName("2b AC-6: runNode receives the NodeOwner built from the context (username, chat id, language)")
+  @DisplayName("2b AC-6, 4 AC-9: runNode receives the NodeOwner built from the context (user id, username, chat id, language)")
   void runNodeReceivesOwnerFromContext() {
-    UiContext russian = new UiContext(555L, 555L, "masha", "Masha", "ru");
-    when(authorizer.hasPermission(russian.user(), Permission.RUN_NODES)).thenReturn(true);
+    UiContext russian = new UiContext(555L, 12L, "masha", "Masha", "ru");
+    when(authorizer.hasPermission(new TgUser(12L, "masha"), Permission.RUN_NODES)).thenReturn(true);
     supportRegion();
     when(nodeNotifications.build(russian, MESSAGE_ID, REGION)).thenReturn(ENV);
 
     controller.launch(russian, MESSAGE_ID, REGION);
 
-    verify(nodeService).runNode(REGION, new NodeOwner(555L, "masha", 555L, "ru"), null, ENV);
+    verify(nodeService).runNode(REGION, new NodeOwner(12L, "masha", 555L, "ru"), null, ENV);
   }
 
   @Test
@@ -348,9 +348,9 @@ class LaunchControllerTest {
   }
 
   @Test
-  @DisplayName("2b AC-6: launchAnother with a null username is not allowed and makes no service calls")
-  void launchAnotherNullUsername() {
-    UiContext anonymous = new UiContext(100L, null, null, "Alex", "en-US");
+  @DisplayName("2b AC-6: launchAnother by a user without a username and without RUN_NODES is not allowed and makes no service calls")
+  void launchAnotherNoUsername() {
+    UiContext anonymous = new UiContext(100L, 11L, null, "Alex", "en-US");
 
     controller.launchAnother(anonymous, MESSAGE_ID, REGION);
 
@@ -450,6 +450,35 @@ class LaunchControllerTest {
 
     verify(messenger).edit(CONTEXT, NEW_MESSAGE_ID, FAILED);
     verify(messenger, never()).edit(CONTEXT, NEW_MESSAGE_ID, WAITING);
+  }
+
+  @Test
+  @DisplayName("4 AC-9: a user without a username but with RUN_NODES (granted by id) launches; the owner has the id and no username")
+  void noUsernameWithRunNodesLaunches() {
+    UiContext anna = new UiContext(100L, 11L, null, "Anna", "en-US");
+    when(authorizer.hasPermission(new TgUser(11L, null), Permission.RUN_NODES)).thenReturn(true);
+    supportRegion();
+    when(nodeNotifications.build(anna, MESSAGE_ID, REGION)).thenReturn(ENV);
+
+    controller.launch(anna, MESSAGE_ID, REGION);
+
+    verify(nodeService).listTasks("11");
+    verify(nodeService).runNode(REGION, new NodeOwner(11L, null, 100L, "en-US"), null, ENV);
+    verify(messenger).edit(anna, MESSAGE_ID, WAITING);
+  }
+
+  @Test
+  @DisplayName("4 AC-9: the reuse check lists the user's nodes by id and counts nodes whose RunBy is the user id as own")
+  void reuseCheckByUserId() {
+    allowRun();
+    supportRegion();
+    when(nodeService.listTasks("7")).thenReturn(List.of(OWN_NODE_HERE));
+    when(launchScreens.existingNodes(REGION, List.of(OWN_NODE_HERE))).thenReturn(EXISTING);
+
+    controller.launch(CONTEXT, MESSAGE_ID, REGION);
+
+    verify(nodeService, never()).listTasks("alex");
+    verify(messenger).edit(CONTEXT, MESSAGE_ID, EXISTING);
   }
 
   private void allowRun() {

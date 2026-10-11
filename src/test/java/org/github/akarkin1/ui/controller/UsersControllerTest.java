@@ -22,14 +22,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -80,14 +79,18 @@ class UsersControllerTest {
   @BeforeEach
   void setUp() {
     permissions = new FakePermissionsService()
-        .with(ROOT.user(), Permission.ROOT_ACCESS)
-        .with(ADMIN.user(), Permission.USER_MANAGEMENT)
-        .with(DELETER.user(), Permission.USER_MANAGEMENT, Permission.DELETE_USERS)
-        .with(READER.user(), Permission.SUPPORTED_REGIONS, Permission.LIST_NODES)
-        .with(ALICE, Permission.SUPPORTED_REGIONS, Permission.LIST_NODES, Permission.RUN_NODES)
-        .with(CAROL, Permission.SUPPORTED_REGIONS, Permission.LIST_NODES);
+        .withUser(1L, "root", Permission.ROOT_ACCESS)
+        .withUser(10L, "admin", Permission.USER_MANAGEMENT)
+        .withUser(11L, "deleter", Permission.USER_MANAGEMENT, Permission.DELETE_USERS)
+        .withUser(20L, "reader", Permission.SUPPORTED_REGIONS, Permission.LIST_NODES)
+        .withUser(30L, "alice", Permission.SUPPORTED_REGIONS, Permission.LIST_NODES,
+                  Permission.RUN_NODES)
+        .withPending("carol", Permission.SUPPORTED_REGIONS, Permission.LIST_NODES);
     lenient().when(authorizer.hasPermission(any(), any())).thenAnswer(invocation -> {
-      Set<Permission> granted = permissions.permissionsOf(invocation.getArgument(0));
+      TgUser user = invocation.getArgument(0);
+      Set<Permission> granted = user.id() != null
+          ? permissions.permissionsOf(user.id())
+          : permissions.pendingPermissionsOf(user.username());
       return granted.contains(Permission.ROOT_ACCESS) || granted.contains(invocation.getArgument(1));
     });
     lenient().when(usersScreen.list(any())).thenReturn(LIST);
@@ -140,7 +143,7 @@ class UsersControllerTest {
   @Test
   @DisplayName("4 AC-6: the list has one button per user, sorted by username then key, then the menu (real screen)")
   void listSorted() {
-    permissions.with(new TgUser(null, "alice"), Permission.USER_MANAGEMENT);
+    permissions.withPending("alice", Permission.USER_MANAGEMENT);
     UsersController withRealScreen = new UsersController(permissions, authorizer, messenger,
                                                          new UsersScreen());
 
@@ -219,7 +222,7 @@ class UsersControllerTest {
     assertDoesNotThrow(() -> controller.showUser(ADMIN, MESSAGE_ID, "999"));
 
     verify(usersScreen, never()).user(any(), anyBoolean());
-    assertEquals(0, permissions.writes());
+    assertEquals(List.of(), permissions.writes());
   }
 
   // --- toggle role -----------------------------------------------------------------------------
@@ -231,8 +234,8 @@ class UsersControllerTest {
 
     Set<Permission> expected = Set.of(Permission.SUPPORTED_REGIONS, Permission.LIST_NODES,
                                       Permission.RUN_NODES, Permission.USER_MANAGEMENT);
-    assertEquals(expected, permissions.permissionsOf(ALICE));
-    assertEquals("alice", permissions.storedKey(ALICE).username());
+    assertEquals(expected, permissions.permissionsOf(30L));
+    assertEquals(Optional.of("alice"), permissions.storedUser(30L).map(TgUser::username));
     verify(messenger).edit(ADMIN, MESSAGE_ID, CARD);
     assertEquals(expected, Set.copyOf(shownRow(false).permissions()));
   }
@@ -242,7 +245,7 @@ class UsersControllerTest {
   void toggleRoleOff() {
     controller.toggleRole(ADMIN, MESSAGE_ID, "30", UserRole.NODE_ADMIN);
 
-    assertEquals(READ_ONLY, permissions.permissionsOf(ALICE));
+    assertEquals(READ_ONLY, permissions.permissionsOf(30L));
     verify(messenger).edit(ADMIN, MESSAGE_ID, CARD);
   }
 
@@ -251,20 +254,32 @@ class UsersControllerTest {
   void toggleRolePendingUser() {
     controller.toggleRole(DELETER, MESSAGE_ID, "@carol", UserRole.NODE_ADMIN);
 
-    assertEquals(NODE_ADMIN, permissions.permissionsOf(CAROL));
-    assertNotNull(permissions.storedKey(CAROL));
-    assertTrue(permissions.storedKey(CAROL).pending());
+    assertEquals(NODE_ADMIN, permissions.pendingPermissionsOf("carol"));
   }
 
   @Test
-  @DisplayName("4 AC-6: unticking the last role asks for confirmation and writes nothing")
+  @DisplayName("4 AC-6: unticking the last role asks a caller with DELETE_USERS for confirmation and writes nothing")
   void toggleLastRoleAsksToConfirm() {
-    controller.toggleRole(ADMIN, MESSAGE_ID, "@carol", UserRole.READ_ONLY);
+    controller.toggleRole(DELETER, MESSAGE_ID, "@carol", UserRole.READ_ONLY);
 
     verify(usersScreen).confirmDelete(argRow(CAROL, true));
-    verify(messenger).edit(ADMIN, MESSAGE_ID, CONFIRM);
-    assertEquals(0, permissions.writes());
-    assertEquals(READ_ONLY, permissions.permissionsOf(CAROL));
+    verify(messenger).edit(DELETER, MESSAGE_ID, CONFIRM);
+    assertEquals(List.of(), permissions.writes());
+    assertEquals(READ_ONLY, permissions.pendingPermissionsOf("carol"));
+  }
+
+  @Test
+  @DisplayName("4 D-20: a caller without DELETE_USERS who unticks the last role gets the card back unchanged")
+  void toggleLastRoleWithoutDeleteUsersKeepsCard() {
+    controller.toggleRole(ADMIN, MESSAGE_ID, "@carol", UserRole.READ_ONLY);
+
+    verify(usersScreen, never()).confirmDelete(any());
+    verify(messenger).edit(ADMIN, MESSAGE_ID, CARD);
+    UserRow row = shownRow(false);
+    assertEquals(CAROL, row.user());
+    assertEquals(READ_ONLY, Set.copyOf(row.permissions()));
+    assertEquals(List.of(), permissions.writes());
+    assertEquals(READ_ONLY, permissions.pendingPermissionsOf("carol"));
   }
 
   @Test
@@ -272,8 +287,8 @@ class UsersControllerTest {
   void toggleSelfRefused() {
     controller.toggleRole(ADMIN, MESSAGE_ID, "10", UserRole.NODE_ADMIN);
 
-    assertEquals(0, permissions.writes());
-    assertEquals(Set.of(Permission.USER_MANAGEMENT), permissions.permissionsOf(ADMIN.user()));
+    assertEquals(List.of(), permissions.writes());
+    assertEquals(Set.of(Permission.USER_MANAGEMENT), permissions.permissionsOf(10L));
     verify(usersScreen, never()).confirmDelete(any());
   }
 
@@ -282,8 +297,8 @@ class UsersControllerTest {
   void toggleRootRefused() {
     controller.toggleRole(DELETER, MESSAGE_ID, "1", UserRole.NODE_ADMIN);
 
-    assertEquals(0, permissions.writes());
-    assertEquals(Set.of(Permission.ROOT_ACCESS), permissions.permissionsOf(ROOT.user()));
+    assertEquals(List.of(), permissions.writes());
+    assertEquals(Set.of(Permission.ROOT_ACCESS), permissions.permissionsOf(1L));
     verify(usersScreen, never()).confirmDelete(any());
   }
 
@@ -293,7 +308,7 @@ class UsersControllerTest {
     controller.toggleRole(READER, MESSAGE_ID, "30", UserRole.USER_ADMIN);
 
     verify(messenger).edit(READER, MESSAGE_ID, NOT_ALLOWED);
-    assertEquals(0, permissions.writes());
+    assertEquals(List.of(), permissions.writes());
   }
 
   // --- delete ----------------------------------------------------------------------------------
@@ -305,7 +320,7 @@ class UsersControllerTest {
 
     verify(usersScreen).confirmDelete(argRow(ALICE, true));
     verify(messenger).edit(DELETER, MESSAGE_ID, CONFIRM);
-    assertEquals(0, permissions.writes());
+    assertEquals(List.of(), permissions.writes());
   }
 
   @Test
@@ -322,7 +337,7 @@ class UsersControllerTest {
   void deleteByDeleter() {
     controller.delete(DELETER, MESSAGE_ID, "30");
 
-    assertNull(permissions.storedKey(ALICE));
+    assertEquals(Optional.empty(), permissions.storedUser(30L));
     verify(messenger).edit(DELETER, MESSAGE_ID, LIST);
     assertFalse(listedRows().containsKey("30"));
   }
@@ -332,7 +347,7 @@ class UsersControllerTest {
   void deletePendingByRoot() {
     controller.delete(ROOT, MESSAGE_ID, "@carol");
 
-    assertNull(permissions.storedKey(CAROL));
+    assertFalse(permissions.hasPending("carol"));
     verify(messenger).edit(ROOT, MESSAGE_ID, LIST);
   }
 
@@ -341,8 +356,8 @@ class UsersControllerTest {
   void deleteWithoutDeleteUsersRefused() {
     controller.delete(ADMIN, MESSAGE_ID, "30");
 
-    assertEquals(NODE_ADMIN, permissions.permissionsOf(ALICE));
-    assertEquals(0, permissions.writes());
+    assertEquals(NODE_ADMIN, permissions.permissionsOf(30L));
+    assertEquals(List.of(), permissions.writes());
     verify(messenger).edit(ADMIN, MESSAGE_ID, NOT_ALLOWED);
   }
 
@@ -353,10 +368,10 @@ class UsersControllerTest {
     controller.delete(DELETER, MESSAGE_ID, "1");
     controller.delete(DELETER, MESSAGE_ID, "11");
 
-    assertEquals(0, permissions.writes());
-    assertEquals(Set.of(Permission.ROOT_ACCESS), permissions.permissionsOf(ROOT.user()));
+    assertEquals(List.of(), permissions.writes());
+    assertEquals(Set.of(Permission.ROOT_ACCESS), permissions.permissionsOf(1L));
     assertEquals(Set.of(Permission.USER_MANAGEMENT, Permission.DELETE_USERS),
-                 permissions.permissionsOf(DELETER.user()));
+                 permissions.permissionsOf(11L));
   }
 
   @Test
@@ -364,7 +379,7 @@ class UsersControllerTest {
   void deleteNotAllowed() {
     controller.delete(READER, MESSAGE_ID, "30");
 
-    assertEquals(0, permissions.writes());
+    assertEquals(List.of(), permissions.writes());
     verify(messenger).edit(READER, MESSAGE_ID, NOT_ALLOWED);
   }
 

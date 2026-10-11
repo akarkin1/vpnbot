@@ -26,8 +26,8 @@ import static org.mockito.Mockito.when;
 class CachingPermissionsServiceTest {
 
   private static final Duration TTL = Duration.ofSeconds(300);
-  private static final TgUser ALICE = new TgUser(1L, "alice");
-  private static final TgUser BOB = new TgUser(2L, "bob");
+  private static final TgUser ALICE = new TgUser(42L, "alice");
+  private static final TgUser BOB = new TgUser(null, "bob");
   private static final Map<TgUser, List<Permission>> PERMISSIONS =
       Map.of(ALICE, List.of(Permission.RUN_NODES));
   private static final Map<TgUser, List<Permission>> UPDATED =

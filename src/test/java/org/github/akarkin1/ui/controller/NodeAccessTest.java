@@ -16,12 +16,18 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.lenient;
 
+/** Nodes are owned by user id ({@code RunBy} = id); during the transition also by username (D-3). */
 @ExtendWith(MockitoExtension.class)
 class NodeAccessTest {
 
-  private static final TaskInfo ALEX_NODE = node("alex");
-  private static final TaskInfo BOB_NODE = node("bob");
-  private static final TaskInfo ROOT_NODE = node("root");
+  private static final TgUser ALEX = new TgUser(7L, "alex");
+  private static final TgUser BOB = new TgUser(8L, "bob");
+  private static final TgUser READER = new TgUser(9L, "reader");
+  private static final TgUser ROOT = new TgUser(1L, "root");
+
+  private static final TaskInfo ALEX_NODE = node("7", "alex");
+  private static final TaskInfo BOB_NODE = node("8", "bob");
+  private static final TaskInfo ROOT_NODE = node("1", "root");
 
   @Mock
   private Authorizer authorizer;
@@ -31,88 +37,161 @@ class NodeAccessTest {
   @BeforeEach
   void setUp() {
     access = new NodeAccess(authorizer);
-    grant(user("alex"), Permission.LIST_NODES, Permission.RUN_NODES);
-    grant(user("reader"), Permission.LIST_NODES);
-    grant(user("root"), Permission.ROOT_ACCESS, Permission.LIST_NODES, Permission.RUN_NODES);
+    grant(ALEX, Permission.LIST_NODES, Permission.RUN_NODES);
+    grant(BOB, Permission.LIST_NODES, Permission.RUN_NODES);
+    grant(READER, Permission.LIST_NODES);
+    grant(ROOT, Permission.ROOT_ACCESS, Permission.LIST_NODES, Permission.RUN_NODES);
   }
 
   @Test
-  @DisplayName("2b AC-2: owner with RUN_NODES may stop and view without confirmation")
+  @DisplayName("2b AC-2, 4 AC-9: owner (RunBy = user id) with RUN_NODES may stop and view without confirmation")
   void ownerWithRunNodes() {
     assertAll(
-        () -> assertTrue(access.canStop(user("alex"), ALEX_NODE)),
-        () -> assertFalse(access.needsConfirmation(user("alex"), ALEX_NODE)),
-        () -> assertTrue(access.canView(user("alex"), ALEX_NODE)));
+        () -> assertTrue(access.canManageNodes(ALEX)),
+        () -> assertTrue(access.canStop(ALEX, ALEX_NODE)),
+        () -> assertFalse(access.needsConfirmation(ALEX, ALEX_NODE)),
+        () -> assertTrue(access.canView(ALEX, ALEX_NODE)));
+  }
+
+  @Test
+  @DisplayName("4 AC-9 (goal 1): the owner is matched by id, so a renamed owner keeps the node")
+  void renamedOwnerMatchedById() {
+    TgUser renamed = new TgUser(7L, "alex_renamed");
+    grant(renamed, Permission.RUN_NODES);
+
+    assertAll(
+        () -> assertTrue(access.canStop(renamed, ALEX_NODE)),
+        () -> assertFalse(access.needsConfirmation(renamed, ALEX_NODE)),
+        () -> assertTrue(access.canView(renamed, ALEX_NODE)));
+  }
+
+  @Test
+  @DisplayName("4 AC-9: an owner without a username is matched by id")
+  void ownerWithoutUsername() {
+    TgUser anna = new TgUser(11L, null);
+    grant(anna, Permission.RUN_NODES);
+    TaskInfo annasNode = node("11", null);
+
+    assertAll(
+        () -> assertTrue(access.canManageNodes(anna)),
+        () -> assertTrue(access.canStop(anna, annasNode)),
+        () -> assertFalse(access.needsConfirmation(anna, annasNode)),
+        () -> assertTrue(access.canView(anna, annasNode)),
+        () -> assertFalse(access.canView(anna, ALEX_NODE)));
+  }
+
+  @Test
+  @DisplayName("4 AC-9, D-3: during the transition a node started before Phase 4 (RunBy = username) is still the user's own")
+  void transitionUsernameMatch() {
+    TaskInfo legacyNode = TaskInfo.builder()
+        .id("0123456789abcdef0123456789abcdef")
+        .hostName("alex-frankfurt-1")
+        .runBy("alex")
+        .build();
+
+    assertAll(
+        () -> assertTrue(access.canStop(ALEX, legacyNode)),
+        () -> assertFalse(access.needsConfirmation(ALEX, legacyNode)),
+        () -> assertTrue(access.canView(ALEX, legacyNode)),
+        () -> assertFalse(access.canView(BOB, legacyNode)),
+        () -> assertFalse(access.canStop(BOB, legacyNode)));
+  }
+
+  @Test
+  @DisplayName("4 AC-9: RunByName alone does not make an owner: someone with that username but another id is not the owner")
+  void runByNameIsNotOwnership() {
+    TgUser impostor = new TgUser(99L, "alex_new");
+    grant(impostor, Permission.RUN_NODES);
+    TaskInfo node = node("7", "alex_new");
+
+    assertAll(
+        () -> assertFalse(access.canStop(impostor, node)),
+        () -> assertFalse(access.canView(impostor, node)));
   }
 
   @Test
   @DisplayName("2b AC-2: owner without RUN_NODES may not stop but may view")
   void ownerWithoutRunNodes() {
-    TaskInfo readerNode = node("reader");
+    TaskInfo readerNode = node("9", "reader");
 
     assertAll(
-        () -> assertFalse(access.canStop(user("reader"), readerNode)),
-        () -> assertFalse(access.needsConfirmation(user("reader"), readerNode)),
-        () -> assertTrue(access.canView(user("reader"), readerNode)));
+        () -> assertFalse(access.canManageNodes(READER)),
+        () -> assertFalse(access.canStop(READER, readerNode)),
+        () -> assertFalse(access.needsConfirmation(READER, readerNode)),
+        () -> assertTrue(access.canView(READER, readerNode)));
   }
 
   @Test
   @DisplayName("2b AC-2: another user with RUN_NODES may neither stop nor view")
   void otherUser() {
     assertAll(
-        () -> assertFalse(access.canStop(user("alex"), BOB_NODE)),
-        () -> assertFalse(access.needsConfirmation(user("alex"), BOB_NODE)),
-        () -> assertFalse(access.canView(user("alex"), BOB_NODE)));
+        () -> assertFalse(access.canStop(ALEX, BOB_NODE)),
+        () -> assertFalse(access.needsConfirmation(ALEX, BOB_NODE)),
+        () -> assertFalse(access.canView(ALEX, BOB_NODE)));
   }
 
   @Test
   @DisplayName("2b AC-2: root on its own node may stop without confirmation and view")
   void rootOnOwnNode() {
     assertAll(
-        () -> assertTrue(access.canStop(user("root"), ROOT_NODE)),
-        () -> assertFalse(access.needsConfirmation(user("root"), ROOT_NODE)),
-        () -> assertTrue(access.canView(user("root"), ROOT_NODE)));
+        () -> assertTrue(access.canManageNodes(ROOT)),
+        () -> assertTrue(access.canStop(ROOT, ROOT_NODE)),
+        () -> assertFalse(access.needsConfirmation(ROOT, ROOT_NODE)),
+        () -> assertTrue(access.canView(ROOT, ROOT_NODE)));
   }
 
   @Test
   @DisplayName("2b AC-2: root on someone else's node may stop after confirmation and view")
   void rootOnOthersNode() {
     assertAll(
-        () -> assertTrue(access.canStop(user("root"), ALEX_NODE)),
-        () -> assertTrue(access.needsConfirmation(user("root"), ALEX_NODE)),
-        () -> assertTrue(access.canView(user("root"), ALEX_NODE)));
+        () -> assertTrue(access.canStop(ROOT, ALEX_NODE)),
+        () -> assertTrue(access.needsConfirmation(ROOT, ALEX_NODE)),
+        () -> assertTrue(access.canView(ROOT, ALEX_NODE)));
   }
 
   @Test
   @DisplayName("2b AC-2: root with ROOT_ACCESS only (no other permission) may stop someone else's node after confirmation")
   void rootAccessAlone() {
-    grant(user("admin"), Permission.ROOT_ACCESS);
+    TgUser admin = new TgUser(2L, "admin");
+    grant(admin, Permission.ROOT_ACCESS);
 
     assertAll(
-        () -> assertTrue(access.canStop(user("admin"), ALEX_NODE)),
-        () -> assertTrue(access.needsConfirmation(user("admin"), ALEX_NODE)),
-        () -> assertTrue(access.canView(user("admin"), ALEX_NODE)));
+        () -> assertTrue(access.canManageNodes(admin)),
+        () -> assertTrue(access.canStop(admin, ALEX_NODE)),
+        () -> assertTrue(access.needsConfirmation(admin, ALEX_NODE)),
+        () -> assertTrue(access.canView(admin, ALEX_NODE)));
   }
 
   @Test
   @DisplayName("2b AC-2: read-only user may neither stop nor view someone else's node")
   void readOnlyUser() {
     assertAll(
-        () -> assertFalse(access.canStop(user("reader"), ALEX_NODE)),
-        () -> assertFalse(access.needsConfirmation(user("reader"), ALEX_NODE)),
-        () -> assertFalse(access.canView(user("reader"), ALEX_NODE)));
+        () -> assertFalse(access.canStop(READER, ALEX_NODE)),
+        () -> assertFalse(access.needsConfirmation(READER, ALEX_NODE)),
+        () -> assertFalse(access.canView(READER, ALEX_NODE)));
   }
 
   @Test
   @DisplayName("2b AC-2: a node without RunBy tag is nobody's own node")
   void nodeWithoutRunBy() {
-    TaskInfo untagged = node(null);
+    TaskInfo untagged = node(null, null);
 
     assertAll(
-        () -> assertFalse(access.canStop(user("alex"), untagged)),
-        () -> assertFalse(access.canView(user("alex"), untagged)),
-        () -> assertTrue(access.canStop(user("root"), untagged)),
-        () -> assertTrue(access.needsConfirmation(user("root"), untagged)));
+        () -> assertFalse(access.canStop(ALEX, untagged)),
+        () -> assertFalse(access.canView(ALEX, untagged)),
+        () -> assertTrue(access.canStop(ROOT, untagged)),
+        () -> assertTrue(access.needsConfirmation(ROOT, untagged)));
+  }
+
+  @Test
+  @DisplayName("4 AC-9: a user without a username does not own a node without RunBy")
+  void noUsernameDoesNotMatchUntaggedNode() {
+    TgUser anna = new TgUser(11L, null);
+    grant(anna, Permission.RUN_NODES);
+
+    assertAll(
+        () -> assertFalse(access.canStop(anna, node(null, null))),
+        () -> assertFalse(access.canView(anna, node(null, null))));
   }
 
   private void grant(TgUser user, Permission... permissions) {
@@ -121,16 +200,12 @@ class NodeAccessTest {
     }
   }
 
-  /** Nodes in this test are tagged with the username (the pre-Phase-4 RunBy value). */
-  private static TgUser user(String username) {
-    return new TgUser((long) Math.abs(username.hashCode()), username);
-  }
-
-  private static TaskInfo node(String runBy) {
+  private static TaskInfo node(String runBy, String runByName) {
     return TaskInfo.builder()
         .id("0123456789abcdef0123456789abcdef")
         .hostName("node-1")
         .runBy(runBy)
+        .runByName(runByName)
         .build();
   }
 

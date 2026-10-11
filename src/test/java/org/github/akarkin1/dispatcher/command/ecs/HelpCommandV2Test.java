@@ -2,8 +2,8 @@ package org.github.akarkin1.dispatcher.command.ecs;
 
 import org.github.akarkin1.auth.Authorizer;
 import org.github.akarkin1.auth.Permission;
-import org.github.akarkin1.auth.TgUser;
 import org.github.akarkin1.auth.PermissionsService;
+import org.github.akarkin1.auth.TgUser;
 import org.github.akarkin1.dispatcher.command.AssignRolesCommand;
 import org.github.akarkin1.dispatcher.CommandDispatcher;
 import org.github.akarkin1.dispatcher.command.DeleteUsersCommand;
@@ -90,7 +90,7 @@ class HelpCommandV2Test {
       mockedContext.when(TgRequestContext::getLanguageCode).thenReturn("ru-RU");
       mockedContext.when(TgRequestContext::getUser).thenReturn(new TgUser(7L, "alex"));
 
-      when(authorizer.hasPermission(any(TgUser.class), any(Permission.class)))
+      when(authorizer.hasPermission(any(), any(Permission.class)))
         .thenReturn(true);
 
       Translator translator = new ResourceBasedTranslator();

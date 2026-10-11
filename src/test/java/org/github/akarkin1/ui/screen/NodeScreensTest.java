@@ -18,7 +18,8 @@ class NodeScreensTest {
       .hostName("alex-frankfurt-1")
       .region(Region.EU_CENTRAL_1)
       .publicIp("1.2.3.4")
-      .runBy("alex")
+      .runBy("7")
+      .runByName("alex")
       .chatId("100")
       .languageCode("ru")
       .build();
@@ -46,6 +47,29 @@ class NodeScreensTest {
                      new Button("🛑 ${ui.button.yes-stop}", "STOP_CONFIRM:eu-central-1:" + TASK_ID, null),
                      new Button("↩️ ${ui.button.cancel}", "HOME", null))),
                  screen.keyboard());
+  }
+
+  @Test
+  @DisplayName("4 §4.1: confirmStop names the owner by RunByName (the username), not by the id in RunBy")
+  void confirmStopShowsRunByName() {
+    Screen screen = screens.confirmStop(NODE);
+
+    assertEquals(List.of("alex-frankfurt-1", "@alex"), screen.params());
+  }
+
+  @Test
+  @DisplayName("4 §4.1, D-3: confirmStop falls back to RunBy for a node started before Phase 4 (RunBy = username)")
+  void confirmStopFallsBackToRunBy() {
+    TaskInfo legacy = TaskInfo.builder()
+        .id(TASK_ID)
+        .hostName("alex-frankfurt-1")
+        .region(Region.EU_CENTRAL_1)
+        .runBy("alex")
+        .build();
+
+    Screen screen = screens.confirmStop(legacy);
+
+    assertEquals(List.of("alex-frankfurt-1", "@alex"), screen.params());
   }
 
   @Test
@@ -100,7 +124,7 @@ class NodeScreensTest {
     TaskInfo withoutHost = TaskInfo.builder()
         .id(TASK_ID)
         .region(Region.US_EAST_1)
-        .runBy("bob")
+        .runBy("8")
         .build();
 
     List.of(screens.stopping(NODE),

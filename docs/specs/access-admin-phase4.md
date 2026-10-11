@@ -366,3 +366,21 @@ Order: H1 → T1/T2 (deploy, observe the migration) → T3/T4 (deploy).
   access until it runs.
 - D-15 (T1) `WhiteListAuthorizer` answers from the pending permissions even if the activation write
   fails (logged); activation is retried on the next request.
+- D-16 (T2) Activation finds the `PENDING_USER` record case-insensitively (like `findByUsername`).
+- D-17 (T2) A user without a username is authorised and lists nodes by id (the old code stopped on a
+  null username); the `RunByName` tag is omitted when there is no username; the generated host name
+  is still built from the username (falls back to the id).
+- D-18 (T2) `/listRegisteredUsers` keeps printing permission names (role names are a Users-screen
+  concern); the pending marker is asserted loosely.
+- D-19 (T3) No `%s` in `ui.*` values (CLAUDE.md): `ui.access.granted-admin` = "granted:" and
+  `ui.access.granted` = "Access granted:" with the role names in the template and a new key
+  `ui.access.welcome` ("Welcome!"); `ui.users.confirm-delete` = "Remove the user" + `<b>%s</b>?` in the
+  template. Role names are `${ui.role.*}` keys placed in the template (params are not translated).
+- D-20 (T3) `UsersScreen.user(row, canRemove)`: the Remove button depends on the caller, not on the row;
+  a caller without `DELETE_USERS` who unticks the last role gets the card back unchanged instead of a
+  confirmation they could not complete.
+- D-21 (T3) `RoleFormat` is screen-side (`describe(Collection<Permission>)` returns template text);
+  `RoleSet` holds the role → permissions mapping, which `UserSignupService` now reads from it
+  (behaviour unchanged). `DynamoDbAccessRequestService.find` ignores expired records (TTL deletion
+  lags). The no-access home keyboard is `[🙋 Request access]` followed by the usual Refresh/Help row.
+  Admins are notified with the bot's default language (their record stores none).
