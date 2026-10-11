@@ -46,6 +46,7 @@ class TailscaleEcsNodeServiceTest {
     ecsConfig.setServiceNameTag("ServiceName");
     ecsConfig.setHostNameTag("Hostname");
     ecsConfig.setRunByTag("RunBy");
+    ecsConfig.setRunByNameTag("RunByName");
     ecsConfig.setChatIdTag("ChatId");
     ecsConfig.setLanguageTag("Lang");
     AWSConfiguration awsConfig = new AWSConfiguration();
@@ -57,14 +58,15 @@ class TailscaleEcsNodeServiceTest {
   @DisplayName("2b AC-9: runNode tags the task with RunBy, ChatId and Lang of the NodeOwner")
   void runNodeTagsOwner() {
     Map<String, String> tags = Map.of("Hostname", "alex-frankfurt-1",
-                                      "RunBy", "alex",
+                                      "RunBy", "7",
+                                      "RunByName", "alex",
                                       "ServiceName", "tailscale-node",
                                       "ChatId", "100",
                                       "Lang", "ru");
     when(ecsManager.startTask(eq(Region.EU_CENTRAL_1), eq("alex-frankfurt-1"), any(), eq(ENV)))
         .thenReturn(TASK);
 
-    TaskInfo started = service.runNode(REGION, new NodeOwner("alex", 100L, "ru"), "alex-frankfurt-1",
+    TaskInfo started = service.runNode(REGION, new NodeOwner(7L, "alex", 100L, "ru"), "alex-frankfurt-1",
                                        ENV);
 
     assertSame(TASK, started);

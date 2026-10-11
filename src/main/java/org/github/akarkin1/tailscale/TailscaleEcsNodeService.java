@@ -69,17 +69,21 @@ public class TailscaleEcsNodeService implements TailscaleNodeService {
   @Override
   public TaskInfo runNode(String userRegion, NodeOwner owner, String userHostName,
                           Map<String, String> environment) {
-    String userTgId = owner.username();
+    String userTgId = String.valueOf(owner.userId());
     Region region = regionByCity.getOrDefault(userRegion, Region.of(userRegion));
 
     String hostName = userHostName;
     if (userHostName == null) {
-      hostName = chooseHostName(userTgId, region.id());
+      String hostNamePrefix = StringUtils.isNotBlank(owner.username()) ? owner.username() : userTgId;
+      hostName = chooseHostName(hostNamePrefix, region.id());
     }
 
     Map<String, String> assignedTags = new LinkedHashMap<>();
     assignedTags.put(config.getHostNameTag(), hostName);
     assignedTags.put(config.getRunByTag(), userTgId);
+    if (StringUtils.isNotBlank(owner.username())) {
+      assignedTags.put(config.getRunByNameTag(), owner.username());
+    }
     if (owner.chatId() != null) {
       assignedTags.put(config.getChatIdTag(), String.valueOf(owner.chatId()));
     }
@@ -105,7 +109,7 @@ public class TailscaleEcsNodeService implements TailscaleNodeService {
     return regionByCity.getOrDefault(userRegion, Region.of(userRegion)).id();
   }
 
-  private String chooseHostName(String userTgId, String regionId) {
+  private String chooseHostName(String hostNamePrefix, String regionId) {
     Set<String> hostNames = ecsManager.listTasks(Map.of(
             config.getServiceNameTag(), config.getServiceName()
         ))
@@ -116,16 +120,16 @@ public class TailscaleEcsNodeService implements TailscaleNodeService {
     String suggestedHostName;
     int nodeNumber = 1;
     do {
-      suggestedHostName = suggestHostName(userTgId, regionId, nodeNumber);
+      suggestedHostName = suggestHostName(hostNamePrefix, regionId, nodeNumber);
       nodeNumber++;
     } while (hostNames.contains(suggestedHostName));
 
     return suggestedHostName;
   }
 
-  private String suggestHostName(String userTgId, String regionId, int nodeNumber) {
+  private String suggestHostName(String hostNamePrefix, String regionId, int nodeNumber) {
     String city = cityByRegion.get(regionId);
-    return sanitizeHostName("%s-%s-%d".formatted(userTgId, city, nodeNumber));
+    return sanitizeHostName("%s-%s-%d".formatted(hostNamePrefix, city, nodeNumber));
   }
 
   static String sanitizeHostName(String hostName) {

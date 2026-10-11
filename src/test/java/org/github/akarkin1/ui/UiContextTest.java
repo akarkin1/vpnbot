@@ -4,6 +4,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static org.github.akarkin1.ui.TelegramUpdates.CHAT_ID;
+import static org.github.akarkin1.ui.TelegramUpdates.USER_ID;
 import static org.github.akarkin1.ui.TelegramUpdates.callbackUpdate;
 import static org.github.akarkin1.ui.TelegramUpdates.messageUpdate;
 import static org.github.akarkin1.ui.TelegramUpdates.user;
@@ -16,7 +17,7 @@ class UiContextTest {
   void fromMessage() {
     UiContext context = UiContext.fromUpdate(messageUpdate(user("alex", "Alex", "ru"), "hi"));
 
-    assertEquals(new UiContext(CHAT_ID, "alex", "Alex", "ru"), context);
+    assertEquals(new UiContext(CHAT_ID, USER_ID, "alex", "Alex", "ru"), context);
   }
 
   @Test
@@ -24,7 +25,7 @@ class UiContextTest {
   void fromCallbackQuery() {
     UiContext context = UiContext.fromUpdate(callbackUpdate(user("alex", "Alex", "ru"), "HOME", true));
 
-    assertEquals(new UiContext(CHAT_ID, "alex", "Alex", "ru"), context);
+    assertEquals(new UiContext(CHAT_ID, USER_ID, "alex", "Alex", "ru"), context);
   }
 
   @Test

@@ -88,7 +88,7 @@ public class TailscaleVpnLambdaHandler implements
         .configure(configTables.regions(), METRICS);
     final TailscaleNodeService nodeService = nodeServices.nodeService();
     final PermissionsService permissionsService = new PermissionsServiceConfigurer()
-        .configure(configTables.users(), METRICS);
+        .configure(configTables.users(), configTables.pendingUsers(), METRICS);
     final Authorizer authorizer = new AuthorizerConfigurer().configure(permissionsService);
 
     final Translator translator = new ResourceBasedTranslator();

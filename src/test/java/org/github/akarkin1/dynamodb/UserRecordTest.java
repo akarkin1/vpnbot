@@ -28,9 +28,10 @@ class UserRecordTest {
   void itemToMap() {
     Map<String, AttributeValue> item = SCHEMA.itemToMap(record(), true);
 
-    assertEquals(Set.of("pk", "sk", "permissions"), item.keySet());
+    assertEquals(Set.of("pk", "sk", "username", "permissions"), item.keySet());
     assertEquals(AttributeValue.fromS("USER"), item.get("pk"));
-    assertEquals(AttributeValue.fromS("Some_User"), item.get("sk"));
+    assertEquals(AttributeValue.fromS("123456789"), item.get("sk"));
+    assertEquals(AttributeValue.fromS("Some_User"), item.get("username"));
     AttributeValue permissions = item.get("permissions");
     assertEquals(AttributeValue.Type.SS, permissions.type());
     assertEquals(Set.of("RUN_NODES", "LIST_NODES"), new HashSet<>(permissions.ss()));
@@ -57,6 +58,7 @@ class UserRecordTest {
 
   private static UserRecord record() {
     UserRecord record = new UserRecord();
+    record.setUserId("123456789");
     record.setUsername("Some_User");
     record.setPermissions(Set.of("RUN_NODES", "LIST_NODES"));
     return record;

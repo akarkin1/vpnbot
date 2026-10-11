@@ -2,6 +2,7 @@ package org.github.akarkin1.ui.controller;
 
 import org.github.akarkin1.auth.Authorizer;
 import org.github.akarkin1.auth.Permission;
+import org.github.akarkin1.auth.TgUser;
 import org.github.akarkin1.ecs.TaskInfo;
 import org.github.akarkin1.tailscale.TailscaleNodeService;
 import org.github.akarkin1.ui.NodeRef;
@@ -49,10 +50,10 @@ class NodeControllerTest {
   private static final NodeRef REF = new NodeRef(REGION, TASK_ID);
   private static final Integer MESSAGE_ID = 42;
 
-  private static final UiContext ALEX = new UiContext(100L, "alex", "Alex", "en-US");
-  private static final UiContext BOB = new UiContext(300L, "bob", "Bob", "en-US");
-  private static final UiContext READER = new UiContext(400L, "reader", "Reader", "en-US");
-  private static final UiContext ROOT = new UiContext(200L, "root", "Root", "en-US");
+  private static final UiContext ALEX = new UiContext(100L, 100L, "alex", "Alex", "en-US");
+  private static final UiContext BOB = new UiContext(300L, 300L, "bob", "Bob", "en-US");
+  private static final UiContext READER = new UiContext(400L, 400L, "reader", "Reader", "en-US");
+  private static final UiContext ROOT = new UiContext(200L, 200L, "root", "Root", "en-US");
 
   /** alex's node, started in 2b: tagged with alex's chat id and language. */
   private static final TaskInfo ALEX_NODE = node("alex", "100", "ru");
@@ -81,10 +82,10 @@ class NodeControllerTest {
   void setUp() {
     controller = new NodeController(nodeService, new NodeAccess(authorizer), messenger, nodeScreens,
                                     launchScreens);
-    grant("alex", Permission.LIST_NODES, Permission.RUN_NODES);
-    grant("bob", Permission.LIST_NODES, Permission.RUN_NODES);
-    grant("reader", Permission.LIST_NODES);
-    grant("root", Permission.ROOT_ACCESS, Permission.LIST_NODES, Permission.RUN_NODES);
+    grant(ALEX.user(), Permission.LIST_NODES, Permission.RUN_NODES);
+    grant(BOB.user(), Permission.LIST_NODES, Permission.RUN_NODES);
+    grant(READER.user(), Permission.LIST_NODES);
+    grant(ROOT.user(), Permission.ROOT_ACCESS, Permission.LIST_NODES, Permission.RUN_NODES);
     lenient().when(nodeScreens.alreadyStopped()).thenReturn(ALREADY_STOPPED);
     lenient().when(nodeScreens.notAllowed()).thenReturn(NOT_ALLOWED);
     lenient().when(nodeScreens.confirmStop(any())).thenReturn(CONFIRM);
@@ -133,7 +134,7 @@ class NodeControllerTest {
   @Test
   @DisplayName("2b D-10: stop with a null username shows notAllowed before any node-service call")
   void stopNullUsername() {
-    UiContext anonymous = new UiContext(500L, null, "Anon", "en-US");
+    UiContext anonymous = new UiContext(500L, null, null, "Anon", "en-US");
 
     controller.stop(anonymous, MESSAGE_ID, REF);
 
@@ -231,7 +232,7 @@ class NodeControllerTest {
   @Test
   @DisplayName("2b D-10: confirmStop with a null username shows notAllowed before any node-service call")
   void confirmStopNullUsername() {
-    UiContext anonymous = new UiContext(500L, null, "Anon", "en-US");
+    UiContext anonymous = new UiContext(500L, null, null, "Anon", "en-US");
 
     controller.confirmStop(anonymous, MESSAGE_ID, REF);
 
@@ -382,7 +383,7 @@ class NodeControllerTest {
   @Test
   @DisplayName("2b D-10: use with a null username shows notAllowed before any node-service call")
   void useNullUsername() {
-    UiContext anonymous = new UiContext(500L, null, "Anon", "en-US");
+    UiContext anonymous = new UiContext(500L, null, null, "Anon", "en-US");
 
     controller.use(anonymous, MESSAGE_ID, REF);
 
@@ -416,9 +417,9 @@ class NodeControllerTest {
     return captor.getValue();
   }
 
-  private void grant(String username, Permission... permissions) {
+  private void grant(TgUser user, Permission... permissions) {
     for (Permission permission : permissions) {
-      lenient().when(authorizer.hasPermission(username, permission)).thenReturn(true);
+      lenient().when(authorizer.hasPermission(user, permission)).thenReturn(true);
     }
   }
 

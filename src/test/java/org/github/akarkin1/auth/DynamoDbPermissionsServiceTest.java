@@ -1,6 +1,7 @@
 package org.github.akarkin1.auth;
 
 import org.github.akarkin1.dynamodb.FakeTable;
+import org.github.akarkin1.dynamodb.PendingUserRecord;
 import org.github.akarkin1.dynamodb.UserRecord;
 import org.github.akarkin1.metrics.MetricComponent;
 import org.github.akarkin1.metrics.RecordingRequestMetrics;
@@ -25,28 +26,34 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class DynamoDbPermissionsServiceTest {
 
   private final RecordingRequestMetrics metrics = new RecordingRequestMetrics();
+  private static final TgUser ALICE = new TgUser(1L, "alice");
+  private static final TgUser BOB = new TgUser(2L, "bob");
+  private static final TgUser CAROL = new TgUser(3L, "Carol_99");
+
   private final FakeTable<UserRecord> users =
       FakeTable.of(UserRecord.class, () -> metrics.isTiming(MetricComponent.DYNAMODB));
+  private final FakeTable<PendingUserRecord> pendingUsers =
+      FakeTable.of(PendingUserRecord.class, () -> metrics.isTiming(MetricComponent.DYNAMODB));
 
   private DynamoDbPermissionsService service;
 
   @BeforeEach
   void setUp() {
-    service = new DynamoDbPermissionsService(users.table(), metrics);
+    service = new DynamoDbPermissionsService(users.table(), pendingUsers.table(), metrics);
   }
 
   @Test
   @DisplayName("3 AC-A3: permissions of all users are read with a query pk = USER across all pages")
   void allUsersAcrossPages() {
-    users.withPages(List.of(user("alice", "RUN_NODES", "LIST_NODES"), user("bob", "ROOT_ACCESS")),
-                    List.of(user("Carol_99", "USER_MANAGEMENT")));
+    users.withPages(List.of(user(ALICE, "RUN_NODES", "LIST_NODES"), user(BOB, "ROOT_ACCESS")),
+                    List.of(user(CAROL, "USER_MANAGEMENT")));
 
-    Map<String, List<Permission>> result = service.getUserPermissions();
+    Map<TgUser, List<Permission>> result = service.getUsers();
 
-    assertEquals(Set.of("alice", "bob", "Carol_99"), result.keySet());
-    assertEquals(Set.of(Permission.RUN_NODES, Permission.LIST_NODES), Set.copyOf(result.get("alice")));
-    assertEquals(List.of(Permission.ROOT_ACCESS), result.get("bob"));
-    assertEquals(List.of(Permission.USER_MANAGEMENT), result.get("Carol_99"));
+    assertEquals(Set.of(ALICE, BOB, CAROL), result.keySet());
+    assertEquals(Set.of(Permission.RUN_NODES, Permission.LIST_NODES), Set.copyOf(result.get(ALICE)));
+    assertEquals(List.of(Permission.ROOT_ACCESS), result.get(BOB));
+    assertEquals(List.of(Permission.USER_MANAGEMENT), result.get(CAROL));
     assertEquals(1, users.queries().size());
     assertEquals(Map.of("pk", AttributeValue.fromS("USER")),
                  users.keyCondition(users.queries().getFirst()));
@@ -55,11 +62,11 @@ class DynamoDbPermissionsServiceTest {
   @Test
   @DisplayName("3 AC-A3: unknown permission names are skipped")
   void unknownPermissionsSkipped() {
-    users.withPages(List.of(user("alice", "RUN_NODES", "FLY_TO_THE_MOON")));
+    users.withPages(List.of(user(ALICE, "RUN_NODES", "FLY_TO_THE_MOON")));
 
-    Map<String, List<Permission>> result = service.getUserPermissions();
+    Map<TgUser, List<Permission>> result = service.getUsers();
 
-    assertEquals(List.of(Permission.RUN_NODES), result.get("alice"));
+    assertEquals(List.of(Permission.RUN_NODES), result.get(ALICE));
   }
 
   @Test
@@ -67,13 +74,13 @@ class DynamoDbPermissionsServiceTest {
   void noUsers() {
     users.withPages(List.of());
 
-    assertTrue(service.getUserPermissions().isEmpty());
+    assertTrue(service.getUsers().isEmpty());
   }
 
   @Test
   @DisplayName("3 AC-A4: non-empty permissions are written with PutItem as a String Set of enum names")
   void updatePuts() {
-    service.updateUserPermissions("alice", EnumSet.of(Permission.RUN_NODES, Permission.LIST_NODES));
+    service.updateUserPermissions(ALICE, EnumSet.of(Permission.RUN_NODES, Permission.LIST_NODES));
 
     assertEquals(List.of(), users.deletes());
     assertEquals(1, users.puts().size());
@@ -81,12 +88,13 @@ class DynamoDbPermissionsServiceTest {
     assertNull(request.conditionExpression(), "the record is replaced unconditionally");
     UserRecord item = request.item();
     assertEquals("USER", item.getType());
+    assertEquals("1", item.getUserId());
     assertEquals("alice", item.getUsername());
     assertEquals(Set.of("RUN_NODES", "LIST_NODES"), item.getPermissions());
 
     Map<String, AttributeValue> stored = users.schema().itemToMap(item, true);
     assertEquals(AttributeValue.fromS("USER"), stored.get("pk"));
-    assertEquals(AttributeValue.fromS("alice"), stored.get("sk"));
+    assertEquals(AttributeValue.fromS("1"), stored.get("sk"));
     assertEquals(AttributeValue.Type.SS, stored.get("permissions").type());
     assertEquals(Set.of("RUN_NODES", "LIST_NODES"), new HashSet<>(stored.get("permissions").ss()));
   }
@@ -94,25 +102,25 @@ class DynamoDbPermissionsServiceTest {
   @Test
   @DisplayName("3 AC-A4: null permissions delete the user record")
   void nullDeletes() {
-    service.updateUserPermissions("alice", null);
+    service.updateUserPermissions(ALICE, null);
 
-    assertEquals(List.of(FakeTable.key("USER", "alice")), users.deletes());
+    assertEquals(List.of(FakeTable.key("USER", "1")), users.deletes());
     assertEquals(List.of(), users.puts());
   }
 
   @Test
   @DisplayName("3 AC-A4: empty permissions delete the user record")
   void emptyDeletes() {
-    service.updateUserPermissions("alice", Set.of());
+    service.updateUserPermissions(ALICE, Set.of());
 
-    assertEquals(List.of(FakeTable.key("USER", "alice")), users.deletes());
+    assertEquals(List.of(FakeTable.key("USER", "1")), users.deletes());
     assertEquals(List.of(), users.puts());
   }
 
   @Test
   @DisplayName("3 AC-A4: assignRolesToUser ends in a PutItem with the roles' permissions")
   void assignRolesPuts() {
-    service.assignRolesToUser("alice", Set.of(UserRole.READ_ONLY, UserRole.USER_ADMIN));
+    service.assignRolesToUser(ALICE, Set.of(UserRole.READ_ONLY, UserRole.USER_ADMIN));
 
     assertEquals(1, users.puts().size());
     UserRecord item = users.puts().getFirst().item();
@@ -125,20 +133,20 @@ class DynamoDbPermissionsServiceTest {
   @Test
   @DisplayName("3 AC-A4: deleteUser ends in a DeleteItem of the user")
   void deleteUserDeletes() {
-    service.deleteUser("bob");
+    service.deleteUser(BOB);
 
-    assertEquals(List.of(FakeTable.key("USER", "bob")), users.deletes());
+    assertEquals(List.of(FakeTable.key("USER", "2")), users.deletes());
     assertEquals(List.of(), users.puts());
   }
 
   @Test
   @DisplayName("3 AC-A4, AC-A7: query, PutItem and DeleteItem run inside a DYNAMODB timing")
   void callsTimed() {
-    users.withPages(List.of(user("alice", "RUN_NODES")), List.of(user("bob", "ROOT_ACCESS")));
+    users.withPages(List.of(user(ALICE, "RUN_NODES")), List.of(user(BOB, "ROOT_ACCESS")));
 
-    service.getUserPermissions();
-    service.updateUserPermissions("alice", Set.of(Permission.LIST_NODES));
-    service.updateUserPermissions("bob", Set.of());
+    service.getUsers();
+    service.updateUserPermissions(ALICE, Set.of(Permission.LIST_NODES));
+    service.updateUserPermissions(BOB, Set.of());
 
     assertEquals(1, users.queries().size());
     assertEquals(1, users.puts().size());
@@ -150,9 +158,10 @@ class DynamoDbPermissionsServiceTest {
                metrics.timed().toString());
   }
 
-  private static UserRecord user(String username, String... permissions) {
+  private static UserRecord user(TgUser user, String... permissions) {
     UserRecord record = new UserRecord();
-    record.setUsername(username);
+    record.setUserId(String.valueOf(user.id()));
+    record.setUsername(user.username());
     record.setPermissions(new HashSet<>(List.of(permissions)));
     return record;
   }

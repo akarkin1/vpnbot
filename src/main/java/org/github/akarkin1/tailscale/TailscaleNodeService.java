@@ -24,6 +24,7 @@ public interface TailscaleNodeService {
 
   String toRegionId(String userRegion);
 
+  /** The nodes started by the user with this Telegram user id (its {@code RunBy} tag); null: all nodes. */
   List<TaskInfo> listTasks(String userTgId);
 
   List<String> getSupportedRegionDescriptions();

@@ -30,6 +30,7 @@ public class YamlApplicationConfiguration {
     private String hostNameEnv;
     private String hostNameTag;
     private String runByTag;
+    private String runByNameTag;
     private String serviceNameTag;
     private String chatIdTag;
     private String languageTag;
