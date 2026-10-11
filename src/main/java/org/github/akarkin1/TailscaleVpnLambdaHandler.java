@@ -17,13 +17,8 @@ import org.github.akarkin1.auth.PermissionsServiceConfigurer;
 import org.github.akarkin1.config.BotTokenResolver;
 import org.github.akarkin1.deduplication.DynamoDbUpdateEventsRegistry;
 import org.github.akarkin1.deduplication.UpdateEventsRegistry;
-import org.github.akarkin1.dispatcher.command.AssignRolesCommand;
 import org.github.akarkin1.dispatcher.CommandDispatcher;
-import org.github.akarkin1.dispatcher.command.DeleteUsersCommand;
 import org.github.akarkin1.dispatcher.command.DescribeRolesCommand;
-import org.github.akarkin1.dispatcher.command.ListNodesCommand;
-import org.github.akarkin1.dispatcher.command.ListUsersCommand;
-import org.github.akarkin1.dispatcher.command.RunNodeCommand;
 import org.github.akarkin1.dispatcher.command.SupportedRegionCommand;
 import org.github.akarkin1.dispatcher.command.VersionCommand;
 import org.github.akarkin1.dynamodb.ConfigTables;
@@ -107,23 +102,10 @@ public class TailscaleVpnLambdaHandler implements
     SYSTEM_COMMANDS_DISPATCHER = new CommandDispatcher(COMMUNICATOR, authorizer);
 
     SYSTEM_COMMANDS_DISPATCHER.registerCommand("/version", new VersionCommand());
-    SYSTEM_COMMANDS_DISPATCHER.registerCommand("/listRunningNodes", new ListNodesCommand(
-        nodeService, authorizer));
-    SYSTEM_COMMANDS_DISPATCHER.registerCommand("/runNodeIn",
-                                       new RunNodeCommand(nodeService,
-                                                          COMMUNICATOR::sendMessageToTheBot,
-                                                          ui.nodeLauncher()));
     SYSTEM_COMMANDS_DISPATCHER.registerCommand("/supportedRegions",
                                        new SupportedRegionCommand(nodeService));
-    SYSTEM_COMMANDS_DISPATCHER.registerCommand("/assignRoles",
-                                       new AssignRolesCommand(permissionsService));
     SYSTEM_COMMANDS_DISPATCHER.registerCommand("/describeRoles",
                                        new DescribeRolesCommand(permissionsService));
-    SYSTEM_COMMANDS_DISPATCHER.registerCommand("/deleteUsers",
-                                       new DeleteUsersCommand(permissionsService,
-                                                              COMMUNICATOR::sendMessageToTheBot));
-    SYSTEM_COMMANDS_DISPATCHER.registerCommand("/listRegisteredUsers",
-                                       new ListUsersCommand(permissionsService));
 
     new SnapStartPrimer(nodeService, nodeServices.ec2ClientPool(), permissionsService,
                         EVENTS_REGISTRY, sender).prime();
