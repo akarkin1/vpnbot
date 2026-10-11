@@ -54,6 +54,8 @@ import static org.github.akarkin1.tg.TelegramBotFactory.sender;
 
 @Log4j2
 @LambdaHandler
+// Pre-registration by username ended with 2026.10. Remove once PENDING_USER records no longer exist (query pk = PENDING_USER); see docs/specs/cleanup-2026-10.md §4.3.
+@SuppressWarnings("removal")
 public class TailscaleVpnLambdaHandler implements
     RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
 

@@ -115,6 +115,8 @@ public class AccessController {
   }
 
   /** Sends the request to every admin; a private chat's id equals the user id (D-4). */
+  // Pre-registration by username ended with 2026.10. Remove once PENDING_USER records no longer exist (query pk = PENDING_USER); see docs/specs/cleanup-2026-10.md §4.3.
+  @SuppressWarnings("removal")
   private void notifyAdmins(AccessRequest request) {
     List<TgUser> admins = permissionsService.getUsers().entrySet().stream()
         .filter(entry -> UserAccess.isUserAdmin(entry.getValue()))
