@@ -1,6 +1,6 @@
 # Spec: Phase 4 – Access & admin (+ housekeeping)
 
-Status: draft for review · Branch: `feature/access-admin` (based on `main`) · Roadmap: `docs/roadmap.md`
+Status: approved for implementation (2026-10-11) · Branch: `feature/access-admin` (based on `main`) · Roadmap: `docs/roadmap.md`
 
 ## 1. Goal
 
@@ -324,7 +324,7 @@ Order: H1 → T1/T2 (deploy, observe the migration) → T3/T4 (deploy).
 3. T3: "VPN Bot Lambda CI-CD"; test with a second Telegram account: request → admin message →
    grant → requester notified → home shows regions; Users screen: list, delete, cancel.
 
-## 12. Decisions to confirm (review)
+## 12. Decisions (review, all confirmed 2026-10-11)
 
 - D-1 `USER` is always keyed by the user id; pre-registration by username keeps working through a
   separate `PENDING_USER` record (the Bot API has no username → id lookup, so the username is the only
@@ -345,9 +345,8 @@ Order: H1 → T1/T2 (deploy, observe the migration) → T3/T4 (deploy).
 - D-9 The username-takeover window that id-keying closes remains open for pending users until their
   first contact – the same exposure as today, limited to that window.
 - D-10 Root is out of scope: a single user by design, never granted or edited from the UI.
-- D-11 Remove on the user card requires `DELETE_USERS` like `/deleteUsers`. Today no `UserRole`
-  grants it, so only root can remove users – decide whether `USER_ADMIN` should include
-  `DELETE_USERS` (a change to an existing role) or stay as is.
+- D-11 Remove on the user card requires `DELETE_USERS` like `/deleteUsers`; no `UserRole` grants it,
+  so removing users stays root-only (decided: keep as is).
 - D-8 A user whose roles change from the Users screen is not notified (only access requests are);
   can be added later if wanted.
 
