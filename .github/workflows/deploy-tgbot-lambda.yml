@@ -95,11 +95,11 @@ jobs:
         env:
           TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
         run: |
-          # Telegram allows only lowercase names in the menu: /supportedRegions and /describeRoles are typed
-          # commands listed by /help (cleanup-2026-10 D-12)
+          # The system commands stay out of the menu: /help lists the ones the caller may use
+          # (cleanup-2026-10 D-12)
           curl -sS --fail -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/setMyCommands" \
             -H 'Content-Type: application/json' \
-            -d '{"commands":[{"command":"menu","description":"Open the menu"},{"command":"help","description":"List the system commands"},{"command":"version","description":"Prints the version of the backend application"}]}'
+            -d '{"commands":[{"command":"menu","description":"Open the menu"},{"command":"help","description":"List the system commands"}]}'
           curl -sS --fail -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/setMyCommands" \
             -H 'Content-Type: application/json' \
-            -d '{"commands":[{"command":"menu","description":"Открыть меню"},{"command":"help","description":"Список системных команд"},{"command":"version","description":"Возвращает версию серверного приложения"}],"language_code":"ru"}'
+            -d '{"commands":[{"command":"menu","description":"Открыть меню"},{"command":"help","description":"Список системных команд"}],"language_code":"ru"}'

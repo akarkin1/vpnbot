@@ -198,8 +198,8 @@ public sealed interface UiAction {
 - `deploy-tgbot-lambda.yml` drops the `lambda-source-version` input; after checkout it sets up JDK
   21 (as `ci-cd.yml`) and reads `POM_VERSION=$(mvn -B -q help:evaluate -Dexpression=project.version
   -DforceStdout)` for `LambdaSourceVersion`. `pom.xml` is the only place holding the version.
-- "Register Telegram bot commands" registers `menu`, `help`, `version`, `supportedRegions`,
-  `describeRoles` (EN and RU descriptions taken from the `command.*.description.message` texts).
+- "Register Telegram bot commands" registers `menu` and `help` only; the system commands are
+  hidden behind `/help` (D-12).
 - `java-tests.yml`: unchanged (the three shell tests stay, the migration script included, D-10).
 
 ### 4.7 Composition root (`VpnBot`)
@@ -338,7 +338,7 @@ EcsNode: id, hostName, state, publicIp, location, region, runBy, runByName, chat
   each record to the right controller method with the typed arguments.
 - AC-7 Workflows: `deploy-tgbot-lambda.yml` has no `lambda-source-version` input and passes the pom
   version; both workflows use `LAMBDA_JAR_BUCKET`; the stack parameter is `LambdaJarBucketName`;
-  `setMyCommands` lists the five commands in EN and RU; `java-tests.yml` still runs the three shell tests.
+  `setMyCommands` lists `menu` and `help` in EN and RU; `java-tests.yml` still runs the three shell tests.
 - AC-8 `mvn -B verify` green; the three shell tests green; properties ASCII-only.
 - AC-9 Composition root: `TailscaleVpnLambdaHandler` has no static block and no field other than
   `BOT`, `MAPPER` and constants; `grep` for `ConfigManager`, `Configurer` and `System.getenv` in
@@ -426,9 +426,11 @@ final shape) → H1. Each task is one commit series on
 - D-11 Phase 4 D-3 (owner match by username for nodes started before Phase 4) is removed now, a
   week after the Phase 4 deploy: no such node can still be running, and the fallback is unrelated
   to pending users.
-- D-12 (H1) Telegram's command menu accepts lowercase names only, so `setMyCommands` lists `menu`,
-  `help` and `version`; `/supportedRegions` and `/describeRoles` stay typed commands that `/help`
-  lists. Lowercase aliases were not added (CLAUDE.md: no change to existing text commands).
+- D-12 (H1, owner) The Telegram command menu lists `menu` and `help` only. Telegram accepts
+  lowercase names only, so `/supportedRegions` and `/describeRoles` could not be listed, and
+  `/version` alone would be inconsistent and root-only in a menu shown to everyone. The system
+  commands are hidden: `/help` lists the ones the caller may use. Lowercase aliases were not added
+  (CLAUDE.md: no change to existing text commands).
 - D-13 (T1) `UiConfigurer` returns `UiComponents(router, messenger)` so the handler can send the
   generic error screen (§4.2); `NodeLauncher` is deleted (`LaunchController` keeps the method);
   `CommonButtons` and `MENU` are public for the dispatcher; `BotCommand.reply(template, params)`
