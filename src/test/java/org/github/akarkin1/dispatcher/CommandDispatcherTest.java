@@ -4,6 +4,7 @@ import org.github.akarkin1.auth.Authorizer;
 import org.github.akarkin1.auth.Permission;
 import org.github.akarkin1.auth.TgUser;
 import org.github.akarkin1.dispatcher.command.BotCommand;
+import org.github.akarkin1.dispatcher.command.HelpCommand;
 import org.github.akarkin1.ui.UiContext;
 import org.github.akarkin1.ui.messenger.UiMessenger;
 import org.github.akarkin1.ui.screen.ErrorScreen;
@@ -69,6 +70,8 @@ class CommandDispatcherTest {
       return grants.stream().anyMatch(grant -> grant.matches(user, permission));
     });
     dispatcher = new CommandDispatcher(messenger, authorizer);
+    // as VpnBot does (§4.7 rule 5): the dispatcher is the catalog of its own /help command
+    dispatcher.registerCommand("/help", new HelpCommand(dispatcher));
     ping = new RecordingCommand("${ping.description}", List.of(Permission.LIST_NODES), PONG);
     admin = new RecordingCommand("${admin.description}", List.of(Permission.ROOT_ACCESS), ADMIN_REPLY);
     dispatcher.registerCommand("/ping", ping);
@@ -168,21 +171,30 @@ class CommandDispatcherTest {
   }
 
   @Test
-  @DisplayName("§7, §4.7 rule 5: /help is registered by the constructor and needs no permission")
-  void helpRegisteredByConstructor() {
+  @DisplayName("§4.7 rules 4 and 5: the constructor registers nothing, not even /help – VpnBot registers the system commands")
+  void constructorRegistersNothing() {
     CommandDispatcher bare = new CommandDispatcher(messenger, authorizer);
 
+    assertEquals("", bare.supportedCommands(ALEX.user()));
     bare.handle(BOB, "/help");
+    assertNotSupported(sentScreen(BOB), "/help", "");
+  }
+
+  @Test
+  @DisplayName("§4.1, §4.7 rule 5: /help registered with the dispatcher as its catalog needs no permission and lists the commands the caller may use")
+  void helpNeedsNoPermission() {
+    dispatcher.handle(BOB, "/help");
 
     Screen sent = sentScreen(BOB);
     assertTrue(sent.template().startsWith("${command.help.app-description.message}"), sent.template());
     assertTrue(sent.template().contains("/help"), sent.template());
     assertTrue(sent.template().contains("${command.help.description.message}"), sent.template());
+    assertFalse(sent.template().contains("/ping"), "not allowed for the caller: " + sent.template());
     assertEquals(MENU_ROW, sent.keyboard());
   }
 
   @Test
-  @DisplayName("§4.1: supportedCommands lists one line per command the user may use, in registration order, /help first")
+  @DisplayName("§4.1: supportedCommands lists one line per command the user may use, in registration order")
   void supportedCommands() {
     grant(ALEX, Permission.LIST_NODES);
 
@@ -192,6 +204,21 @@ class CommandDispatcherTest {
     assertTrue(lines.get(0).contains("/help") && lines.get(0).contains("${command.help.description.message}"),
                lines.get(0));
     assertTrue(lines.get(1).contains("/ping") && lines.get(1).contains("${ping.description}"), lines.get(1));
+  }
+
+  @Test
+  @DisplayName("§4.1: /help has no fixed place – the list follows the registration order")
+  void supportedCommandsInRegistrationOrder() {
+    CommandDispatcher reordered = new CommandDispatcher(messenger, authorizer);
+    reordered.registerCommand("/ping", ping);
+    reordered.registerCommand("/help", new HelpCommand(reordered));
+    grant(ALEX, Permission.LIST_NODES);
+
+    List<String> lines = reordered.supportedCommands(ALEX.user()).lines().toList();
+
+    assertEquals(2, lines.size(), String.valueOf(lines));
+    assertTrue(lines.get(0).contains("/ping"), lines.get(0));
+    assertTrue(lines.get(1).contains("/help"), lines.get(1));
   }
 
   @Test
@@ -234,7 +261,10 @@ class CommandDispatcherTest {
   }
 
   private void assertNotSupported(Screen sent, String command) {
-    String list = dispatcher.supportedCommands(ALEX.user());
+    assertNotSupported(sent, command, dispatcher.supportedCommands(ALEX.user()));
+  }
+
+  private static void assertNotSupported(Screen sent, String command, String list) {
     assertTrue(sent.template().startsWith("${common.command.not-supported.error}"), sent.template());
     assertTrue(sent.template().endsWith(list), "ends with the /help list: " + sent.template());
     assertEquals(List.of(command), sent.params());
