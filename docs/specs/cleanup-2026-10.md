@@ -423,3 +423,21 @@ final shape) → H1. Each task is one commit series on
 - D-12 (H1) Telegram's command menu accepts lowercase names only, so `setMyCommands` lists `menu`,
   `help` and `version`; `/supportedRegions` and `/describeRoles` stay typed commands that `/help`
   lists. Lowercase aliases were not added (CLAUDE.md: no change to existing text commands).
+- D-13 (T1) `UiConfigurer` returns `UiComponents(router, messenger)` so the handler can send the
+  generic error screen (§4.2); `NodeLauncher` is deleted (`LaunchController` keeps the method);
+  `CommonButtons` and `MENU` are public for the dispatcher; `BotCommand.reply(template, params)`
+  builds a Menu-row screen; the dispatcher has its own error path (a failing command is answered
+  with `ErrorScreen.generic()`, AC-3) and registers `/help` in its constructor – T7 moves that
+  registration to `VpnBot` to satisfy AC-9. `VersionCommand(String appVersion)` takes the version.
+- D-14 (T3/T4) AC-2's `listTasks(` grep is narrowed to the node service: `EcsManager.listTasks`
+  keeps the ECS vocabulary (§2 non-goal) and the AWS SDK method cannot be renamed. AC-4
+  "unchanged" means the same assertions: the pending-user test classes gained
+  `@SuppressWarnings("removal")` with the note, and two display names that quoted
+  `findByUsername`/`UserSignupService` were reworded. `NodeControllerTest.stopLegacyNodeByOwner`
+  pinned the D-3 fallback and is inverted (a node tagged with the username is not the caller's).
+  The pending-user call sites in `UsersScreen`, `AccessController` and the handler carry the
+  suppression (annotation and note only); the handler's is class-level because a static
+  initializer cannot be annotated – T7 moves it into `VpnBot`.
+- D-15 (T3) Third-party deprecation notes remain in the build output (`TelegramBotFactory` uses a
+  deprecated telegrambots constructor, `FakeTable` overrides deprecated SDK methods); AC-2's
+  "no deprecation warning" covers project APIs only.
