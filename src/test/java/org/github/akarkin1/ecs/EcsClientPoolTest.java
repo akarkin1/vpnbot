@@ -18,6 +18,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
@@ -72,17 +73,12 @@ class EcsClientPoolTest {
   }
 
   /** Creates a new mock client per call, slowly, so concurrent first calls overlap. */
-  private static final class SlowProvider implements EcsClientProvider {
+  private static final class SlowProvider implements Function<Region, EcsClient> {
 
     private final Map<Region, AtomicInteger> calls = new ConcurrentHashMap<>();
 
     @Override
-    public EcsClient get() {
-      return mock(EcsClient.class);
-    }
-
-    @Override
-    public EcsClient get(Region region) {
+    public EcsClient apply(Region region) {
       calls.computeIfAbsent(region, ignored -> new AtomicInteger()).incrementAndGet();
       try {
         Thread.sleep(50);

@@ -82,6 +82,7 @@ class HelpCommandTest {
   void translatedSystemCommands() {
     when(authorizer.hasPermission(any(), any(Permission.class))).thenReturn(true);
     CommandDispatcher dispatcher = new CommandDispatcher(messenger, authorizer);
+    dispatcher.registerCommand("/help", new HelpCommand(dispatcher));
     dispatcher.registerCommand("/version", new VersionCommand("2026.10-SNAPSHOT"));
     dispatcher.registerCommand("/supportedRegions", new SupportedRegionCommand(nodeService));
     dispatcher.registerCommand("/describeRoles", new DescribeRolesCommand());

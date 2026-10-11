@@ -1,10 +1,10 @@
 package org.github.akarkin1.dispatcher;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.github.akarkin1.auth.Authorizer;
 import org.github.akarkin1.auth.TgUser;
 import org.github.akarkin1.dispatcher.command.BotCommand;
-import org.github.akarkin1.dispatcher.command.HelpCommand;
 import org.github.akarkin1.ui.UiContext;
 import org.github.akarkin1.ui.messenger.UiMessenger;
 import org.github.akarkin1.ui.screen.ErrorScreen;
@@ -16,8 +16,12 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-/** Runs the system commands ({@code /help}, {@code /version}, …) and sends their replies. */
+/**
+ * Runs the system commands ({@code /help}, {@code /version}, …) and sends their replies. The
+ * commands, {@code /help} included, are registered after construction ({@code VpnBot}).
+ */
 @Log4j2
+@RequiredArgsConstructor
 public class CommandDispatcher implements CommandCatalog {
 
   private static final String NOT_SUPPORTED = "${common.command.not-supported.error}";
@@ -29,12 +33,6 @@ public class CommandDispatcher implements CommandCatalog {
   private final UiMessenger messenger;
 
   private final Authorizer authorizer;
-
-  public CommandDispatcher(UiMessenger messenger, Authorizer authorizer) {
-    this.messenger = messenger;
-    this.authorizer = authorizer;
-    this.registerCommand("/help", new HelpCommand(this));
-  }
 
   public void registerCommand(String name, BotCommand command) {
     registeredCommands.put(name, command);

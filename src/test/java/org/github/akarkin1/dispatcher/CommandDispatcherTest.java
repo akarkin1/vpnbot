@@ -4,6 +4,7 @@ import org.github.akarkin1.auth.Authorizer;
 import org.github.akarkin1.auth.Permission;
 import org.github.akarkin1.auth.TgUser;
 import org.github.akarkin1.dispatcher.command.BotCommand;
+import org.github.akarkin1.dispatcher.command.HelpCommand;
 import org.github.akarkin1.ui.UiContext;
 import org.github.akarkin1.ui.messenger.UiMessenger;
 import org.github.akarkin1.ui.screen.ErrorScreen;
@@ -69,6 +70,7 @@ class CommandDispatcherTest {
       return grants.stream().anyMatch(grant -> grant.matches(user, permission));
     });
     dispatcher = new CommandDispatcher(messenger, authorizer);
+    dispatcher.registerCommand("/help", new HelpCommand(dispatcher));
     ping = new RecordingCommand("${ping.description}", List.of(Permission.LIST_NODES), PONG);
     admin = new RecordingCommand("${admin.description}", List.of(Permission.ROOT_ACCESS), ADMIN_REPLY);
     dispatcher.registerCommand("/ping", ping);
@@ -165,20 +167,6 @@ class CommandDispatcherTest {
     for (int i = 0; i < RETIRED.size(); i++) {
       assertNotSupported(screens.getAllValues().get(i), RETIRED.get(i).split(" ")[0]);
     }
-  }
-
-  @Test
-  @DisplayName("§7, §4.7 rule 5: /help is registered by the constructor and needs no permission")
-  void helpRegisteredByConstructor() {
-    CommandDispatcher bare = new CommandDispatcher(messenger, authorizer);
-
-    bare.handle(BOB, "/help");
-
-    Screen sent = sentScreen(BOB);
-    assertTrue(sent.template().startsWith("${command.help.app-description.message}"), sent.template());
-    assertTrue(sent.template().contains("/help"), sent.template());
-    assertTrue(sent.template().contains("${command.help.description.message}"), sent.template());
-    assertEquals(MENU_ROW, sent.keyboard());
   }
 
   @Test
