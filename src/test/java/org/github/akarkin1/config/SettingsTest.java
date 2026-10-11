@@ -6,95 +6,91 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
+import java.util.HashMap;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
- * cleanup-2026-10 §4.7 rule 1: {@link Settings#fromEnvironment()} is the one place that reads the
- * environment and {@code application.yml} (the cases of the deleted {@code ConfigManagerTest} moved
- * here). Environment variables cannot be set from a test in this codebase (no extra dependency),
- * so the env-dependent cases check the defaults and are skipped where a variable happens to be set.
- * {@code BOT_SECRET_TOKEN_ID} is required: without it {@code fromEnvironment()} fails, so the
- * default cases only run where it is set. On the test classpath {@code application.yml} is the one
- * in {@code src/test/resources}; the real file is checked through {@link MainApplicationYaml}.
+ * cleanup-2026-10 §4.7 rule 1: {@link Settings} is the one place that reads the environment and
+ * {@code application.yml}. The cases of the deleted {@code ConfigManagerTest} run through
+ * {@link Settings#from} with an explicit environment, so they do not depend on the process
+ * environment; the real {@code application.yml} is checked through {@link MainApplicationYaml}.
  */
 class SettingsTest {
 
-  private static final String BOT_SECRET_TOKEN_ID = "BOT_SECRET_TOKEN_ID";
+  /** The one required variable; everything else is left to its default. */
+  private static final Map<String, String> MINIMAL_ENV = Map.of("BOT_SECRET_TOKEN_ID", "secret-id");
 
   @Test
-  @DisplayName("§4.7 rule 1: without BOT_SECRET_TOKEN_ID fromEnvironment() fails with IllegalStateException, as ConfigManager.getSecretTokenId did")
+  @DisplayName("§4.7 rule 1: without BOT_SECRET_TOKEN_ID the settings fail with IllegalStateException, as ConfigManager.getSecretTokenId did")
   void secretTokenIdRequired() {
-    assumeTrue(System.getenv(BOT_SECRET_TOKEN_ID) == null, BOT_SECRET_TOKEN_ID + " is set");
-
-    assertThrows(IllegalStateException.class, Settings::fromEnvironment);
+    assertThrows(IllegalStateException.class,
+                 () -> Settings.from(Map.<String, String>of()::get, new YamlApplicationConfiguration()));
   }
 
   @Test
-  @DisplayName("3 AC-A8: without CONFIG_TABLE_NAME the table name is vpnbot")
-  void configTableNameDefault() {
-    assumeSecretTokenIdSet();
-    assumeTrue(System.getenv("CONFIG_TABLE_NAME") == null, "CONFIG_TABLE_NAME is set");
-
-    assertEquals("vpnbot", Settings.fromEnvironment().configTableName());
-  }
-
-  @Test
-  @DisplayName("3 AC-A12: without CONFIG_CACHE_ENABLED the config cache is off")
-  void configCacheDisabledByDefault() {
-    assumeSecretTokenIdSet();
-    assumeTrue(System.getenv("CONFIG_CACHE_ENABLED") == null, "CONFIG_CACHE_ENABLED is set");
-
-    assertFalse(Settings.fromEnvironment().configCacheEnabled());
-  }
-
-  @Test
-  @DisplayName("§4.7 rule 1: without CONFIG_CACHE_TTL_SEC the cache TTL is 300 s, as before")
-  void configCacheTtlDefault() {
-    assumeSecretTokenIdSet();
-    assumeTrue(System.getenv("CONFIG_CACHE_TTL_SEC") == null, "CONFIG_CACHE_TTL_SEC is set");
-
-    assertEquals(Duration.ofSeconds(300), Settings.fromEnvironment().configCacheTtl());
-  }
-
-  @Test
-  @DisplayName("2a §4.5: without METRICS_ENABLED metrics are on")
-  void metricsEnabledByDefault() {
-    assumeSecretTokenIdSet();
-    assumeTrue(System.getenv("METRICS_ENABLED") == null, "METRICS_ENABLED is set");
-
-    assertTrue(Settings.fromEnvironment().metricsEnabled());
-  }
-
-  @Test
-  @DisplayName("§4.7 rule 1: the plain env values are passed through as they are")
-  void envValuesPassedThrough() {
-    assumeSecretTokenIdSet();
-
-    Settings settings = Settings.fromEnvironment();
+  @DisplayName("3 AC-A8, 3 AC-A12, 2a §4.5: the defaults – table vpnbot, cache off, TTL 300 s, metrics on")
+  void defaults() {
+    Settings settings = Settings.from(MINIMAL_ENV::get, new YamlApplicationConfiguration());
 
     assertAll(
-        () -> assertEquals(System.getenv(BOT_SECRET_TOKEN_ID), settings.secretTokenId()),
-        () -> assertEquals(System.getenv("BOT_TOKEN_SECRET_ID"), settings.botTokenSecretId()),
-        () -> assertEquals(System.getenv("BOT_USERNAME"), settings.botUsername()));
+        () -> assertEquals("vpnbot", settings.configTableName()),
+        () -> assertFalse(settings.configCacheEnabled()),
+        () -> assertEquals(Duration.ofSeconds(300), settings.configCacheTtl()),
+        () -> assertTrue(settings.metricsEnabled()),
+        () -> assertEquals("secret-id", settings.webhookSecretTokenId()));
   }
 
   @Test
-  @DisplayName("§4.7 rule 1: the version and the sections come from the application.yml on the classpath (the test one here)")
-  void applicationYamlFromClasspath() {
-    assumeSecretTokenIdSet();
+  @DisplayName("§4.7 rule 1: the env values are passed through, flags are parsed case-insensitively")
+  void envValuesPassedThrough() {
+    Map<String, String> env = new HashMap<>(MINIMAL_ENV);
+    env.put("CONFIG_TABLE_NAME", "vpnbot-test");
+    env.put("BOT_TOKEN_SECRET_ID", "token-id");
+    env.put("BOT_USERNAME", "vpn_bot");
+    env.put("METRICS_ENABLED", "FALSE");
+    env.put("CONFIG_CACHE_ENABLED", "True");
+    env.put("CONFIG_CACHE_TTL_SEC", "42");
 
-    Settings settings = Settings.fromEnvironment();
+    Settings settings = Settings.from(env::get, new YamlApplicationConfiguration());
 
-    assertEquals("test", settings.appVersion());
-    assertNotNull(settings.auth());
-    assertTrue(settings.auth().isEnabled());
+    assertAll(
+        () -> assertEquals("vpnbot-test", settings.configTableName()),
+        () -> assertEquals("token-id", settings.botTokenSecretId()),
+        () -> assertEquals("vpn_bot", settings.botUsername()),
+        () -> assertFalse(settings.metricsEnabled()),
+        () -> assertTrue(settings.configCacheEnabled()),
+        () -> assertEquals(Duration.ofSeconds(42), settings.configCacheTtl()));
+  }
+
+  @Test
+  @DisplayName("§4.7 rule 1: the version and the yaml sections are taken from the parsed application.yml")
+  void yamlSectionsCarried() {
+    YamlApplicationConfiguration yaml = MainApplicationYaml.load();
+
+    Settings settings = Settings.from(MINIMAL_ENV::get, yaml);
+
+    assertAll(
+        () -> assertEquals(yaml.getVersion(), settings.appVersion()),
+        () -> assertSame(yaml.getAuth(), settings.auth()),
+        () -> assertSame(yaml.getEcs(), settings.ecs()),
+        () -> assertSame(yaml.getAws(), settings.aws()));
+  }
+
+  @Test
+  @DisplayName("§4.7 rule 1: fromEnvironment() reads the application.yml on the classpath (the test one here: version test)")
+  void fromEnvironmentReadsClasspathYaml() {
+    if (System.getenv("BOT_SECRET_TOKEN_ID") == null) {
+      assertThrows(IllegalStateException.class, Settings::fromEnvironment);
+      return;
+    }
+    assertEquals("test", Settings.fromEnvironment().appVersion());
   }
 
   @Test
@@ -119,11 +115,6 @@ class SettingsTest {
         () -> assertEquals("Frankfurt", aws.getRegionCities().get("eu-central-1")),
         () -> assertEquals("DE", aws.getRegionCountries().get("eu-central-1")),
         () -> assertEquals(aws.getRegionCities().keySet(), aws.getRegionCountries().keySet()));
-  }
-
-  private static void assumeSecretTokenIdSet() {
-    assumeTrue(System.getenv(BOT_SECRET_TOKEN_ID) != null,
-               BOT_SECRET_TOKEN_ID + " is not set: fromEnvironment() fails without it");
   }
 
 }

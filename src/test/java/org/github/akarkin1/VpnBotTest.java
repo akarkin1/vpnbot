@@ -292,9 +292,9 @@ class VpnBotTest {
   /** The env values are fixed here; the yaml sections are those of the real application.yml. */
   private static Settings settings(boolean metricsEnabled, boolean configCacheEnabled) {
     YamlApplicationConfiguration yaml = MainApplicationYaml.load();
-    return new Settings(TABLE_NAME, BOT_TOKEN_SECRET_ID, BOT_USERNAME, SECRET_TOKEN_ID,
+    return new Settings(TABLE_NAME, BOT_TOKEN_SECRET_ID, BOT_USERNAME,
                         metricsEnabled, configCacheEnabled, Duration.ofMinutes(5), APP_VERSION,
-                        yaml.getAuth(), yaml.getEcs(), yaml.getAws());
+                        yaml.getAuth(), yaml.getEcs(), yaml.getAws(), SECRET_TOKEN_ID);
   }
 
   private DynamoDbEnhancedClient dynamoDb() {
