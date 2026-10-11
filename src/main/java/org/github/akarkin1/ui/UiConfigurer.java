@@ -69,7 +69,7 @@ public class UiConfigurer {
     UiRouter router = new UiRouter(homeController, launchController, nodeController,
                                    accessController, usersController, messenger,
                                    new ErrorScreen());
-    return new UiComponents(router, launchController);
+    return new UiComponents(router, messenger);
   }
 
 }
