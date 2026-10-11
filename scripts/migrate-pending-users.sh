@@ -3,6 +3,8 @@
 # created before Phase 4) become PENDING_USER records keyed by that username, with the same
 # permissions. USER records keyed by a user id (all digits) are left alone. Idempotent.
 # Needs the AWS CLI and jq. Usage: scripts/migrate-pending-users.sh [--dry-run]
+# Deprecated: Pre-registration by username ended with 2026.10. Remove once PENDING_USER records no
+# longer exist (query pk = PENDING_USER); see docs/specs/cleanup-2026-10.md §4.3.
 set -euo pipefail
 
 CONFIG_TABLE_NAME=${CONFIG_TABLE_NAME:-vpnbot}

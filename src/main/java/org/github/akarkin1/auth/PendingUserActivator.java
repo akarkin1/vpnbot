@@ -15,7 +15,12 @@ import java.util.Map;
  *
  * <p>A failed write is logged and leaves the pending record in place: the user has no access in
  * this request and the activation is retried on their next one.
+ *
+ * @deprecated Pre-registration by username ended with 2026.10. Remove once
+ *     {@code PENDING_USER} records no longer exist (query {@code pk = PENDING_USER}); see
+ *     docs/specs/cleanup-2026-10.md §4.3.
  */
+@Deprecated(forRemoval = true)
 @Log4j2
 @RequiredArgsConstructor
 public class PendingUserActivator {
