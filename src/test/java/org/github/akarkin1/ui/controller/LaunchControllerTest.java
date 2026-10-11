@@ -304,7 +304,7 @@ class LaunchControllerTest {
   }
 
   @Test
-  @DisplayName("2b AC-6, 4 AC-9: runNode receives the NodeOwner built from the context (user id, username, chat id, language)")
+  @DisplayName("2b AC-6, 4 AC-9: runNode receives the NodeOrigin built from the context (user id, username, chat id, language)")
   void runNodeReceivesOwnerFromContext() {
     UiContext russian = new UiContext(555L, 12L, "masha", "Masha", "ru");
     when(authorizer.hasPermission(new TgUser(12L, "masha"), Permission.RUN_NODES)).thenReturn(true);

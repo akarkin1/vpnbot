@@ -211,13 +211,13 @@ public class EcsManagerImpl implements EcsManager {
         continue;
       }
 
-      foundTasks.add(toTaskInfo(region, clusterName, task));
+      foundTasks.add(toEcsNode(region, clusterName, task));
     }
 
     return foundTasks;
   }
 
-  private EcsNode toTaskInfo(Region region, String clusterName, Task task) {
+  private EcsNode toEcsNode(Region region, String clusterName, Task task) {
     log.debug("Task attachments: {}", task.attachments());
     return EcsNode.builder()
         .hostName(tagValue(task, config.getHostNameTag()))
@@ -267,7 +267,7 @@ public class EcsManagerImpl implements EcsManager {
         .stream()
         .filter(task -> !STOPPED.equals(task.desiredStatus()) && !STOPPED.equals(task.lastStatus()))
         .findFirst()
-        .map(task -> toTaskInfo(region, clusterName, task));
+        .map(task -> toEcsNode(region, clusterName, task));
   }
 
   @Override

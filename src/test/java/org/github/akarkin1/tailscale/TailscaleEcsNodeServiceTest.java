@@ -57,7 +57,7 @@ class TailscaleEcsNodeServiceTest {
   }
 
   @Test
-  @DisplayName("2b AC-9, 4 AC-9: runNode tags the task with RunBy = user id, RunByName = username, ChatId and Lang of the NodeOwner")
+  @DisplayName("2b AC-9, 4 AC-9: runNode tags the task with RunBy = user id, RunByName = username, ChatId and Lang of the NodeOrigin")
   void runNodeTagsOwner() {
     Map<String, String> tags = Map.of("Hostname", "alex-frankfurt-1",
                                       "RunBy", "7",

@@ -39,11 +39,11 @@ public final class ListNodesCommand implements BotCommand<TextCommandResponse> {
     StringBuilder responseBuilder = new StringBuilder();
     responseBuilder.append("${command.list-nodes.running-nodes.message}: ").append("\n");
 
-    ecsNodes.forEach(taskInfo ->
-                          responseBuilder.append("\t– ${common.node.name.message}: %s%n".formatted(taskInfo.getHostName()))
-                              .append("\t\t${common.node.status.message}: %s%n".formatted(taskInfo.getState()))
-                              .append("\t\t${common.node.public-ip.message}: %s%n".formatted(taskInfo.getPublicIp()))
-                              .append("\t\t${common.node.region.message}: %s (%s)%n".formatted(taskInfo.getLocation(), taskInfo.getRegion())));
+    ecsNodes.forEach(ecsNode ->
+                          responseBuilder.append("\t– ${common.node.name.message}: %s%n".formatted(ecsNode.getHostName()))
+                              .append("\t\t${common.node.status.message}: %s%n".formatted(ecsNode.getState()))
+                              .append("\t\t${common.node.public-ip.message}: %s%n".formatted(ecsNode.getPublicIp()))
+                              .append("\t\t${common.node.region.message}: %s (%s)%n".formatted(ecsNode.getLocation(), ecsNode.getRegion())));
 
     return new TextCommandResponse(responseBuilder.toString());
   }

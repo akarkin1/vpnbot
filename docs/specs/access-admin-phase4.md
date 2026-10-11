@@ -65,7 +65,7 @@ file ownership, `SPEC DEVIATION: <what> / <why> / <proposed option>` escalation)
   step is skipped with a warning (only a fresh installation needs it). It never writes a pending
   record (D-23).
 - Node ownership: the `RunBy` tag holds the user id; new tag `RunByName` (config `run-by-name-tag`)
-  holds the username for display (`NodeOwner` gains `userId`; `TaskInfo` gains `runByName`).
+  holds the username for display (`NodeOrigin` gains `userId`; `EcsNode` gains `runByName`).
   `NodeAccess.isOwner` matches `runBy` against the id or, during the transition, the username (D-3).
   `TailscaleNodeService.listTasks(String userTgId)` receives the id. Screens that show the owner
   (`confirmStop`, home "all nodes") use `runByName`, falling back to `runBy`.
@@ -258,7 +258,7 @@ public class UsersScreen   { list(UsersModel); user(UserRow); confirmDelete(User
 public record UsersModel(List<UserRow> users) {}   public record UserRow(TgUser user, List<Permission> permissions, boolean editable) {}   // editable = not root, not the caller; user.pending()
 HomeModel: + boolean canManageUsers, boolean hasAccess
 // tailscale / ecs
-NodeOwner(long userId, String username, Long chatId, String languageCode); TaskInfo + runByName; EcsConfiguration + runByNameTag
+NodeOrigin(long userId, String username, Long chatId, String languageCode); EcsNode + runByName; EcsConfiguration + runByNameTag
 ```
 
 ## 8. Acceptance criteria

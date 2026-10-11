@@ -46,7 +46,7 @@ public final class RoleSet {
    * USER_ADMIN -> 4: 100 (USER_MANAGEMENT)
    * </pre>
    * Conjunction of the user choice mask with a role's bit position tells us whether the role was chosen or not by user.
-   * For example, given the user mask {@code 101}, we can deduct that the bellow roles are selected:
+   * For example, given the user mask {@code 101}, we can deduce that the below roles are selected:
    * <ul>
    *  <li>NODE_ADMIN ({@code 101 & 001 = 001 != 0})</li>
    *  <li>USER_ADMIN ({@code 101 & 100 = 100 != 0}</li>

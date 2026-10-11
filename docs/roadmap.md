@@ -36,7 +36,7 @@ Spec: `docs/specs/node-lifecycle-2b.md` · Branch: `feature/node-lifecycle-2b`
 
 1. **🛑 Stop** button: own nodes in one tap; root can stop anyone's node after a confirmation and the
    owner is notified. Ownership is checked server-side against the task's `RunBy` tag. Needs
-   `TaskInfo.runBy` and `EcsManager.stopTask` (`ecs:StopTask` is already allowed).
+   `EcsNode.runBy` and `EcsManager.stopTask` (`ecs:StopTask` is already allowed).
 2. **Use existing or start another**: tapping a region where the user already has a node shows
    `[📋 Use <name>] [🚀 Start another] [🏠 Menu]`. Running several nodes stays allowed.
 
