@@ -23,6 +23,9 @@ compatibility, so that the code going into release 2026.10 has one way to do eac
 5. **Infra naming:** the jar bucket is `LAMBDA_JAR_BUCKET` / `LambdaJarBucketName` (it holds the
    jar, nothing else); the stack-deploy workflow reads the version from `pom.xml` instead of an
    input; the Telegram command menu lists the system commands.
+6. **Composition root.** The handler's static block becomes one class, `VpnBot`, that builds the
+   object graph with plain constructors from the external clients and the settings, written so that
+   a later move to Dagger 2 is mechanical (§4.7). No DI framework in this phase (D-9).
 
 ## 2. Non-goals
 
@@ -31,7 +34,7 @@ compatibility, so that the code going into release 2026.10 has one way to do eac
   `PENDING_USER`, the roles/permissions model, the texts of the kept commands.
 - A `/assignRoles` replacement: new users come in through *Request access*; an admin changes roles
   on the Users screen. Pre-registration by username is gone with the pending users (D-1).
-- New dependencies.
+- New dependencies: no DI framework yet (D-9), nothing else either.
 
 ## 3. Ground rules
 
@@ -187,6 +190,62 @@ public sealed interface UiAction {
   `describeRoles` (EN and RU descriptions taken from the `command.*.description.message` texts).
 - `java-tests.yml`: the migration script test step goes; the other two shell tests stay.
 
+### 4.7 Composition root (`VpnBot`)
+
+`TailscaleVpnLambdaHandler` keeps only the request flow (§4.2) and one line of wiring:
+`private static final VpnBot BOT = VpnBot.create();` (still at class-init time, so SnapStart
+snapshots the built graph as today). `VpnBot` lives in `org.github.akarkin1` and holds the graph:
+
+```java
+public final class VpnBot {
+  public static VpnBot create();                 // real clients: DynamoDbEnhancedClient, SecretsManagerClient, Telegram sender, Clock.systemUTC(), Settings.fromEnvironment()
+  VpnBot(Externals externals);                   // the full graph from the externals; package-private for the wiring test
+  public UiRouter router();
+  public CommandDispatcher systemCommands();
+  public UpdateEventsRegistry updateEvents();
+  public UiMessenger messenger();                // for the handler's error path
+  public RequestMetrics metrics();
+  public void prime();                           // SnapStartPrimer, called once by create()
+}
+public record Externals(DynamoDbEnhancedClient dynamoDb, SecretsManagerClient secrets,
+                        Function<String, AbsSender> senderFactory /* bot token → sender */, Clock clock,
+                        Settings settings) {}
+public record Settings(String configTableName, String botTokenSecretId, String botUsername,
+                       boolean metricsEnabled, boolean configCacheEnabled, Duration configCacheTtl,
+                       String appVersion, AuthConfiguration auth, EcsConfiguration ecs, …) {
+  public static Settings fromEnvironment();      // today's ConfigManager + application.yml, read once
+}
+```
+
+Rules, each chosen so that Dagger 2 can replace `VpnBot` later without touching the classes it
+wires (D-9):
+
+1. Constructor injection only, everywhere: no class creates a collaborator with `new` and nothing
+   reads `System.getenv`, `ConfigManager` or `application.yml` outside `Settings.fromEnvironment()`.
+   `ConfigManager`'s static getters are deleted; classes that used them take the value or the
+   `Settings` record in their constructor. (Later: `@Inject` via Lombok `onConstructor_`.)
+2. Everything external is created once and passed in through `Externals`. (Later: one `@Module`.)
+3. One implementation per interface, picked in `VpnBot` (`Authorizer` → `WhiteListAuthorizer`,
+   `PermissionsService` → caching over DynamoDB when enabled, `UiMessenger` → Telegram, …).
+   (Later: `@Binds`.)
+4. Every object is a singleton for the container's lifetime and no constructor does work beyond
+   assignment; `prime()` is the only post-construction step. (Later: `@Singleton`.)
+5. No dependency cycles. The one that exists – `HelpCommand` → `CommandDispatcher` →
+   `HelpCommand` – is broken in T1: `HelpCommand(CommandCatalog catalog)` where
+   `interface CommandCatalog { String supportedCommands(TgUser user); }` is implemented by the
+   dispatcher, which registers `/help` after construction via `registerCommand`. (Dagger rejects
+   cycles.)
+6. The `*Configurer` classes (`AuthorizerConfigurer`, `PermissionsServiceConfigurer`,
+   `RequestAuthenticatorConfigurer`, `TailscaleEcsNodeServiceConfigurer`, `UiConfigurer`) fold into
+   `VpnBot` as private factory methods grouped by package; their tests become the wiring test.
+   `UiComponents` and `NodeServices` go if they only bundled return values. (Later: `@Module`
+   methods or plain `@Inject` constructors.)
+7. One wiring test, `VpnBotTest`: constructs `VpnBot` from `Externals` built with Mockito mocks of
+   the clients and a fixed `Settings`, asserts that every accessor returns a non-null object and
+   that `prime()` runs without touching the real network (the mocks answer with empty results).
+
+CLAUDE.md: "Wiring lives in `VpnBot`" replaces the `*Configurer` convention.
+
 ## 5. Data model (table `vpnbot`)
 
 `PENDING_USER` records are no longer read or written. The deploy precondition (§11) is that none
@@ -261,7 +320,12 @@ EcsNode: id, hostName, state, publicIp, location, region, runBy, runByName, chat
 - AC-7 Workflows: `deploy-tgbot-lambda.yml` has no `lambda-source-version` input and passes the pom
   version; both workflows use `LAMBDA_JAR_BUCKET`; the stack parameter is `LambdaJarBucketName`;
   `setMyCommands` lists the five commands in EN and RU; `java-tests.yml` runs two shell tests.
-- AC-8 `mvn -B verify` green; the three remaining shell tests green; properties ASCII-only.
+- AC-8 `mvn -B verify` green; the two remaining shell tests green; properties ASCII-only.
+- AC-9 Composition root: `TailscaleVpnLambdaHandler` has no static block and no field other than
+  `BOT`, `MAPPER` and constants; `grep` for `ConfigManager`, `Configurer` and `System.getenv` in
+  `src/main` hits only `Settings`; `VpnBotTest` builds the graph from mocked externals and calls
+  `prime()`; no constructor in `src/main` contains a statement other than assignments and null/
+  argument checks.
 
 ## 9. Definition of done
 
@@ -278,10 +342,13 @@ smoke test passed; no `TODO`.
 | T4 T3 tests | `src/test/java/**` for T3 (incl. `FakePermissionsService`, `FakeTable` users) |
 | T5 Sealed UiAction (Java) | `ui/UiAction`, `ui/UiRouter`, `ui/controller/AccessController`, `ui/screen/*` factories |
 | T6 T5 tests | `ui/UiActionTest`, `UiRouterTest`, `AccessControllerTest`, screen tests touching actions |
+| T7 Composition root (Java) | `VpnBot`, `Externals`, `Settings`, `TailscaleVpnLambdaHandler`, `config/ConfigManager` (deleted), every `*Configurer` (deleted), `ui/UiComponents`, `tailscale/NodeServices`, constructors that read config |
+| T8 T7 tests | `VpnBotTest`, `*ConfigurerTest` (deleted/moved), `config/**` tests |
 | H1 Infra + docs (tech lead) | `.github/workflows/*.yml`, `cloudformation/vpn-configurer-lambda.yml`, `CLAUDE.md`, `docs/roadmap.md`, this spec |
 
-Order: T1/T2 → T3/T4 → T5/T6 (each pair merged before the next starts: the handler, `TgUser` and
-`UiAction` are touched by more than one task) → H1. Each task is one commit series on
+Order: T1/T2 → T3/T4 → T5/T6 → T7/T8 (each pair merged before the next starts: the handler,
+`TgUser` and `UiAction` are touched by more than one task; the root comes last so it wires the
+final shape) → H1. Each task is one commit series on
 `feature/cleanup-3.0`; the tech lead merges and re-runs the full build after each.
 
 ## 11. Deploy checklist (owner)
@@ -325,6 +392,12 @@ Order: T1/T2 → T3/T4 → T5/T6 (each pair merged before the next starts: the h
 - D-7 Calendar versioning `YYYY.MM[.N]` from this release; `2.0` keeps its name.
 - D-8 The jar bucket variable is renamed rather than kept: its old name (`S3_CONFIG_BUCKET_NAME`)
   caused a failed deploy on 2026-10-11 when it was taken for a Phase 3 leftover.
+- D-9 No DI framework in this phase. Dagger 2 is the candidate (compile-time, no reflection, fits
+  SnapStart) and nothing is wrong with it; it is postponed because this phase already rewires the
+  handler, dispatcher, auth and UI, because a second annotation processor next to Lombok and the
+  Log4j plugin processor is its own change, and because a hand-written root is the prerequisite
+  either way. §4.7's rules keep the later move mechanical: `VpnBot` becomes a `@Component`,
+  `Externals` a `@Module`, the interface choices `@Binds`, and the constructors get `@Inject`.
 
 ## 13. Decision log
 
