@@ -1,27 +1,28 @@
 package org.github.akarkin1.dispatcher.command;
 
-import lombok.RequiredArgsConstructor;
 import org.github.akarkin1.auth.Permission;
-import org.github.akarkin1.auth.UserSignupService;
-import org.github.akarkin1.dispatcher.response.TextCommandResponse;
+import org.github.akarkin1.auth.RoleSet;
+import org.github.akarkin1.ui.UiContext;
+import org.github.akarkin1.ui.screen.Screen;
 
+import java.util.ArrayList;
 import java.util.List;
 
-@RequiredArgsConstructor
-public class DescribeRolesCommand implements BotCommand<TextCommandResponse> {
-
-  private final UserSignupService signupService;
+public class DescribeRolesCommand implements BotCommand {
 
   @Override
-  public TextCommandResponse run(List<String> args) {
+  public Screen run(UiContext context, List<String> args) {
     StringBuilder responseBuilder = new StringBuilder();
+    List<Object> params = new ArrayList<>();
 
     responseBuilder.append("${command.describe-roles.available-roles.message}:\n");
-    signupService.describeRoles().forEach((role, permissions) -> {
-      responseBuilder.append("\t - %s: %s\n".formatted(role, permissions));
+    RoleSet.describe().forEach((role, permissions) -> {
+      responseBuilder.append("\t - %s: %s\n");
+      params.add(role);
+      params.add(permissions);
     });
 
-    return new TextCommandResponse(responseBuilder.toString());
+    return BotCommand.reply(responseBuilder.toString(), params.toArray());
   }
 
   @Override

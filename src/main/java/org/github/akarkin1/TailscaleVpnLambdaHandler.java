@@ -28,24 +28,22 @@ import org.github.akarkin1.startup.SnapStartPrimer;
 import org.github.akarkin1.tailscale.NodeServices;
 import org.github.akarkin1.tailscale.TailscaleEcsNodeServiceConfigurer;
 import org.github.akarkin1.tailscale.TailscaleNodeService;
-import org.github.akarkin1.tg.BotCommunicator;
-import org.github.akarkin1.tg.TgRequestContext;
 import org.github.akarkin1.translation.ResourceBasedTranslator;
 import org.github.akarkin1.translation.Translator;
 import org.github.akarkin1.ui.UiComponents;
 import org.github.akarkin1.ui.UiConfigurer;
+import org.github.akarkin1.ui.UiContext;
 import org.github.akarkin1.ui.UiRouter;
+import org.github.akarkin1.ui.messenger.UiMessenger;
+import org.github.akarkin1.ui.screen.ErrorScreen;
 import org.github.akarkin1.util.LambdaHandler;
-import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
-import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.bots.AbsSender;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient;
 
 import java.time.Clock;
-import java.util.Optional;
 
 import static org.github.akarkin1.config.ConfigManager.getAppVersion;
 import static org.github.akarkin1.config.ConfigManager.getBotTokenSecretId;
@@ -61,11 +59,11 @@ public class TailscaleVpnLambdaHandler implements
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
   private static final CommandDispatcher SYSTEM_COMMANDS_DISPATCHER;
-  private static final BotCommunicator COMMUNICATOR;
   private static final UpdateEventsRegistry EVENTS_REGISTRY;
-  private static final String BOT_SERVER_ERROR = "${bot.internal.error}";
   private static final RequestAuthenticator REQUEST_AUTHENTICATOR;
   private static final UiRouter UI_ROUTER;
+  private static final UiMessenger UI_MESSENGER;
+  private static final ErrorScreen ERROR_SCREEN = new ErrorScreen();
   private static final RequestMetrics METRICS;
   private static final PendingUserActivator PENDING_USER_ACTIVATOR;
 
@@ -97,15 +95,14 @@ public class TailscaleVpnLambdaHandler implements
                                                          authorizer, permissionsService,
                                                          configTables.accessRequests(), METRICS);
     UI_ROUTER = ui.router();
+    UI_MESSENGER = ui.messenger();
 
-    COMMUNICATOR = new BotCommunicator(sender, translator, METRICS);
-    SYSTEM_COMMANDS_DISPATCHER = new CommandDispatcher(COMMUNICATOR, authorizer);
+    SYSTEM_COMMANDS_DISPATCHER = new CommandDispatcher(UI_MESSENGER, authorizer);
 
-    SYSTEM_COMMANDS_DISPATCHER.registerCommand("/version", new VersionCommand());
+    SYSTEM_COMMANDS_DISPATCHER.registerCommand("/version", new VersionCommand(getAppVersion()));
     SYSTEM_COMMANDS_DISPATCHER.registerCommand("/supportedRegions",
                                        new SupportedRegionCommand(nodeService));
-    SYSTEM_COMMANDS_DISPATCHER.registerCommand("/describeRoles",
-                                       new DescribeRolesCommand(permissionsService));
+    SYSTEM_COMMANDS_DISPATCHER.registerCommand("/describeRoles", new DescribeRolesCommand());
 
     new SnapStartPrimer(nodeService, nodeServices.ec2ClientPool(), permissionsService,
                         EVENTS_REGISTRY, sender).prime();
@@ -138,8 +135,8 @@ public class TailscaleVpnLambdaHandler implements
 
       update = MAPPER.readValue(receivedPayload, Update.class);
     } catch (Exception e) {
+      // no chat to answer before the update is read (D-5): logged only
       log.error("Failed to process request: ", e);
-      COMMUNICATOR.sendMessageToTheBot(BOT_SERVER_ERROR);
       return new APIGatewayProxyResponseEvent()
           .withBody("{}")
           .withStatusCode(201);
@@ -150,7 +147,6 @@ public class TailscaleVpnLambdaHandler implements
       handleUpdate(update);
     } catch (Exception e) {
       log.error("Failed to handle update: ", e);
-      COMMUNICATOR.sendMessageToTheBot(BOT_SERVER_ERROR);
       return new APIGatewayProxyResponseEvent()
           .withBody("{}")
           .withStatusCode(201);
@@ -185,32 +181,37 @@ public class TailscaleVpnLambdaHandler implements
       return;
     }
 
-    TgRequestContext.initContext(update);
-    // before any permission check: a pre-registered user gets their USER record (D-24)
-    PENDING_USER_ACTIVATOR.activate(TgRequestContext.getUser());
-
-    if (UI_ROUTER.canHandle(update)) {
-      UI_ROUTER.handle(update);
+    UiContext context;
+    try {
+      context = UiContext.fromUpdate(update);
+    } catch (IllegalArgumentException e) {
+      log.warn("Dropping an update with neither a message nor a callback query: {}", update);
       return;
     }
 
-    Message message = update.getMessage();
-    if (message == null) {
-      log.warn("Empty message received from a user. Update Event: {}", update);
-      return;
-    }
+    try {
+      // before any permission check: a pre-registered user gets their USER record (D-24)
+      PENDING_USER_ACTIVATOR.activate(context.user());
 
-    if (message.getChatId() == null) {
-      log.warn("Chat ID is missing. The bot cannot sent response back to user. Update Event: {}",
-               update);
-      return;
-    }
+      if (UI_ROUTER.canHandle(update)) {
+        UI_ROUTER.handle(update);
+        return;
+      }
 
-    String userName = Optional.ofNullable(message.getFrom())
-        .map(User::getUserName)
-        .orElse("<Unknown>");
-    log.info("User {} has started communication with the bot", userName);
-    SYSTEM_COMMANDS_DISPATCHER.handle(update);
+      log.info("User {} sent a system command", context.user());
+      SYSTEM_COMMANDS_DISPATCHER.handle(context, update.getMessage().getText());
+    } catch (Exception e) {
+      log.error("Failed to handle update: {}", update, e);
+      sendGenericError(context);
+    }
+  }
+
+  private static void sendGenericError(UiContext context) {
+    try {
+      UI_MESSENGER.send(context, ERROR_SCREEN.generic());
+    } catch (Exception e) {
+      log.error("Failed to send the error message to chat {}", context.chatId(), e);
+    }
   }
 
 }
