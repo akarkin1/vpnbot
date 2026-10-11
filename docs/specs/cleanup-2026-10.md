@@ -420,3 +420,6 @@ final shape) → H1. Each task is one commit series on
 - D-11 Phase 4 D-3 (owner match by username for nodes started before Phase 4) is removed now, a
   week after the Phase 4 deploy: no such node can still be running, and the fallback is unrelated
   to pending users.
+- D-12 (H1) Telegram's command menu accepts lowercase names only, so `setMyCommands` lists `menu`,
+  `help` and `version`; `/supportedRegions` and `/describeRoles` stay typed commands that `/help`
+  lists. Lowercase aliases were not added (CLAUDE.md: no change to existing text commands).

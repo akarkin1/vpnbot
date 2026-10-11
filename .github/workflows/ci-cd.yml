@@ -4,8 +4,8 @@
 name: VPN Bot Lambda CI-CD
 
 env:
-  S3_CONFIG_BUCKET_NAME: ${{ vars.S3_CONFIG_BUCKET_NAME }}
-  S3_CONFIG_REGION: ${{ vars.CONFIG_BASE_REGION }}
+  LAMBDA_JAR_BUCKET: ${{ vars.LAMBDA_JAR_BUCKET }}
+  LAMBDA_REGION: ${{ vars.CONFIG_BASE_REGION }}
 
 on:
   workflow_dispatch:
@@ -42,7 +42,7 @@ jobs:
     - name: Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
-        aws-region: ${{ env.S3_CONFIG_REGION }}
+        aws-region: ${{ env.LAMBDA_REGION }}
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
@@ -50,12 +50,12 @@ jobs:
       id: src-upload
       run: |
         POM_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
-        aws s3 cp target/vpnbot-${POM_VERSION}.jar s3://${{ env.S3_CONFIG_BUCKET_NAME }}/vpntgbot/vpnbot-${POM_VERSION}.jar
+        aws s3 cp target/vpnbot-${POM_VERSION}.jar s3://${{ env.LAMBDA_JAR_BUCKET }}/vpntgbot/vpnbot-${POM_VERSION}.jar
         echo "src_s3_key=vpntgbot/vpnbot-${POM_VERSION}.jar" >> "$GITHUB_OUTPUT"
 
     - name: Update AWS Lambda
       run: |
-        aws lambda update-function-code --function-name vpnbot --s3-bucket ${{ env.S3_CONFIG_BUCKET_NAME }} --s3-key "${{ steps.src-upload.outputs.src_s3_key }}"
+        aws lambda update-function-code --function-name vpnbot --s3-bucket ${{ env.LAMBDA_JAR_BUCKET }} --s3-key "${{ steps.src-upload.outputs.src_s3_key }}"
 
     # API Gateway invokes the alias, so the new code is live only once a version is published
     - name: Publish Version And Point Alias `live`

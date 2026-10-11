@@ -7,10 +7,6 @@ on:
         description: 'AWS Region'
         required: true
         default: eu-central-1
-      lambda-source-version:
-        description: 'Source code version of the lambda'
-        required: true
-        default: 2026.10-SNAPSHOT
 
 env:
   TG_BOT_USERNAME: ${{ vars.TG_BOT_USERNAME }}
@@ -21,7 +17,7 @@ env:
   CONFIG_CACHE_ENABLED: ${{ vars.CONFIG_CACHE_ENABLED || 'false' }}
   TG_ROOT_USERNAME: ${{ vars.TG_ROOT_USERNAME }}
   TG_ROOT_USER_ID: ${{ vars.TG_ROOT_USER_ID }}
-  S3_CONFIG_BUCKET_NAME: ${{ vars.S3_CONFIG_BUCKET_NAME }}
+  LAMBDA_JAR_BUCKET: ${{ vars.LAMBDA_JAR_BUCKET }}
   CONFIG_TABLE_NAME: vpnbot
 
 jobs:
@@ -31,6 +27,15 @@ jobs:
     steps:
       - name: Checkout Source Code
         uses: actions/checkout@v4
+      - name: Set Up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'corretto'
+      # pom.xml is the only place that holds the version; the stack's Code key is derived from it
+      - name: Read The Version From pom.xml
+        id: pom-version
+        run: echo "version=$(mvn -B -q help:evaluate -Dexpression=project.version -DforceStdout)" >> "$GITHUB_OUTPUT"
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -61,7 +66,7 @@ jobs:
           template: cloudformation/vpn-configurer-lambda.yml
           no-fail-on-empty-changeset: "1"
           capabilities: CAPABILITY_IAM,CAPABILITY_NAMED_IAM
-          parameter-overrides: 'LambdaConfigBucketName=${{ env.S3_CONFIG_BUCKET_NAME }},LambdaSourceVersion=${{ github.event.inputs.lambda-source-version }},EnvTgBotUsername=${{ env.TG_BOT_USERNAME }},EnvTgBotSecretTokenId=${{ env.TG_SECRET_TOKEN_ID }},EnvTgBotTokenSecretId=${{ env.TG_BOT_TOKEN_SECRET_ID }},EnvMetricsEnabled=${{ env.METRICS_ENABLED }},EnvConfigCacheTtlSec=${{ env.CONFIG_CACHE_TTL_SEC }},EnvConfigCacheEnabled=${{ env.CONFIG_CACHE_ENABLED }}'
+          parameter-overrides: 'LambdaJarBucketName=${{ env.LAMBDA_JAR_BUCKET }},LambdaSourceVersion=${{ steps.pom-version.outputs.version }},EnvTgBotUsername=${{ env.TG_BOT_USERNAME }},EnvTgBotSecretTokenId=${{ env.TG_SECRET_TOKEN_ID }},EnvTgBotTokenSecretId=${{ env.TG_BOT_TOKEN_SECRET_ID }},EnvMetricsEnabled=${{ env.METRICS_ENABLED }},EnvConfigCacheTtlSec=${{ env.CONFIG_CACHE_TTL_SEC }},EnvConfigCacheEnabled=${{ env.CONFIG_CACHE_ENABLED }}'
       # A published version freezes the configuration too, so configuration changes go live only with a new one
       - name: Publish Version And Point Alias `live`
         run: .github/scripts/publish-live-version.sh vpnbot live
@@ -90,9 +95,11 @@ jobs:
         env:
           TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
         run: |
+          # Telegram allows only lowercase names in the menu: /supportedRegions and /describeRoles are typed
+          # commands listed by /help (cleanup-2026-10 D-12)
           curl -sS --fail -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/setMyCommands" \
             -H 'Content-Type: application/json' \
-            -d '{"commands":[{"command":"menu","description":"Open the menu"},{"command":"help","description":"List all text commands"}]}'
+            -d '{"commands":[{"command":"menu","description":"Open the menu"},{"command":"help","description":"List the system commands"},{"command":"version","description":"Prints the version of the backend application"}]}'
           curl -sS --fail -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/setMyCommands" \
             -H 'Content-Type: application/json' \
-            -d '{"commands":[{"command":"menu","description":"Открыть меню"},{"command":"help","description":"Список текстовых команд"}],"language_code":"ru"}'
+            -d '{"commands":[{"command":"menu","description":"Открыть меню"},{"command":"help","description":"Список системных команд"},{"command":"version","description":"Возвращает версию серверного приложения"}],"language_code":"ru"}'
