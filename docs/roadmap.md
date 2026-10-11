@@ -84,8 +84,8 @@ EC2 instance that needs AMI patching.
   with role toggles and 🗑; housekeeping: `java-tests.yml` on pull requests, node image on Python 3.11.
 - **Clean-up 2026.10** (spec: `docs/specs/cleanup-2026-10.md`, branch `feature/cleanup-3.0`, spec in
   review): system commands only (`/help`, `/version`, `/supportedRegions`, `/describeRoles`), the
-  rest retired with `TgRequestContext` and `BotCommunicator`; pending users removed once none is
-  left; sealed `UiAction`; `LAMBDA_JAR_BUCKET`, version read from the pom; calendar versioning
+  rest retired with `TgRequestContext` and `BotCommunicator`; pending users deprecated (removed
+  later, once none is left); composition root `VpnBot`; sealed `UiAction`; `LAMBDA_JAR_BUCKET`, version read from the pom; calendar versioning
   (`2026.10`; `2.0` = `release/2.0`).
 - **Phase 5 – region requests**: "🌍 Other region…" lists regions enabled in the account
   (`ec2:DescribeRegions`) that are not set up yet; tapping one sends the admin a request with

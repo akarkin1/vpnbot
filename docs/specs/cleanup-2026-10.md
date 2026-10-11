@@ -1,4 +1,4 @@
-# Clean-up 2026.10 – system commands, no pending users, sealed UI actions
+# Clean-up 2026.10 – system commands, pending users deprecated, sealed UI actions
 
 Status: draft for review, 2026-10-12. Branch `feature/cleanup-3.0`, version `2026.10-SNAPSHOT`
 (calendar versioning from this release on; `2.0` = `release/2.0`, the last pre-UI version).
@@ -12,10 +12,11 @@ compatibility, so that the code going into release 2026.10 has one way to do eac
    `/version`, `/supportedRegions` and `/describeRoles` stay as *system commands*. The command
    layer runs on `UiContext` and `UiMessenger`; `TgRequestContext` (the last static mutable state)
    and `BotCommunicator` are deleted.
-2. **No pending users.** Every user is a `USER` record keyed by the Telegram user id. The
-   `PENDING_USER` record type, the activation at first contact, the username fallback for node
-   ownership (Phase 4 D-3) and the migration script are removed. Deployed only once no pending
-   record is left (§11).
+2. **Pending users deprecated, not removed** (D-1, D-10). Nothing creates a `PENDING_USER` record
+   any more (`/assignRoles` is retired); existing ones are still activated at first contact. The
+   pending-user components are marked `@Deprecated(forRemoval = true)` with a note saying when they
+   go: once the `PENDING_USER` query is empty. The username fallback for node ownership (Phase 4
+   D-3) is removed now: no node started before the Phase 4 deploy is still running.
 3. **Sealed `UiAction`.** One record per button action with its own encoding, an exhaustive
    pattern switch in the router; the callback-data wire format is unchanged.
 4. **Small debts:** `listTasks` → `listNodes`, `UserSignupService` folded into
@@ -33,7 +34,9 @@ compatibility, so that the code going into release 2026.10 has one way to do eac
 - The node agent, the ECS/EC2 layer beyond the `cluster` field, the DynamoDB layout beyond removing
   `PENDING_USER`, the roles/permissions model, the texts of the kept commands.
 - A `/assignRoles` replacement: new users come in through *Request access*; an admin changes roles
-  on the Users screen. Pre-registration by username is gone with the pending users (D-1).
+  on the Users screen. Pre-registration by username ends with this release (D-1); the pending
+  records that exist keep working until they are activated (D-10).
+- Removing the pending-user code: a later clean-up, once the `PENDING_USER` query is empty.
 - New dependencies: no DI framework yet (D-9), nothing else either.
 
 ## 3. Ground rules
@@ -102,23 +105,31 @@ goes with the static state). A failure after the context exists is answered with
 `ErrorScreen.generic()` to `context` via `UiMessenger` (same screen `UiRouter` uses).
 `${bot.internal.error}` is deleted if nothing else uses it.
 
-### 4.3 No pending users
+### 4.3 Pending users: deprecated, still working
 
-- `TgUser(long id, String username)`: the id is mandatory. Equality and hash code by id only (a
-  renamed user is the same user; D-2). `key()` returns the decimal id. `pending()` is removed.
-- `PermissionsService` (now also holding the former `UserSignupService` methods, §7):
-  `getUsers()` reads `USER` records only; `updateUserPermissions(TgUser, Set<Permission>)` writes
-  or deletes the `USER` record keyed by the id (username attribute: the given one, or the stored
-  one when null – unchanged); `findByUsername` is removed (no caller left).
-- `DynamoDbPermissionsService(users, metrics)`; `ConfigTables(regions, users, updateLocks,
-  accessRequests)`; `PendingUserRecord` and its test are deleted; `PermissionsServiceConfigurer`
-  loses the pending table.
-- `PendingUserActivator` and its call in the handler are deleted. `WhiteListAuthorizer` is
-  unchanged (already read-only since Phase 4 D-24).
-- `NodeAccess.isOwner`: `RunBy` equals the user id, nothing else (Phase 4 D-3 removed).
-- Users screen: the `pending` suffix and `${ui.users.pending}` go; `UserRow.editable` unchanged.
-- `scripts/migrate-pending-users.sh`, its test, the `java-tests.yml` step and the CLAUDE.md line go.
+Behaviour is unchanged: a `PENDING_USER` record is activated at the user's first contact
+(`PendingUserActivator`, Phase 4 D-24); the Users screen shows such a user with the `pending`
+suffix and lets an admin change their roles or remove them. What changes:
+
+- Nothing creates a pending record any more: `/assignRoles` is retired (§4.1), and
+  `updateUserPermissions` for a `TgUser` without an id is only reached from the Users screen for
+  a record that already exists. `findByUsername` loses its last callers with the commands and is
+  deleted.
+- The pending-user components get `@Deprecated(forRemoval = true)` and one shared Javadoc note:
+  *"Pre-registration by username ended with 2026.10. Remove once `PENDING_USER` records no longer
+  exist (query `pk = PENDING_USER`); see docs/specs/cleanup-2026-10.md §4.3."* On:
+  `PendingUserRecord`, `PendingUserActivator`, `TgUser.pending()`, the pending branches of
+  `DynamoDbPermissionsService` (`updatePendingUser`, the second query in `getUsers`), and
+  `ConfigTables.pendingUsers()`. `-Xlint` deprecation warnings from the callers inside the project
+  are suppressed at the call sites with `@SuppressWarnings("removal")` and the same note, so that
+  the build stays warning-free and every site that has to go is marked.
+- `scripts/migrate-pending-users.sh` and its test stay (the script is idempotent and documented as
+  one-off); its header gets the same deprecation note. The `java-tests.yml` step stays.
+- `TgUser(Long id, String username)` stays as it is (`id` nullable only for pending users);
+  equality by id, else by username (Phase 4 D-14). `key()` unchanged.
+- `NodeAccess.isOwner`: `RunBy` equals the user id, nothing else (Phase 4 D-3 removed; D-11).
 - The root bootstrap step in `deploy-tgbot-lambda.yml` stays (keyed by `TG_ROOT_USER_ID`).
+- CLAUDE.md: the identity line says pending users are deprecated and when they go.
 - A `USER` record whose key is not a number is still skipped with a warning (Phase 4 D-14).
 
 ### 4.4 Sealed `UiAction`
@@ -138,10 +149,10 @@ public sealed interface UiAction {
   record AccessGrant(long userId, Set<UserRole> selected) implements UiAction {}   // ACCESS_GRANT:<id>:<mask>
   record AccessDecline(long userId) implements UiAction {}   // ACCESS_DECLINE:<id>
   record Users() implements UiAction {}                      // USERS
-  record ShowUser(long userId) implements UiAction {}        // USER:<id>
-  record ToggleRole(long userId, UserRole role) implements UiAction {}  // USER_ROLE:<id>:<ROLE>
-  record DeleteUser(long userId) implements UiAction {}      // USER_DEL:<id>
-  record ConfirmDeleteUser(long userId) implements UiAction {} // USER_DEL_CONFIRM:<id>
+  record ShowUser(String key) implements UiAction {}         // USER:<key>            key = TgUser.key(): id, or @username (pending, deprecated)
+  record ToggleRole(String key, UserRole role) implements UiAction {}  // USER_ROLE:<key>:<ROLE>
+  record DeleteUser(String key) implements UiAction {}       // USER_DEL:<key>
+  record ConfirmDeleteUser(String key) implements UiAction {} // USER_DEL_CONFIRM:<key>
 
   String encode();                                   // the callback data; ≤ 64 UTF-8 bytes or IllegalArgumentException
   static Optional<UiAction> decode(String data);     // tag before the first ':' → that record's parser; empty for anything invalid
@@ -149,8 +160,9 @@ public sealed interface UiAction {
 ```
 
 - All records are nested in `UiAction.java` (same compilation unit, so no `permits` clause).
-- Each record validates in its compact constructor (`regionId` not blank; `userId > 0`; a `NodeRef`
-  that `NodeRef.encode()`/`parse` round-trips; the mask `RoleSet.isValid`) and owns its `encode()`
+- Each record validates in its compact constructor (`regionId` not blank; `userId > 0`; a `key`
+  that is a positive id or `@` + a non-blank username without `:` or whitespace; a `NodeRef` that
+  `NodeRef.encode()`/`parse` round-trips; the mask `RoleSet.isValid`) and owns its `encode()`
   and a `static Optional<X> parse(String arg)`. `RoleSet.encode/decode` are used only by the two
   access records. The `Type` enum, the regexes and the `Optional` accessors (`nodeRef()`,
   `userId()`, `userKey()`, `roleMask()`, `role()`) disappear.
@@ -159,8 +171,7 @@ public sealed interface UiAction {
   non-null argument and vice versa. Unknown tag, bad argument → empty, and the router falls back to
   refreshing the home card, as today.
 - **Wire format unchanged**, tag names included, so buttons in messages sent before the deploy keep
-  working. `USER:<@username>` keys can no longer appear (no pending users); such old data decodes to
-  empty → home refresh.
+  working, the `USER:@username` keys of pending users included.
 - `UiRouter.dispatch` becomes `switch (action) { case Home() -> …; case Run(var regionId) -> …;
   case AccessToggle(var id, var selected, var role) -> …; … }` with no default branch; the
   `grant` helper's "mask 0 → ignore" check becomes `selected.isEmpty()` (same behaviour as Phase 4
@@ -248,13 +259,11 @@ CLAUDE.md: "Wiring lives in `VpnBot`" replaces the `*Configurer` convention.
 
 ## 5. Data model (table `vpnbot`)
 
-`PENDING_USER` records are no longer read or written. The deploy precondition (§11) is that none
-exist; a leftover would be invisible to the new code (its user has no access until an admin grants
-it through Request access).
+`PENDING_USER` records are still read and activated, never created. No deploy precondition.
 
 ## 6. Texts
 
-No new keys. Deleted keys: §4.1 and `ui.users.pending`. RU file stays ASCII-escaped.
+No new keys. Deleted keys: §4.1. `ui.users.pending` stays. RU file stays ASCII-escaped.
 
 ## 7. Contracts
 
@@ -272,7 +281,7 @@ public interface BotCommand {
   List<Permission> getRequiredPermissions();
 }
 // auth
-public record TgUser(long id, String username) { public String key(); }   // equals/hashCode by id
+public record TgUser(Long id, String username) { public String key(); @Deprecated boolean pending(); }   // unchanged
 public interface PermissionsService {
   Map<TgUser, List<Permission>> getUsers();
   void updateUserPermissions(TgUser user, Set<Permission> permissions);   // null/empty deletes
@@ -280,14 +289,14 @@ public interface PermissionsService {
   default void assignRolesToUser(TgUser user, Set<UserRole> roles);
 }
 public final class RoleSet { … ; static Map<UserRole, List<Permission>> describe(); }
-public class DynamoDbPermissionsService(DynamoDbTable<UserRecord> users, RequestMetrics metrics)
-public record ConfigTables(regions, users, updateLocks, accessRequests)
+public class DynamoDbPermissionsService(users, pendingUsers /* deprecated */, metrics)   // unchanged
+public record ConfigTables(regions, users, pendingUsers /* deprecated */, updateLocks, accessRequests)   // unchanged
 // ui
 public sealed interface UiAction { … }                                   // §4.4
 public class UiRouter(home, launch, node, access, users, messenger, errorScreen)   // unchanged
 AccessController.toggle(UiContext, Integer messageId, long userId, Set<UserRole> selected, UserRole role)
 AccessController.grant(UiContext, Integer messageId, long userId, Set<UserRole> roles)
-UsersController.showUser/toggleRole/confirmDelete/delete(UiContext, Integer messageId, long userId[, UserRole role])
+UsersController.showUser/toggleRole/confirmDelete/delete(UiContext, Integer messageId, String key[, UserRole role])   // unchanged
 // tailscale
 List<EcsNode> listNodes(String userId);   // null: all nodes
 // ecs
@@ -301,21 +310,24 @@ EcsNode: id, hostName, state, publicIp, location, region, runBy, runByName, chat
   for → `${user.not-authorized.error}`; an unknown or retired command → not-supported text plus the
   `/help` list of the commands the caller may use; nothing is read from static state.
 - AC-2 No reference to a deleted class or message key remains: `grep` for `TgRequestContext`,
-  `BotCommunicator`, `PENDING_USER`, `PendingUser`, `findByUsername`, `pending()`, `listTasks(`,
-  `UserSignupService`, `getCluster` in `src` and `.github` is empty; every `command.*`, `common.*`,
+  `BotCommunicator`, `findByUsername`, `listTasks(`, `UserSignupService`, `getCluster` in `src`
+  and `.github` is empty; every class and method listed in §4.3 carries `@Deprecated(forRemoval =
+  true)` and the note, and `mvn -B verify` prints no deprecation warning; every `command.*`, `common.*`,
   `user.*`, `bot.*` and `ui.*` key in `messages.properties` is referenced from Java; both properties
   files have the same key set.
 - AC-3 Handler: a request whose update has no message and no callback is dropped with a log line;
   an exception from the router or the dispatcher answers the caller's chat with the generic error
   screen (unit-testable part: the dispatcher's own error path; the handler stays static wiring).
-- AC-4 `TgUser` equality by id; `key()` is the id; `DynamoDbPermissionsService.getUsers()` queries
-  `USER` only (one `FakeTable` query); a non-numeric key is skipped with a warning.
+- AC-4 Pending users still work: the Phase 4 tests for `PendingUserActivator`,
+  `DynamoDbPermissionsService` and the Users screen pass unchanged; `updateUserPermissions` for a
+  `TgUser` without an id still writes/deletes the `PENDING_USER` record (the Users screen needs it).
 - AC-5 `NodeAccess.isOwner`: id match only; a node whose `RunBy` is the username is not owned.
 - AC-6 `UiAction`: every record round-trips `encode` → `decode`; the encoded strings equal the
   Phase 4 strings for the same inputs (table test: `HOME`, `RUN:eu-central-1`,
   `USE:eu-central-1:<32 hex>`, `ACCESS_TOGGLE:123:5:NODE_ADMIN`, `ACCESS_GRANT:123:0`,
-  `USER_ROLE:123:READ_ONLY`, …); invalid data (`USER:@alice`, `ACCESS_GRANT:123:9`, `RUN:`,
-  `HOME:x`, 65-byte data on encode) → empty / `IllegalArgumentException`; the router dispatches
+  `USER_ROLE:123:READ_ONLY`, `USER:@alice`, …); invalid data (`USER:alice`, `USER:@a:b`,
+  `ACCESS_GRANT:123:9`, `RUN:`, `HOME:x`, 65-byte data on encode) → empty /
+  `IllegalArgumentException`; the router dispatches
   each record to the right controller method with the typed arguments.
 - AC-7 Workflows: `deploy-tgbot-lambda.yml` has no `lambda-source-version` input and passes the pom
   version; both workflows use `LAMBDA_JAR_BUCKET`; the stack parameter is `LambdaJarBucketName`;
@@ -338,7 +350,7 @@ smoke test passed; no `TODO`.
 |---|---|
 | T1 System commands + handler (Java) | `dispatcher/**`, `tg/BotCommunicator`, `tg/TgRequestContext`, `exception/**`, `auth/UnauthorizedRequestException`, `TailscaleVpnLambdaHandler`, `ui/NodeLauncher`, `ui/UiComponents`, `ui/UiConfigurer`, messages (command/common keys) |
 | T2 T1 tests | `src/test/java/**/dispatcher/**`, `tg/**`, `ui/UiConfigurerTest` |
-| T3 No pending users + renames (Java) | `auth/**`, `dynamodb/PendingUserRecord`, `ConfigTables`, `ui/controller/NodeAccess`, `UsersController`, `ui/screen/UsersScreen`, `HomeController`, `LaunchController`, `startup/SnapStartPrimer`, `tailscale/**`, `ecs/EcsNode`, `EcsManagerImpl`, `scripts/migrate-pending-users*`, messages (`ui.users.pending`) |
+| T3 Pending users deprecated, D-3 removal, renames (Java) | `auth/**`, `dynamodb/PendingUserRecord`, `ConfigTables`, `ui/controller/NodeAccess`, `HomeController`, `LaunchController`, `startup/SnapStartPrimer`, `tailscale/**`, `ecs/EcsNode`, `EcsManagerImpl`, `scripts/migrate-pending-users.sh` (header note) |
 | T4 T3 tests | `src/test/java/**` for T3 (incl. `FakePermissionsService`, `FakeTable` users) |
 | T5 Sealed UiAction (Java) | `ui/UiAction`, `ui/UiRouter`, `ui/controller/AccessController`, `ui/screen/*` factories |
 | T6 T5 tests | `ui/UiActionTest`, `UiRouterTest`, `AccessControllerTest`, screen tests touching actions |
@@ -353,14 +365,12 @@ final shape) → H1. Each task is one commit series on
 
 ## 11. Deploy checklist (owner)
 
-1. **Precondition – no pending users left** (wait a day or two after the Phase 4 deploy):
+1. No precondition on pending users (D-10). For the later removal, the check is:
    ```bash
    aws dynamodb query --table-name vpnbot --region eu-central-1 \
      --key-condition-expression 'pk = :p' --expression-attribute-values '{":p":{"S":"PENDING_USER"}}' \
      --query 'Items[].sk.S' --output text
    ```
-   Empty output, or delete the leftovers by hand after deciding about those people (they can use
-   Request access later).
 2. Create the repository variable `LAMBDA_JAR_BUCKET` = `ecs-mgmt-tg-bot-euc1-s3`.
 3. "VPN Bot Lambda CI-CD" from `feature/cleanup-3.0`: uploads `vpntgbot/vpnbot-2026.10-SNAPSHOT.jar`
    and moves `live`.
@@ -369,16 +379,16 @@ final shape) → H1. Each task is one commit series on
    step 3), nothing else.
 5. Delete the repository variable `S3_CONFIG_BUCKET_NAME`.
 6. Smoke test: `/help` lists the system commands; `/runNodeIn eu-central-1` answers "unsupported"
-   with the list; `/version`; home card → start a node → stop it; Users screen without a pending
-   suffix; a second account: Request access → grant → regions shown.
+   with the list; `/version`; home card → start a node → stop it; Users screen (a pending user, if
+   any, still shows the suffix); a second account: Request access → grant → regions shown.
 7. Merge; release when Phase 5 lands (pom `2026.10` or the month it happens, tag `v<version>`).
 
 ## 12. Decisions (review)
 
-- D-1 Pending users go entirely, `/assignRoles` with them; the only way in is Request access, the
-  only way to change roles is the Users screen. Pre-registration by username is not replaced.
-- D-2 `TgUser` keeps equality by id although both components are now always present: a user who
-  changes their username must still match the stored record.
+- D-1 `/assignRoles` is retired with the other duplicated commands; the only way in is Request
+  access, the only way to change roles is the Users screen. Pre-registration by username is not
+  replaced.
+- D-2 `TgUser` is unchanged (nullable id while pending users exist); equality by id when present.
 - D-3 `/help`, `/version`, `/supportedRegions`, `/describeRoles` are the *system commands* (owner's
   name); they stay on the `CommandDispatcher`, which becomes a thin router over `UiContext` and
   `UiMessenger`.
@@ -402,3 +412,10 @@ final shape) → H1. Each task is one commit series on
 ## 13. Decision log
 
 (filled during implementation: `SPEC DEVIATION`s and their resolutions)
+- D-10 (owner) The pending-user code is deprecated, not removed, in this phase: existing pending
+  records keep being activated at first contact, nothing creates new ones, and the components carry
+  `@Deprecated(forRemoval = true)` with a note naming the removal condition (an empty
+  `PENDING_USER` query). The removal is a later, small clean-up with no deploy precondition here.
+- D-11 Phase 4 D-3 (owner match by username for nodes started before Phase 4) is removed now, a
+  week after the Phase 4 deploy: no such node can still be running, and the fallback is unrelated
+  to pending users.
