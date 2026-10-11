@@ -10,8 +10,7 @@ Status: draft for review · Branch: `feature/access-admin` (based on `main`) · 
 2. **Request access.** A user without access taps `🙋 Request access`; every admin gets a message with
    role buttons; the requester is notified of the decision. No more out-of-band "ask @karkin_ai".
 3. **Users screen.** Admins manage users from the UI: a list with roles and a 🗑 button per user.
-4. **Housekeeping** carried over from Phase 3: Java tests on pull requests, node image on Python 3.11,
-   unused GitHub variables removed.
+4. **Housekeeping** carried over from Phase 3: Java tests on pull requests, node image on Python 3.11.
 
 ## 2. Non-goals
 
@@ -216,10 +215,6 @@ the workflow itself) and `workflow_dispatch`; JDK 21 Corretto (as `ci-cd.yml`); 
 newest release supporting 3.11 and record it). Deployed with "Deploy Tailscale ECS Resources" (Docker
 on) per region.
 
-### 6.3 Repository variables (manual, owner)
-Delete `S3_CONFIG_DIR`, `S3_SUPPORTED_REGIONS_FILE_NAME`, `S3_VPN_SERVER_STACK_OUTPUTS_FILE_NAME`,
-`S3_USER_PERMISSIONS_FILE_NAME` in the repository settings; no workflow reads them.
-
 ## 7. Contracts
 
 ```java
@@ -308,7 +303,7 @@ Order: H1 → T1/T2 (deploy, observe the migration) → T3/T4 (deploy).
 ## 11. Deploy checklist (owner)
 
 1. H1: merge-free from the branch: "Deploy Tailscale ECS Resources" (Docker on) per region; open a
-   throwaway PR to see `java-tests.yml` run; delete the four variables.
+   throwaway PR to see `java-tests.yml` run.
 2. T1: "VPN Bot Lambda CI-CD"; open the bot as root → the `USER` record is now keyed by your id with
    `username` set; every other user's record migrates at their next request. Nodes started before
    the deploy still show as yours (username match) until they stop.

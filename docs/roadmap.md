@@ -81,8 +81,8 @@ EC2 instance that needs AMI patching.
 - **Phase 4 – access & admin** (spec: `docs/specs/access-admin-phase4.md`, branch
   `feature/access-admin`): permissions and node ownership keyed by Telegram user id (lazy migration
   of the username-keyed records); "Request access" button → admins get role buttons → requester
-  notified; Users screen with 🗑; housekeeping: `java-tests.yml` on pull requests, node image on
-  Python 3.11, unused repository variables removed.
+  notified; Users screen with role toggles and 🗑; housekeeping: `java-tests.yml` on pull requests,
+  node image on Python 3.11.
 - **Phase 5 – region requests**: "🌍 Other region…" lists regions enabled in the account
   (`ec2:DescribeRegions`) that are not set up yet; tapping one sends the admin a request with
   `[✅ Deployed, notify] [✖ Decline]`.
