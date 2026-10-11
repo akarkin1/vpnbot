@@ -1,8 +1,11 @@
 package org.github.akarkin1.ui;
 
+import org.github.akarkin1.auth.UserRole;
+import org.github.akarkin1.ui.controller.AccessController;
 import org.github.akarkin1.ui.controller.HomeController;
 import org.github.akarkin1.ui.controller.LaunchController;
 import org.github.akarkin1.ui.controller.NodeController;
+import org.github.akarkin1.ui.controller.UsersController;
 import org.github.akarkin1.ui.messenger.UiMessenger;
 import org.github.akarkin1.ui.screen.ErrorScreen;
 import org.github.akarkin1.ui.screen.Screen;
@@ -15,6 +18,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 
 import static org.github.akarkin1.ui.TelegramUpdates.CALLBACK_ID;
 import static org.github.akarkin1.ui.TelegramUpdates.CHAT_ID;
@@ -26,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
@@ -48,6 +54,10 @@ class UiRouterTest {
   @Mock
   private NodeController nodeController;
   @Mock
+  private AccessController accessController;
+  @Mock
+  private UsersController usersController;
+  @Mock
   private UiMessenger messenger;
   @Mock
   private ErrorScreen errorScreen;
@@ -56,7 +66,122 @@ class UiRouterTest {
 
   @BeforeEach
   void setUp() {
-    router = new UiRouter(homeController, launchController, nodeController, messenger, errorScreen);
+    router = new UiRouter(homeController, launchController, nodeController, accessController,
+                          usersController, messenger, errorScreen);
+  }
+
+  // --- Phase 4 (§4.5): access requests and the Users screen ----------------------------------
+
+  @Test
+  @DisplayName("4 AC-8: REQUEST_ACCESS callback is answered first, then requests access")
+  void requestAccessCallback() {
+    router.handle(callbackUpdate("REQUEST_ACCESS"));
+
+    InOrder inOrder = inOrder(messenger, accessController);
+    inOrder.verify(messenger).answerCallback(CALLBACK_ID);
+    inOrder.verify(accessController).request(CONTEXT, MESSAGE_ID);
+    verifyNoInteractions(usersController, homeController);
+  }
+
+  @Test
+  @DisplayName("4 AC-8: ACCESS_TOGGLE callback is answered first, then toggles the role with id and mask")
+  void accessToggleCallback() {
+    router.handle(callbackUpdate("ACCESS_TOGGLE:9999999999:5:READ_ONLY"));
+
+    InOrder inOrder = inOrder(messenger, accessController);
+    inOrder.verify(messenger).answerCallback(CALLBACK_ID);
+    inOrder.verify(accessController).toggle(CONTEXT, MESSAGE_ID, 9_999_999_999L, 5, UserRole.READ_ONLY);
+    verify(accessController, never()).decide(any(), any(), anyLong(), any());
+  }
+
+  @Test
+  @DisplayName("4 AC-8: ACCESS_GRANT callback decides with the roles of the mask")
+  void accessGrantCallback() {
+    router.handle(callbackUpdate("ACCESS_GRANT:123:5"));
+
+    InOrder inOrder = inOrder(messenger, accessController);
+    inOrder.verify(messenger).answerCallback(CALLBACK_ID);
+    inOrder.verify(accessController).decide(CONTEXT, MESSAGE_ID, 123L,
+                                            Optional.of(Set.of(UserRole.NODE_ADMIN, UserRole.USER_ADMIN)));
+  }
+
+  @Test
+  @DisplayName("4 AC-5, §4.3: ACCESS_GRANT with mask 0 only answers the callback, nothing changes")
+  void accessGrantWithoutRolesOnlyAnswers() {
+    router.handle(callbackUpdate("ACCESS_GRANT:123:0"));
+
+    verify(messenger).answerCallback(CALLBACK_ID);
+    verify(messenger, never()).edit(any(), any(), any());
+    verify(messenger, never()).send(any(), any());
+    verifyNoInteractions(accessController, usersController, homeController);
+  }
+
+  @Test
+  @DisplayName("4 AC-8: ACCESS_DECLINE callback decides without roles")
+  void accessDeclineCallback() {
+    router.handle(callbackUpdate("ACCESS_DECLINE:123"));
+
+    InOrder inOrder = inOrder(messenger, accessController);
+    inOrder.verify(messenger).answerCallback(CALLBACK_ID);
+    inOrder.verify(accessController).decide(CONTEXT, MESSAGE_ID, 123L, Optional.empty());
+  }
+
+  @Test
+  @DisplayName("4 AC-8: USERS callback shows the users list")
+  void usersCallback() {
+    router.handle(callbackUpdate("USERS"));
+
+    InOrder inOrder = inOrder(messenger, usersController);
+    inOrder.verify(messenger).answerCallback(CALLBACK_ID);
+    inOrder.verify(usersController).show(CONTEXT, MESSAGE_ID);
+    verifyNoInteractions(accessController, homeController);
+  }
+
+  @Test
+  @DisplayName("4 AC-8: USER callback shows the user card by id and by @username key")
+  void userCallback() {
+    router.handle(callbackUpdate("USER:123"));
+    router.handle(callbackUpdate("USER:@carol"));
+
+    verify(usersController).showUser(CONTEXT, MESSAGE_ID, "123");
+    verify(usersController).showUser(CONTEXT, MESSAGE_ID, "@carol");
+  }
+
+  @Test
+  @DisplayName("4 AC-8: USER_ROLE callback toggles the role of the user")
+  void userRoleCallback() {
+    router.handle(callbackUpdate("USER_ROLE:@carol:USER_ADMIN"));
+
+    InOrder inOrder = inOrder(messenger, usersController);
+    inOrder.verify(messenger).answerCallback(CALLBACK_ID);
+    inOrder.verify(usersController).toggleRole(CONTEXT, MESSAGE_ID, "@carol", UserRole.USER_ADMIN);
+  }
+
+  @Test
+  @DisplayName("4 AC-8: USER_DEL callback asks to confirm the removal")
+  void userDeleteCallback() {
+    router.handle(callbackUpdate("USER_DEL:123"));
+
+    verify(usersController).confirmDelete(CONTEXT, MESSAGE_ID, "123");
+    verify(usersController, never()).delete(any(), any(), any());
+  }
+
+  @Test
+  @DisplayName("4 AC-8: USER_DEL_CONFIRM callback removes the user")
+  void userDeleteConfirmCallback() {
+    router.handle(callbackUpdate("USER_DEL_CONFIRM:123"));
+
+    verify(usersController).delete(CONTEXT, MESSAGE_ID, "123");
+    verify(usersController, never()).confirmDelete(any(), any(), any());
+  }
+
+  @Test
+  @DisplayName("4 AC-8: an invalid new callback (unknown role) refreshes home")
+  void invalidPhase4CallbackRefreshesHome() {
+    router.handle(callbackUpdate("USER_ROLE:123:ROOT"));
+
+    verify(homeController).refreshHome(CONTEXT, MESSAGE_ID);
+    verifyNoInteractions(accessController, usersController);
   }
 
   @Test

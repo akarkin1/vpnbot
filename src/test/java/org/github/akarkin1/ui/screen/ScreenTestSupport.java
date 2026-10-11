@@ -1,5 +1,13 @@
 package org.github.akarkin1.ui.screen;
 
+import org.github.akarkin1.translation.MainMessagesTranslator;
+import org.github.akarkin1.ui.UiContext;
+import org.github.akarkin1.ui.messenger.Html;
+import org.github.akarkin1.ui.messenger.RenderedMessage;
+import org.github.akarkin1.ui.messenger.ScreenRenderer;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
+
 import java.util.List;
 import java.util.Map;
 
@@ -54,6 +62,40 @@ final class ScreenTestSupport {
     String withoutKeys = screen.template().replaceAll("\\$\\{[^}]+}", "");
     assertDoesNotThrow(() -> withoutKeys.formatted(screen.params().toArray()),
                        "template does not format with its params: " + screen.template());
+  }
+
+  /** All buttons of the keyboard, row by row. */
+  static List<Button> buttons(Screen screen) {
+    return screen.keyboard().stream().flatMap(List::stream).toList();
+  }
+
+  /**
+   * The template with its {@code ${…}} keys left in place, formatted with the HTML-escaped
+   * params: what the user sees, up to translation, however the screen splits text and params.
+   */
+  static String withParams(Screen screen) {
+    Object[] escaped = screen.params().stream()
+        .map(param -> Html.escape(String.valueOf(param)))
+        .toArray();
+    return screen.template().formatted(escaped);
+  }
+
+  /** The message as sent: rendered by the real renderer over the real message files. */
+  static RenderedMessage render(Screen screen, String languageCode) {
+    UiContext context = new UiContext(1L, 1L, "viewer", "Viewer", languageCode);
+    return new ScreenRenderer(new MainMessagesTranslator()).render(context, screen);
+  }
+
+  /** The rendered button labels, row by row. */
+  static List<String> renderedLabels(Screen screen, String languageCode) {
+    InlineKeyboardMarkup keyboard = render(screen, languageCode).keyboard();
+    if (keyboard == null) {
+      return List.of();
+    }
+    return keyboard.getKeyboard().stream()
+        .flatMap(List::stream)
+        .map(InlineKeyboardButton::getText)
+        .toList();
   }
 
   private static int countPlaceholders(String template) {

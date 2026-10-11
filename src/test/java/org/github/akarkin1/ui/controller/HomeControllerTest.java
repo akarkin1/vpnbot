@@ -23,6 +23,8 @@ import java.util.List;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
@@ -72,22 +74,52 @@ class HomeControllerTest {
     controller.showHome(CONTEXT);
 
     assertEquals(new HomeModel("Alex", "alex", true, true, false, NODES, List.of("eu-central-1"),
-                               List.of()),
+                               List.of(), false, true),
                  capturedModel());
   }
 
   @Test
-  @DisplayName("AC-9: root user lists all nodes with listTasks(null)")
+  @DisplayName("AC-9, 4 §4.4: root (every permission, as the authorizer answers) lists all nodes with listTasks(null) and manages users")
   void rootListsAllNodes() {
-    grant(Permission.LIST_NODES, Permission.ROOT_ACCESS);
+    grant(Permission.values());
     when(nodeService.listTasks(null)).thenReturn(NODES);
+    when(nodeService.getSupportedRegionIds()).thenReturn(Set.of());
     when(homeScreen.home(any())).thenReturn(HOME);
 
     controller.showHome(CONTEXT);
 
     verify(nodeService).listTasks(null);
-    assertEquals(new HomeModel("Alex", "alex", true, false, true, NODES, List.of(), List.of()),
+    assertEquals(new HomeModel("Alex", "alex", true, true, true, NODES, List.of(), List.of(),
+                               true, true),
                  capturedModel());
+  }
+
+  @Test
+  @DisplayName("4 §4.4: a user admin without node permissions manages users, has access, makes no node service calls")
+  void userAdmin() {
+    grant(Permission.USER_MANAGEMENT);
+    when(homeScreen.home(any())).thenReturn(HOME);
+
+    controller.showHome(CONTEXT);
+
+    verifyNoInteractions(nodeService);
+    assertEquals(new HomeModel("Alex", "alex", false, false, false, List.of(), List.of(), List.of(),
+                               true, true),
+                 capturedModel());
+  }
+
+  @Test
+  @DisplayName("4 §4.2: any permission means access; a read-only user does not manage users")
+  void readOnlyHasAccessButNoUsers() {
+    grant(Permission.LIST_NODES, Permission.SUPPORTED_REGIONS);
+    when(nodeService.listTasks("7")).thenReturn(List.of());
+    when(homeScreen.home(any())).thenReturn(HOME);
+
+    controller.showHome(CONTEXT);
+
+    HomeModel model = capturedModel();
+    assertTrue(model.hasAccess());
+    assertFalse(model.canManageUsers());
   }
 
   @Test
@@ -99,20 +131,22 @@ class HomeControllerTest {
     controller.showHome(anonymous);
 
     verifyNoInteractions(nodeService, authorizer, nodeAccess);
-    assertEquals(new HomeModel("Alex", null, false, false, false, List.of(), List.of(), List.of()),
+    assertEquals(new HomeModel("Alex", null, false, false, false, List.of(), List.of(), List.of(),
+                               false, false),
                  capturedModel());
     verify(messenger).send(anonymous, HOME);
   }
 
   @Test
-  @DisplayName("AC-9: user without LIST_NODES and RUN_NODES makes no node service calls")
+  @DisplayName("AC-9, 4 §4.2: a user without any permission has no access and makes no node service calls")
   void noPermissions() {
     when(homeScreen.home(any())).thenReturn(HOME);
 
     controller.showHome(CONTEXT);
 
     verifyNoInteractions(nodeService);
-    assertEquals(new HomeModel("Alex", "alex", false, false, false, List.of(), List.of(), List.of()),
+    assertEquals(new HomeModel("Alex", "alex", false, false, false, List.of(), List.of(), List.of(),
+                               false, false),
                  capturedModel());
   }
 
@@ -126,7 +160,7 @@ class HomeControllerTest {
     controller.showHome(CONTEXT);
 
     verify(nodeService, never()).getSupportedRegionIds();
-    assertEquals(new HomeModel("Alex", "alex", true, false, false, NODES, List.of(), List.of()),
+    assertEquals(new HomeModel("Alex", "alex", true, false, false, NODES, List.of(), List.of(), false, true),
                  capturedModel());
   }
 
@@ -141,7 +175,7 @@ class HomeControllerTest {
 
     verify(nodeService, never()).listTasks(any());
     assertEquals(new HomeModel("Alex", "alex", false, true, false, List.of(), List.of("eu-central-1"),
-                               List.of()),
+                               List.of(), false, true),
                  capturedModel());
   }
 
@@ -163,7 +197,7 @@ class HomeControllerTest {
     controller.showHome(CONTEXT);
 
     assertEquals(new HomeModel("Alex", "alex", true, true, false, nodes, List.of("eu-central-1"),
-                               List.of("task-1", "task-3")),
+                               List.of("task-1", "task-3"), false, true),
                  capturedModel());
   }
 
@@ -225,7 +259,7 @@ class HomeControllerTest {
 
     controller.refreshHome(CONTEXT, MESSAGE_ID);
 
-    assertEquals(new HomeModel("Alex", "alex", true, false, false, NODES, List.of(), List.of()),
+    assertEquals(new HomeModel("Alex", "alex", true, false, false, NODES, List.of(), List.of(), false, true),
                  capturedModel());
   }
 

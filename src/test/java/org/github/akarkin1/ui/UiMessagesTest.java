@@ -68,6 +68,45 @@ class UiMessagesTest {
       "ui.node.stopped-idle", List.of("Stopped: no devices were connected for 10 minutes.",
                                       "Остановлен: 10 минут без подключённых устройств."));
 
+  /** Keys added or reworded by Phase 4 (§4.7) with their English and Russian values. */
+  private static final Map<String, List<String>> PHASE_4_KEYS = Map.ofEntries(
+      Map.entry("ui.home.no-access", List.of("You don't have access to this bot yet.",
+                                             "У вас пока нет доступа к этому боту.")),
+      Map.entry("ui.button.request-access", List.of("Request access", "Запросить доступ")),
+      Map.entry("ui.access.requested",
+                List.of("Your request was sent to the administrators. You'll get a message here once it's decided.",
+                        "Запрос отправлен администраторам. Вы получите сообщение, когда он будет рассмотрен.")),
+      Map.entry("ui.access.already-requested", List.of("Your request is already waiting for a decision.",
+                                                       "Ваш запрос уже ожидает решения.")),
+      Map.entry("ui.access.asks", List.of("asks for access to the bot.", "просит доступ к боту.")),
+      Map.entry("ui.access.already-handled", List.of("This request has already been handled.",
+                                                     "Этот запрос уже обработан.")),
+      Map.entry("ui.access.granted-admin", List.of("granted: %s", "доступ выдан: %s")),
+      Map.entry("ui.access.declined-admin", List.of("declined.", "отклонён.")),
+      Map.entry("ui.access.granted", List.of("Access granted: %s. Welcome!",
+                                             "Доступ выдан: %s. Добро пожаловать!")),
+      Map.entry("ui.access.declined", List.of("Your access request was declined.",
+                                              "Ваш запрос на доступ отклонён.")),
+      Map.entry("ui.button.grant", List.of("Grant", "Выдать доступ")),
+      Map.entry("ui.button.decline", List.of("Decline", "Отклонить")),
+      Map.entry("ui.role.node-admin", List.of("Node admin", "Администратор VPN-серверов")),
+      Map.entry("ui.role.read-only", List.of("Read-only", "Только просмотр")),
+      Map.entry("ui.role.user-admin", List.of("User admin", "Администратор пользователей")),
+      Map.entry("ui.role.root", List.of("Root", "Root")),
+      Map.entry("ui.button.users", List.of("Users", "Пользователи")),
+      Map.entry("ui.users.title", List.of("Users", "Пользователи")),
+      Map.entry("ui.users.pending", List.of("pending", "ожидает")),
+      Map.entry("ui.users.confirm-delete", List.of("Remove %s from the bot?", "Удалить %s из бота?")),
+      Map.entry("ui.button.confirm-delete", List.of("Yes, remove", "Да, удалить")),
+      Map.entry("ui.button.remove", List.of("Remove", "Удалить")),
+      Map.entry("ui.button.cancel", List.of("Cancel", "Отмена")),
+      Map.entry("ui.users.not-allowed", List.of("You are not allowed to manage users.",
+                                                "Вы не можете управлять пользователями.")));
+
+  /** The only ui.* values that may hold a format specifier: exactly one {@code %s} each (§4.7). */
+  private static final Set<String> KEYS_WITH_ONE_PARAM =
+      Set.of("ui.access.granted-admin", "ui.access.granted", "ui.users.confirm-delete");
+
   /** Keys removed by Phase 2a (§4.2, §4.3): old /runNodeIn progress messages and what only they used. */
   private static final List<String> REMOVED_KEYS = List.of(
       "ui.launch.still-starting",
@@ -116,6 +155,32 @@ class UiMessagesTest {
   }
 
   @Test
+  @DisplayName("4 AC-11: every Phase 4 key exists in both message files with the values of §4.7")
+  void phase4KeysExistInBothFiles() throws IOException {
+    Properties en = load(EN);
+    Properties ru = load(RU);
+
+    PHASE_4_KEYS.forEach((key, values) -> {
+      assertEquals(values.get(0), en.getProperty(key), "messages.properties " + key);
+      assertEquals(values.get(1), ru.getProperty(key), "messages_ru.properties " + key);
+    });
+  }
+
+  @Test
+  @DisplayName("4 AC-11: the Phase 4 keys with a param hold exactly one %s in both files")
+  void phase4ParamKeysHaveOnePlaceholder() throws IOException {
+    for (Path file : List.of(EN, RU)) {
+      Properties properties = load(file);
+      for (String key : KEYS_WITH_ONE_PARAM) {
+        String value = properties.getProperty(key);
+        long percents = value.chars().filter(c -> c == '%').count();
+        assertEquals(1, percents, file + " " + key + " must hold exactly one %: " + value);
+        assertTrue(value.contains("%s"), file + " " + key + " must hold %s: " + value);
+      }
+    }
+  }
+
+  @Test
   @DisplayName("AC-15: both message files have the same ui.* keys")
   void sameUiKeysInBothFiles() throws IOException {
     assertEquals(uiKeys(load(EN)), uiKeys(load(RU)));
@@ -135,13 +200,14 @@ class UiMessagesTest {
   }
 
   @Test
-  @DisplayName("AC-15: ui.* values contain no %, <, > or &")
+  @DisplayName("AC-15, 4 AC-11: ui.* values contain no %, <, > or & (except the one %s of the §4.7 param keys)")
   void uiValuesHaveNoFormatSpecifiersOrHtml() throws IOException {
     for (Path file : List.of(EN, RU)) {
       Properties properties = load(file);
       for (String key : uiKeys(properties)) {
         String value = properties.getProperty(key);
-        assertFalse(value.contains("%"), file + " " + key + " contains %: " + value);
+        String withoutParam = KEYS_WITH_ONE_PARAM.contains(key) ? value.replaceFirst("%s", "") : value;
+        assertFalse(withoutParam.contains("%"), file + " " + key + " contains %: " + value);
         assertFalse(value.contains("<") || value.contains(">") || value.contains("&"),
                     file + " " + key + " contains <, > or &: " + value);
       }
