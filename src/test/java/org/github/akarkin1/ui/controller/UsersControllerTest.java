@@ -45,6 +45,9 @@ import static org.mockito.Mockito.verify;
  * Permissions live in a {@link FakePermissionsService}; the mocked {@link Authorizer} answers
  * from the same table (root implies every permission, as {@code WhiteListAuthorizer} does).
  */
+// Pending users are deprecated: pre-registration by username ended with 2026.10. Remove once
+// PENDING_USER records no longer exist (query pk = PENDING_USER); see docs/specs/cleanup-2026-10.md §4.3.
+@SuppressWarnings("removal")
 @ExtendWith(MockitoExtension.class)
 class UsersControllerTest {
 
