@@ -9,6 +9,7 @@ import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang3.StringUtils;
 import org.github.akarkin1.auth.Authorizer;
 import org.github.akarkin1.auth.AuthorizerConfigurer;
+import org.github.akarkin1.auth.PendingUserActivator;
 import org.github.akarkin1.auth.RequestAuthenticator;
 import org.github.akarkin1.auth.RequestAuthenticatorConfigurer;
 import org.github.akarkin1.auth.PermissionsService;
@@ -69,6 +70,7 @@ public class TailscaleVpnLambdaHandler implements
   private static final RequestAuthenticator REQUEST_AUTHENTICATOR;
   private static final UiRouter UI_ROUTER;
   private static final RequestMetrics METRICS;
+  private static final PendingUserActivator PENDING_USER_ACTIVATOR;
 
   static {
     METRICS = new EmfRequestMetrics(isMetricsEnabled(), Clock.systemUTC(), System.out::println);
@@ -90,6 +92,7 @@ public class TailscaleVpnLambdaHandler implements
     final PermissionsService permissionsService = new PermissionsServiceConfigurer()
         .configure(configTables.users(), configTables.pendingUsers(), METRICS);
     final Authorizer authorizer = new AuthorizerConfigurer().configure(permissionsService);
+    PENDING_USER_ACTIVATOR = new PendingUserActivator(permissionsService);
 
     final Translator translator = new ResourceBasedTranslator();
 
@@ -199,6 +202,8 @@ public class TailscaleVpnLambdaHandler implements
     }
 
     TgRequestContext.initContext(update);
+    // before any permission check: a pre-registered user gets their USER record (D-24)
+    PENDING_USER_ACTIVATOR.activate(TgRequestContext.getUser());
 
     if (UI_ROUTER.canHandle(update)) {
       UI_ROUTER.handle(update);

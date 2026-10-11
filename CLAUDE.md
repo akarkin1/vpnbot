@@ -32,8 +32,9 @@ TailscaleVpnLambdaHandler  (API Gateway → Lambda entry point, wiring in a stat
  └─ CommandDispatcher       every other "/command" (dispatcher.command.*), plain-text replies
 Services: TailscaleNodeService (tailscale) → EcsManager (ecs); Authorizer + PermissionsService (auth)
 Identity: TgUser(id, username) – permissions and node ownership (RunBy tag) are keyed by the Telegram
-          user id; a user pre-registered by username is a PENDING_USER record until their first request
-          (activation); roles (UserRole) are bundles of permissions, root is a permission (ROOT_ACCESS)
+          user id; a user pre-registered by username is a PENDING_USER record until their first request,
+          when the handler's PendingUserActivator turns it into a USER record (Authorizer.hasPermission
+          is read-only); roles (UserRole) are bundles of permissions, root is a permission (ROOT_ACCESS)
 Config:   application.yml → YamlApplicationConfiguration (via ConfigManager); DynamoDB table `vpnbot`
           holds runtime config: pk REGION/USER/PENDING_USER/ACCESS_REQUEST/TG_UPDATE_LOCK, beans in
           `dynamodb` (Enhanced Client),

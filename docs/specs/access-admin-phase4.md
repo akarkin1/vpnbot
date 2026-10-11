@@ -48,11 +48,13 @@ file ownership, `SPEC DEVIATION: <what> / <why> / <proposed option>` escalation)
     with that username attribute wins over a `PENDING_USER` record.
 - Records (§5): `USER` is always keyed by the user id; `PENDING_USER` is keyed by the username and
   holds the permissions of a user pre-registered by an admin who has not contacted the bot yet.
-  **Activation on first contact** (D-2): `WhiteListAuthorizer`, on a request by a user with no `USER`
-  record, looks for `PENDING_USER` by the request's username; if found it writes the `USER` record
-  (same permissions, `username` attribute) and deletes the pending one, in that order, then answers
-  from the new record. Pre-registration therefore works as today; the record changes type once the
-  user shows up.
+  **Activation on first contact** (D-2, D-24): `PendingUserActivator.activate(TgUser)`, called once
+  per request by the Lambda handler right after the request context is set and before any permission
+  check: for a user with no `USER` record it looks for `PENDING_USER` by the request's username; if
+  found it writes the `USER` record (same permissions, `username` attribute) and deletes the pending
+  one, in that order. `WhiteListAuthorizer.hasPermission` is read-only and answers from the `USER`
+  record only. Pre-registration therefore works as today; the record changes type once the user
+  shows up.
 - One-off migration of today's username-keyed `USER` records (D-2): `scripts/migrate-pending-users.sh
   [--dry-run]` (AWS CLI + `jq`; same style and fake-`aws` test as the Phase 3 script) scans `pk =
   USER`, and for every item whose sk is not all digits writes `PENDING_USER`/`<sk>` with the same
@@ -230,7 +232,8 @@ on) per region.
 ```java
 // auth
 public record TgUser(Long id, String username) { public String key(); boolean pending(); }   // id or username, one may be null; pending = no id
-public interface Authorizer { boolean hasPermission(TgUser user, Permission permission); }
+public interface Authorizer { boolean hasPermission(TgUser user, Permission permission); }   // read-only
+public class PendingUserActivator { public void activate(TgUser user); }                     // once per request, before any check
 public interface PermissionsService extends UserSignupService {
   Map<TgUser, List<Permission>> getUsers();                // USER and PENDING_USER records
   Optional<TgUser> findByUsername(String username);
@@ -260,9 +263,11 @@ NodeOwner(long userId, String username, Long chatId, String languageCode); TaskI
 ## 8. Acceptance criteria
 
 - AC-1 `UiContext.fromUpdate` carries the user id for messages and callbacks; `user()` matches.
-- AC-2 `WhiteListAuthorizer`: `USER` record → answers from it; none but a `PENDING_USER` for the
-  username → activates it (put `USER`, delete `PENDING_USER`, in order) and answers; neither → false;
-  auth disabled → true; root implies every permission.
+- AC-2 `WhiteListAuthorizer`: `USER` record → answers from it; a `PENDING_USER` alone or neither →
+  false, nothing written; auth disabled → true; root implies every permission.
+- AC-2a `PendingUserActivator`: no `USER` record but a `PENDING_USER` for the username → put `USER`,
+  delete `PENDING_USER`, in order, once; `USER` record present, no match, or no id/username → nothing
+  written; a failed write is logged, the pending record stays, the request goes on.
 - AC-3 `DynamoDbPermissionsService`: `getUsers` returns `USER` and `PENDING_USER` records as `TgUser`s
   (pending = no id); `updateUserPermissions` writes `USER` for an id (keeping the stored username when
   the given one is null) and `PENDING_USER` otherwise; `findByUsername` is case-insensitive, strips `@`,
@@ -364,8 +369,9 @@ Order: H1 → T1/T2 (deploy, observe the migration) → T3/T4 (deploy).
   never equals one without. A `USER` record with a non-numeric key is skipped with a warning (no
   heuristic, D-2): run `scripts/migrate-pending-users.sh` before the T1 deploy or those users have no
   access until it runs.
-- D-15 (T1) `WhiteListAuthorizer` answers from the pending permissions even if the activation write
-  fails (logged); activation is retried on the next request.
+- D-15 (T1, changed by D-24) A failed activation write is logged and retried on the user's next
+  request; until then the user has no access (the authorizer no longer falls back to the pending
+  record).
 - D-16 (T2) Activation finds the `PENDING_USER` record case-insensitively (like `findByUsername`).
 - D-17 (T2) A user without a username is authorised and lists nodes by id (the old code stopped on a
   null username); the `RunByName` tag is omitted when there is no username; the generated host name
@@ -393,3 +399,8 @@ Order: H1 → T1/T2 (deploy, observe the migration) → T3/T4 (deploy).
   the "not registered yet" check on a pending record would pass again after the root's activation, so
   every later deploy would recreate `PENDING_USER/<root name>` with `ROOT_ACCESS` – a stale duplicate
   and a takeover risk if the root ever changed username.
+- D-24 (review) Activation is not a side effect of `Authorizer.hasPermission`: that method is called
+  from every controller and command and its name promises a read-only check, so a DynamoDB write
+  behind it was hidden. `PendingUserActivator.activate(TgUser)` does the activation explicitly, once
+  per request, from the Lambda handler before routing; `WhiteListAuthorizer` only reads the `USER`
+  record. The handler is static wiring without a test, so the call order is covered by review only.
