@@ -20,7 +20,7 @@ public class TailscaleVpnLambdaHandler implements
   private static final ObjectMapper MAPPER = new ObjectMapper();
   private static final ErrorScreen ERROR_SCREEN = new ErrorScreen();
   /** Built at class init, so SnapStart snapshots the primed graph. */
-  private static final VpnBot BOT = VpnBot.create();
+  private static final BotDependencies DEPS = BotDependencies.create();
 
   @Override
   public APIGatewayProxyResponseEvent handleRequest(
@@ -29,7 +29,7 @@ public class TailscaleVpnLambdaHandler implements
     try {
       return processRequest(gwEvent);
     } finally {
-      BOT.metrics().finish();
+      DEPS.metrics().finish();
     }
   }
 
@@ -37,13 +37,13 @@ public class TailscaleVpnLambdaHandler implements
     Update update;
     try {
       log.debug("Got request: {}", serializeObject(gwEvent));
-      BOT.requestAuthenticator().authenticate(gwEvent);
+      DEPS.requestAuthenticator().authenticate(gwEvent);
       String receivedPayload = gwEvent.getBody();
       log.debug("Received payload: {}", receivedPayload);
       if (StringUtils.isBlank(receivedPayload)) {
         return new APIGatewayProxyResponseEvent()
             .withBody("VPN Bot Lambda performs noramlly. Application version: %s "
-                          .formatted(BOT.settings().appVersion()))
+                          .formatted(DEPS.settings().appVersion()))
             .withStatusCode(200);
       }
 
@@ -56,7 +56,7 @@ public class TailscaleVpnLambdaHandler implements
           .withStatusCode(201);
     }
 
-    BOT.metrics().start(updateKind(update));
+    DEPS.metrics().start(updateKind(update));
     try {
       handleUpdate(update);
     } catch (Exception e) {
@@ -78,7 +78,7 @@ public class TailscaleVpnLambdaHandler implements
     boolean isCommand = update.hasMessage()
                         && update.getMessage().hasText()
                         && update.getMessage().getText().startsWith("/");
-    return isCommand && !BOT.router().canHandle(update) ? "Command" : "Message";
+    return isCommand && !DEPS.router().canHandle(update) ? "Command" : "Message";
   }
 
   private static String serializeObject(APIGatewayProxyRequestEvent gwEvent) {
@@ -90,7 +90,7 @@ public class TailscaleVpnLambdaHandler implements
   }
 
   private void handleUpdate(Update update) {
-    if (!BOT.updateEvents().register(update)) {
+    if (!DEPS.updateEvents().register(update)) {
       log.info("Skipping duplicated event: {}", update);
       return;
     }
@@ -105,15 +105,15 @@ public class TailscaleVpnLambdaHandler implements
 
     try {
       // before any permission check: a pre-registered user gets their USER record (D-24)
-      BOT.pendingUserActivator().activate(context.user());
+      DEPS.pendingUserActivator().activate(context.user());
 
-      if (BOT.router().canHandle(update)) {
-        BOT.router().handle(update);
+      if (DEPS.router().canHandle(update)) {
+        DEPS.router().handle(update);
         return;
       }
 
       log.info("User {} sent a system command", context.user());
-      BOT.systemCommands().handle(context, update.getMessage().getText());
+      DEPS.systemCommands().handle(context, update.getMessage().getText());
     } catch (Exception e) {
       log.error("Failed to handle update: {}", update, e);
       sendGenericError(context);
@@ -122,7 +122,7 @@ public class TailscaleVpnLambdaHandler implements
 
   private static void sendGenericError(UiContext context) {
     try {
-      BOT.messenger().send(context, ERROR_SCREEN.generic());
+      DEPS.messenger().send(context, ERROR_SCREEN.generic());
     } catch (Exception e) {
       log.error("Failed to send the error message to chat {}", context.chatId(), e);
     }

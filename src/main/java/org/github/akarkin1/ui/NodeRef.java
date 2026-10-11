@@ -9,7 +9,7 @@ public record NodeRef(String regionId, String taskId) {
   private static final String SEPARATOR = ":";
 
   public NodeRef {
-    if (!isValidPart(regionId) || !isValidPart(taskId)) {
+    if (isNotValidPart(regionId) || isNotValidPart(taskId)) {
       throw new IllegalArgumentException("Invalid node reference: regionId=%s, taskId=%s".formatted(regionId, taskId));
     }
   }
@@ -23,14 +23,14 @@ public record NodeRef(String regionId, String taskId) {
       return Optional.empty();
     }
     String[] parts = value.split(SEPARATOR, -1);
-    if (parts.length != 2 || !isValidPart(parts[0]) || !isValidPart(parts[1])) {
+    if (parts.length != 2 || isNotValidPart(parts[0]) || isNotValidPart(parts[1])) {
       return Optional.empty();
     }
     return Optional.of(new NodeRef(parts[0], parts[1]));
   }
 
-  private static boolean isValidPart(String part) {
-    return StringUtils.isNotBlank(part) && !part.contains(SEPARATOR);
+  private static boolean isNotValidPart(String part) {
+    return !StringUtils.isNotBlank(part) || part.contains(SEPARATOR);
   }
 
 }

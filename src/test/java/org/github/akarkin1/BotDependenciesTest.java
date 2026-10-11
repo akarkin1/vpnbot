@@ -71,7 +71,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * cleanup-2026-10 §4.7 rule 7, AC-9: the wiring test. {@link VpnBot} is built from
+ * cleanup-2026-10 §4.7 rule 7, AC-9: the wiring test. {@link BotDependencies} is built from
  * {@link Externals} whose clients are Mockito mocks answering with empty results (the DynamoDB
  * tables are {@link FakeTable}s, Secrets Manager returns fake secrets, the Telegram sender answers
  * {@code getMe} and {@code sendMessage}) and a fixed {@link Settings} with the sections of the real
@@ -84,7 +84,7 @@ import static org.mockito.Mockito.when;
 // ended with 2026.10. Remove once PENDING_USER records no longer exist (query pk = PENDING_USER);
 // see docs/specs/cleanup-2026-10.md §4.3.
 @SuppressWarnings("removal")
-class VpnBotTest {
+class BotDependenciesTest {
 
   private static final Instant NOW = Instant.parse("2026-10-11T10:00:00Z");
   private static final String TABLE_NAME = "vpnbot-test";
@@ -143,7 +143,7 @@ class VpnBotTest {
   @Test
   @DisplayName("AC-9, §4.7 rules 4 and 7: every accessor returns an object, the same one on every call")
   void everyAccessorReturnsASingleton() {
-    VpnBot bot = bot(true, false);
+    BotDependencies bot = bot(true, false);
 
     Map<String, Supplier<Object>> accessors = new LinkedHashMap<>();
     accessors.put("router", bot::router);
@@ -179,7 +179,7 @@ class VpnBotTest {
   @Test
   @DisplayName("§4.1, §4.7: VpnBot registers /help, /version, /supportedRegions and /describeRoles; root sees all four in this order, a user without permissions only /help")
   void systemCommandsRegistered() {
-    VpnBot bot = bot(true, false);
+    BotDependencies bot = bot(true, false);
 
     assertEquals(SYSTEM_COMMANDS, commandNames(bot.systemCommands().supportedCommands(ROOT)));
     assertEquals(List.of("/help"), commandNames(bot.systemCommands().supportedCommands(STRANGER)));
@@ -188,7 +188,7 @@ class VpnBotTest {
   @Test
   @DisplayName("§4.7: a system command runs through the real authorizer and messenger: /version answers root's chat via the sender made from the bot token, with the version from Settings")
   void versionCommandAnswered() {
-    VpnBot bot = bot(true, false);
+    BotDependencies bot = bot(true, false);
 
     bot.systemCommands().handle(ROOT_CONTEXT, "/version");
 
@@ -202,7 +202,7 @@ class VpnBotTest {
   @Test
   @DisplayName("AC-9, §4.7 rule 7: prime() runs without throwing and every priming step reaches its mock (DynamoDB, ECS and EC2 of the configured region, Telegram getMe), so nothing goes elsewhere")
   void primeUsesOnlyTheMocks() {
-    VpnBot bot = bot(true, false);
+    BotDependencies bot = bot(true, false);
 
     assertDoesNotThrow(bot::prime);
 
@@ -226,7 +226,7 @@ class VpnBotTest {
   @Test
   @DisplayName("3 AC-A12 (moved from PermissionsServiceConfigurerTest): with the cache flag on the authorizer's permissions are cached – two /version requests, one USER query")
   void permissionsCachedWhenEnabled() {
-    VpnBot bot = bot(true, true);
+    BotDependencies bot = bot(true, true);
     FakeTable<UserRecord> users = table(UserRecord.class);
     int before = users.queries().size();
 
@@ -240,7 +240,7 @@ class VpnBotTest {
   @Test
   @DisplayName("3 AC-A12 (moved from PermissionsServiceConfigurerTest): with the cache flag off every permission check queries DynamoDB – two /version requests, two USER queries")
   void permissionsNotCachedWhenDisabled() {
-    VpnBot bot = bot(true, false);
+    BotDependencies bot = bot(true, false);
     FakeTable<UserRecord> users = table(UserRecord.class);
     int before = users.queries().size();
 
@@ -279,8 +279,8 @@ class VpnBotTest {
 
   // ---- the graph and its externals
 
-  private VpnBot bot(boolean metricsEnabled, boolean configCacheEnabled) {
-    return new VpnBot(externals(settings(metricsEnabled, configCacheEnabled)));
+  private BotDependencies bot(boolean metricsEnabled, boolean configCacheEnabled) {
+    return new BotDependencies(externals(settings(metricsEnabled, configCacheEnabled)));
   }
 
   /** The one place that knows the components of {@link Externals}. */
@@ -416,12 +416,12 @@ class VpnBotTest {
    */
   private List<String> emfLines(boolean metricsEnabled) {
     // log4j binds its console appender to stdout once: set it up before stdout is replaced
-    LogManager.getLogger(VpnBotTest.class).debug("Capturing stdout for the metrics line");
+    LogManager.getLogger(BotDependenciesTest.class).debug("Capturing stdout for the metrics line");
     PrintStream stdout = System.out;
     ByteArrayOutputStream captured = new ByteArrayOutputStream();
     System.setOut(new PrintStream(captured, true, UTF_8));
     try {
-      VpnBot bot = bot(metricsEnabled, false);
+      BotDependencies bot = bot(metricsEnabled, false);
       assertInstanceOf(EmfRequestMetrics.class, bot.metrics());
       bot.metrics().start("Command");
       bot.metrics().finish();

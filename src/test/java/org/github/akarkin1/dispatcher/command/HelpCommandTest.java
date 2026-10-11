@@ -3,7 +3,7 @@ package org.github.akarkin1.dispatcher.command;
 import org.github.akarkin1.auth.Authorizer;
 import org.github.akarkin1.auth.Permission;
 import org.github.akarkin1.auth.TgUser;
-import org.github.akarkin1.dispatcher.CommandDispatcher;
+import org.github.akarkin1.dispatcher.SystemCommandDispatcher;
 import org.github.akarkin1.tailscale.TailscaleNodeService;
 import org.github.akarkin1.translation.MainMessagesTranslator;
 import org.github.akarkin1.ui.UiContext;
@@ -81,7 +81,7 @@ class HelpCommandTest {
   @DisplayName("§4.1, D-3: in Russian, /help lists exactly the four system commands with their descriptions (real message files)")
   void translatedSystemCommands() {
     when(authorizer.hasPermission(any(), any(Permission.class))).thenReturn(true);
-    CommandDispatcher dispatcher = new CommandDispatcher(messenger, authorizer);
+    SystemCommandDispatcher dispatcher = new SystemCommandDispatcher(messenger, authorizer);
     dispatcher.registerCommand("/help", new HelpCommand(dispatcher));
     dispatcher.registerCommand("/version", new VersionCommand("2026.10-SNAPSHOT"));
     dispatcher.registerCommand("/supportedRegions", new SupportedRegionCommand(nodeService));

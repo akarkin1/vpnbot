@@ -457,7 +457,7 @@ public sealed interface UiAction {
 
   /** A positive decimal id of 1–19 ASCII digits. */
   private static Optional<Long> parseUserId(String value) {
-    if (value == null || value.isEmpty() || value.length() > 19 || !isAsciiDigits(value)) {
+    if (value == null || value.isEmpty() || value.length() > 19 || isNotAsciiDigits(value)) {
       return Optional.empty();
     }
     try {
@@ -470,7 +470,7 @@ public sealed interface UiAction {
 
   /** A one-digit {@link RoleSet} mask. */
   private static Optional<Set<UserRole>> parseMask(String value) {
-    if (value.length() != 1 || !isAsciiDigits(value)) {
+    if (value.length() != 1 || isNotAsciiDigits(value)) {
       return Optional.empty();
     }
     int mask = value.charAt(0) - '0';
@@ -500,8 +500,8 @@ public sealed interface UiAction {
            && username.chars().noneMatch(c -> c == ':' || Character.isWhitespace(c));
   }
 
-  private static boolean isAsciiDigits(String value) {
-    return value.chars().allMatch(c -> c >= '0' && c <= '9');
+  private static boolean isNotAsciiDigits(String value) {
+    return !value.chars().allMatch(c -> c >= '0' && c <= '9');
   }
 
   private static void requireRegionId(String regionId) {

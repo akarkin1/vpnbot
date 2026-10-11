@@ -7,7 +7,7 @@ import org.github.akarkin1.ui.screen.Screen;
 
 import java.util.List;
 
-public interface BotCommand {
+public interface SystemCommand {
 
   Screen run(UiContext context, List<String> args);
 

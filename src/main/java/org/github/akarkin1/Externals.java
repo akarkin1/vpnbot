@@ -12,8 +12,8 @@ import java.time.Clock;
 import java.util.function.Function;
 
 /**
- * Everything {@link VpnBot} takes from outside the process: the clients, the clock and the
- * settings. {@link VpnBot#create()} passes the real ones; the wiring test passes mocks.
+ * Everything {@link BotDependencies} takes from outside the process: the clients, the clock and the
+ * settings. {@link BotDependencies#create()} passes the real ones; the wiring test passes mocks.
  *
  * @param dynamoDb      the client of the config table
  * @param secrets       reads the bot token and the webhook secret token

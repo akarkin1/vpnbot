@@ -10,13 +10,13 @@ import java.util.List;
 
 @Log4j2
 @RequiredArgsConstructor
-public final class VersionCommand implements BotCommand {
+public final class VersionCommand implements SystemCommand {
 
   private final String appVersion;
 
   @Override
   public Screen run(UiContext context, List<String> args) {
-    return BotCommand.reply("${command.version.app-version.message}", appVersion);
+    return SystemCommand.reply("${command.version.app-version.message}", appVersion);
   }
 
   @Override

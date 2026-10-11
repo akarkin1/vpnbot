@@ -8,7 +8,7 @@ import org.github.akarkin1.ui.screen.Screen;
 import java.util.ArrayList;
 import java.util.List;
 
-public class DescribeRolesCommand implements BotCommand {
+public class DescribeRolesCommand implements SystemCommand {
 
   @Override
   public Screen run(UiContext context, List<String> args) {
@@ -22,7 +22,7 @@ public class DescribeRolesCommand implements BotCommand {
       params.add(permissions);
     });
 
-    return BotCommand.reply(responseBuilder.toString(), params.toArray());
+    return SystemCommand.reply(responseBuilder.toString(), params.toArray());
   }
 
   @Override

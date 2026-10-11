@@ -4,7 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.github.akarkin1.auth.Authorizer;
 import org.github.akarkin1.auth.TgUser;
-import org.github.akarkin1.dispatcher.command.BotCommand;
+import org.github.akarkin1.dispatcher.command.SystemCommand;
 import org.github.akarkin1.ui.UiContext;
 import org.github.akarkin1.ui.messenger.UiMessenger;
 import org.github.akarkin1.ui.screen.ErrorScreen;
@@ -22,19 +22,19 @@ import java.util.stream.Stream;
  */
 @Log4j2
 @RequiredArgsConstructor
-public class CommandDispatcher implements CommandCatalog {
+public class SystemCommandDispatcher implements CommandCatalog {
 
   private static final String NOT_SUPPORTED = "${common.command.not-supported.error}";
   private static final String NOT_AUTHORIZED = "${user.not-authorized.error}";
 
-  private final Map<String, BotCommand> registeredCommands = new LinkedHashMap<>();
+  private final Map<String, SystemCommand> registeredCommands = new LinkedHashMap<>();
   private final ErrorScreen errorScreen = new ErrorScreen();
 
   private final UiMessenger messenger;
 
   private final Authorizer authorizer;
 
-  public void registerCommand(String name, BotCommand command) {
+  public void registerCommand(String name, SystemCommand command) {
     registeredCommands.put(name, command);
   }
 
@@ -56,16 +56,16 @@ public class CommandDispatcher implements CommandCatalog {
         .toList();
 
     TgUser user = context.user();
-    BotCommand command = registeredCommands.get(name);
+    SystemCommand command = registeredCommands.get(name);
     if (command == null) {
       log.debug("User {} sent an unsupported command: {}", user, name);
-      return BotCommand.reply(NOT_SUPPORTED + supportedCommands(user), name);
+      return SystemCommand.reply(NOT_SUPPORTED + supportedCommands(user), name);
     }
 
     if (!isAuthorizedToUseCommand(command, user)) {
       log.debug("User {} is not authorized to run the command {}. Permissions required: {}",
                 user, name, command.getRequiredPermissions());
-      return BotCommand.reply(NOT_AUTHORIZED);
+      return SystemCommand.reply(NOT_AUTHORIZED);
     }
 
     log.debug("Running command: {}, with arguments: {}", name, args);
@@ -81,7 +81,7 @@ public class CommandDispatcher implements CommandCatalog {
         .collect(Collectors.joining(System.lineSeparator()));
   }
 
-  private boolean isAuthorizedToUseCommand(BotCommand command, TgUser user) {
+  private boolean isAuthorizedToUseCommand(SystemCommand command, TgUser user) {
     return command.getRequiredPermissions()
         .stream()
         .allMatch(permission -> authorizer.hasPermission(user, permission));

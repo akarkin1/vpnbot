@@ -9,7 +9,7 @@ import org.github.akarkin1.ui.screen.Screen;
 import java.util.List;
 
 @RequiredArgsConstructor
-public final class SupportedRegionCommand implements BotCommand {
+public final class SupportedRegionCommand implements SystemCommand {
 
   private final TailscaleNodeService tailscaleNodeService;
 
@@ -25,7 +25,7 @@ public final class SupportedRegionCommand implements BotCommand {
       responseBuilder.append("\t– %s\n".repeat(regionDescriptions.size()));
     }
 
-    return BotCommand.reply(responseBuilder.toString(), regionDescriptions.toArray());
+    return SystemCommand.reply(responseBuilder.toString(), regionDescriptions.toArray());
   }
 
   @Override

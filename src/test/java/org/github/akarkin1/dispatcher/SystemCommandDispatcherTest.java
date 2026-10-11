@@ -3,7 +3,7 @@ package org.github.akarkin1.dispatcher;
 import org.github.akarkin1.auth.Authorizer;
 import org.github.akarkin1.auth.Permission;
 import org.github.akarkin1.auth.TgUser;
-import org.github.akarkin1.dispatcher.command.BotCommand;
+import org.github.akarkin1.dispatcher.command.SystemCommand;
 import org.github.akarkin1.dispatcher.command.HelpCommand;
 import org.github.akarkin1.ui.UiContext;
 import org.github.akarkin1.ui.messenger.UiMessenger;
@@ -37,12 +37,12 @@ import static org.mockito.Mockito.verify;
 
 /**
  * cleanup-2026-10 §4.1, §7, AC-1, AC-3: the dispatcher routes "/command args" to the registered
- * {@link BotCommand}, checks its permissions against {@code context.user()} and sends every reply
+ * {@link SystemCommand}, checks its permissions against {@code context.user()} and sends every reply
  * as a {@link Screen} through {@link UiMessenger#send}. Everything is constructed here; the
  * {@link Authorizer} mock grants permissions per user from {@link #grant}.
  */
 @ExtendWith(MockitoExtension.class)
-class CommandDispatcherTest {
+class SystemCommandDispatcherTest {
 
   private static final UiContext ALEX = new UiContext(CHAT_ID, USER_ID, "alex", "Alex", null, "en");
   private static final UiContext BOB = new UiContext(200L, 8L, "bob", "Bob", null, "ru");
@@ -57,7 +57,7 @@ class CommandDispatcherTest {
   @Mock
   private Authorizer authorizer;
 
-  private CommandDispatcher dispatcher;
+  private SystemCommandDispatcher dispatcher;
   private RecordingCommand ping;
   private RecordingCommand admin;
   private final List<Grant> grants = new ArrayList<>();
@@ -69,7 +69,7 @@ class CommandDispatcherTest {
       Permission permission = invocation.getArgument(1);
       return grants.stream().anyMatch(grant -> grant.matches(user, permission));
     });
-    dispatcher = new CommandDispatcher(messenger, authorizer);
+    dispatcher = new SystemCommandDispatcher(messenger, authorizer);
     // as VpnBot does (§4.7 rule 5): the dispatcher is the catalog of its own /help command
     dispatcher.registerCommand("/help", new HelpCommand(dispatcher));
     ping = new RecordingCommand("${ping.description}", List.of(Permission.LIST_NODES), PONG);
@@ -173,7 +173,7 @@ class CommandDispatcherTest {
   @Test
   @DisplayName("§4.7 rules 4 and 5: the constructor registers nothing, not even /help – VpnBot registers the system commands")
   void constructorRegistersNothing() {
-    CommandDispatcher bare = new CommandDispatcher(messenger, authorizer);
+    SystemCommandDispatcher bare = new SystemCommandDispatcher(messenger, authorizer);
 
     assertEquals("", bare.supportedCommands(ALEX.user()));
     bare.handle(BOB, "/help");
@@ -209,7 +209,7 @@ class CommandDispatcherTest {
   @Test
   @DisplayName("§4.1: /help has no fixed place – the list follows the registration order")
   void supportedCommandsInRegistrationOrder() {
-    CommandDispatcher reordered = new CommandDispatcher(messenger, authorizer);
+    SystemCommandDispatcher reordered = new SystemCommandDispatcher(messenger, authorizer);
     reordered.registerCommand("/ping", ping);
     reordered.registerCommand("/help", new HelpCommand(reordered));
     grant(ALEX, Permission.LIST_NODES);
@@ -294,7 +294,7 @@ class CommandDispatcherTest {
   private record Call(UiContext context, List<String> args) {
   }
 
-  private static class RecordingCommand implements BotCommand {
+  private static class RecordingCommand implements SystemCommand {
 
     private final String description;
     private final List<Permission> permissions;

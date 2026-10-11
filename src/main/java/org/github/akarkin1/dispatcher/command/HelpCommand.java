@@ -12,13 +12,13 @@ import java.util.List;
 
 @Log4j2
 @RequiredArgsConstructor
-public final class HelpCommand implements BotCommand {
+public final class HelpCommand implements SystemCommand {
 
   private final CommandCatalog catalog;
 
   @Override
   public Screen run(UiContext context, List<String> args) {
-    return BotCommand.reply("${command.help.app-description.message}%n"
+    return SystemCommand.reply("${command.help.app-description.message}%n"
                             + catalog.supportedCommands(context.user()));
   }
 

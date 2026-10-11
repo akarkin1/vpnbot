@@ -17,7 +17,7 @@ import org.github.akarkin1.config.Settings;
 import org.github.akarkin1.config.TaskConfigService;
 import org.github.akarkin1.deduplication.DynamoDbUpdateEventsRegistry;
 import org.github.akarkin1.deduplication.UpdateEventsRegistry;
-import org.github.akarkin1.dispatcher.CommandDispatcher;
+import org.github.akarkin1.dispatcher.SystemCommandDispatcher;
 import org.github.akarkin1.dispatcher.command.DescribeRolesCommand;
 import org.github.akarkin1.dispatcher.command.HelpCommand;
 import org.github.akarkin1.dispatcher.command.SupportedRegionCommand;
@@ -69,7 +69,7 @@ import java.util.concurrent.Executors;
  * {@link Externals}, once per container (docs/specs/cleanup-2026-10.md §4.7). Every object is a
  * singleton; no constructor does work, {@link #prime()} is the only step after construction.
  */
-public final class VpnBot {
+public final class BotDependencies {
 
   private static final int ECS_THREADS = 8;
 
@@ -79,14 +79,14 @@ public final class VpnBot {
   private final UpdateEventsRegistry updateEvents;
   private final UiMessenger messenger;
   private final UiRouter router;
-  private final CommandDispatcher systemCommands;
+  private final SystemCommandDispatcher systemCommands;
   // Pre-registration by username ended with 2026.10. Remove once PENDING_USER records no longer exist (query pk = PENDING_USER); see docs/specs/cleanup-2026-10.md §4.3.
   @SuppressWarnings("removal")
   private final PendingUserActivator pendingUserActivator;
   private final SnapStartPrimer primer;
 
   /** The bot over the real AWS and Telegram clients, configured from the environment, primed. */
-  public static VpnBot create() {
+  public static BotDependencies create() {
     Settings settings = Settings.fromEnvironment();
     Externals externals = new Externals(
         DynamoDbEnhancedClient.builder()
@@ -98,12 +98,12 @@ public final class VpnBot {
         settings,
         region -> EcsClient.builder().region(region).build(),
         region -> Ec2Client.builder().region(region).build());
-    VpnBot bot = new VpnBot(externals);
+    BotDependencies bot = new BotDependencies(externals);
     bot.prime();
     return bot;
   }
 
-  VpnBot(Externals externals) {
+  BotDependencies(Externals externals) {
     Settings settings = externals.settings();
     Clock clock = externals.clock();
     this.settings = settings;
@@ -135,7 +135,7 @@ public final class VpnBot {
     return router;
   }
 
-  public CommandDispatcher systemCommands() {
+  public SystemCommandDispatcher systemCommands() {
     return systemCommands;
   }
 
@@ -268,10 +268,10 @@ public final class VpnBot {
   // dispatcher
 
   /** The system commands; {@code /help} lists the others, so it is registered first. */
-  private static CommandDispatcher systemCommands(Settings settings, UiMessenger messenger,
-                                                  Authorizer authorizer,
-                                                  TailscaleNodeService nodeService) {
-    CommandDispatcher dispatcher = new CommandDispatcher(messenger, authorizer);
+  private static SystemCommandDispatcher systemCommands(Settings settings, UiMessenger messenger,
+                                                        Authorizer authorizer,
+                                                        TailscaleNodeService nodeService) {
+    SystemCommandDispatcher dispatcher = new SystemCommandDispatcher(messenger, authorizer);
     dispatcher.registerCommand("/help", new HelpCommand(dispatcher));
     dispatcher.registerCommand("/version", new VersionCommand(settings.appVersion()));
     dispatcher.registerCommand("/supportedRegions", new SupportedRegionCommand(nodeService));
