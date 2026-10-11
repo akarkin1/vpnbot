@@ -15,7 +15,7 @@ public class DescribeRolesCommand implements SystemCommand {
     StringBuilder responseBuilder = new StringBuilder();
     List<Object> params = new ArrayList<>();
 
-    responseBuilder.append("${command.describe-roles.available-roles.message}:\n");
+    responseBuilder.append("${command.describe-roles.available-roles.message}\n");
     RoleSet.describe().forEach((role, permissions) -> {
       responseBuilder.append("\t - %s: %s\n");
       params.add(role);
