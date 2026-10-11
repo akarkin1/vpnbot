@@ -70,7 +70,7 @@ class SnapStartPrimerTest {
 
     InOrder inOrder = inOrder(permissionsService, nodeService, ec2ClientPool, eventsRegistry,
                               sender);
-    inOrder.verify(permissionsService).getUserPermissions();
+    inOrder.verify(permissionsService).getUsers();
     inOrder.verify(nodeService).listTasks(SnapStartPrimer.PRIMER_USER);
     inOrder.verify(nodeService).getSupportedRegionIds();
     inOrder.verify(nodeService).getNode(EU, SnapStartPrimer.PRIMER_TASK_ID);
@@ -94,7 +94,7 @@ class SnapStartPrimerTest {
     primer.prime();
 
     InOrder inOrder = inOrder(permissionsService, nodeService, eventsRegistry, sender);
-    inOrder.verify(permissionsService).getUserPermissions();
+    inOrder.verify(permissionsService).getUsers();
     inOrder.verify(nodeService).listTasks(SnapStartPrimer.PRIMER_USER);
     inOrder.verify(nodeService).getSupportedRegionIds();
     ArgumentCaptor<Update> update = ArgumentCaptor.forClass(Update.class);
@@ -120,7 +120,7 @@ class SnapStartPrimerTest {
   @DisplayName("AC-P2: a failing permissions step does not stop the other steps")
   void permissionsFailureIsSwallowed() throws TelegramApiException {
     givenTwoRegions();
-    when(permissionsService.getUserPermissions()).thenThrow(new RuntimeException("dynamodb down"));
+    when(permissionsService.getUsers()).thenThrow(new RuntimeException("dynamodb down"));
 
     assertDoesNotThrow(primer::prime);
 
@@ -203,7 +203,7 @@ class SnapStartPrimerTest {
 
     assertDoesNotThrow(primer::prime);
 
-    verify(permissionsService).getUserPermissions();
+    verify(permissionsService).getUsers();
     verify(nodeService).listTasks(SnapStartPrimer.PRIMER_USER);
     verify(nodeService, never()).getNode(anyString(), anyString());
     verifyNoInteractions(ec2ClientPool);
@@ -224,7 +224,7 @@ class SnapStartPrimerTest {
   }
 
   private void verifyAllStepsCalled() throws TelegramApiException {
-    verify(permissionsService).getUserPermissions();
+    verify(permissionsService).getUsers();
     verify(nodeService).listTasks(SnapStartPrimer.PRIMER_USER);
     verify(nodeService).getSupportedRegionIds();
     verify(nodeService).getNode(EU, SnapStartPrimer.PRIMER_TASK_ID);

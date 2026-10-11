@@ -21,8 +21,8 @@ class NodeNotificationsTest {
 
   private static final String REGION = "eu-central-1";
   private static final Integer MESSAGE_ID = 42;
-  private static final UiContext RU_CONTEXT = new UiContext(100L, "alex", "Alex", "ru");
-  private static final UiContext EN_CONTEXT = new UiContext(100L, "bob", "Bob", "en-US");
+  private static final UiContext RU_CONTEXT = new UiContext(100L, 7L, "alex", "Alex", "ru");
+  private static final UiContext EN_CONTEXT = new UiContext(100L, 8L, "bob", "Bob", "en-US");
   private static final String HOST = NodeNotifications.HOSTNAME_PLACEHOLDER;
   private static final String IP = NodeNotifications.PUBLIC_IP_PLACEHOLDER;
   private static final String LABEL = "🇩🇪 Frankfurt";

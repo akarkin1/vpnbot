@@ -1,5 +1,6 @@
 package org.github.akarkin1.tg;
 
+import org.github.akarkin1.auth.TgUser;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.telegram.telegrambots.meta.api.objects.Update;
@@ -11,6 +12,7 @@ import static org.github.akarkin1.ui.TelegramUpdates.messageUpdate;
 import static org.github.akarkin1.ui.TelegramUpdates.user;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TgRequestContextTest {
 
@@ -49,6 +51,41 @@ class TgRequestContextTest {
     assertEquals("bob", TgRequestContext.getUsername());
     assertEquals(CHAT_ID, TgRequestContext.getChatId());
     assertEquals("en", TgRequestContext.getLanguageCode());
+  }
+
+  @Test
+  @DisplayName("4 §4.1: getUser() is the TgUser of the sender of a message (user id and username)")
+  void userOfMessage() {
+    TgRequestContext.initContext(messageUpdate(user("bob", "Bob", "en"), "/help"));
+
+    assertEquals(new TgUser(USER_ID, "bob"), TgRequestContext.getUser());
+  }
+
+  @Test
+  @DisplayName("4 §4.1: getUser() is the TgUser of the tapping user of a callback query")
+  void userOfCallbackQuery() {
+    TgRequestContext.initContext(callbackUpdate(user("alex", "Alex", "ru"), "HOME", false));
+
+    assertEquals(new TgUser(USER_ID, "alex"), TgRequestContext.getUser());
+  }
+
+  @Test
+  @DisplayName("4 §4.1: a sender without a username still has a TgUser with the user id")
+  void userWithoutUsername() {
+    TgRequestContext.initContext(messageUpdate(user(null, "Anna", "en"), "/help"));
+
+    assertEquals(new TgUser(USER_ID, null), TgRequestContext.getUser());
+  }
+
+  @Test
+  @DisplayName("4 §4.1: after a reset there is no user id")
+  void userAfterReset() {
+    TgRequestContext.initContext(messageUpdate(user("bob", "Bob", "ru"), "/help"));
+
+    TgRequestContext.initContext(new Update());
+
+    TgUser user = TgRequestContext.getUser();
+    assertTrue(user == null || user.id() == null, String.valueOf(user));
   }
 
   @Test

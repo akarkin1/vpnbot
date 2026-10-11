@@ -40,6 +40,7 @@ import static org.mockito.Mockito.when;
 /**
  * Uses the real {@link NodeAccess} over a mocked {@link Authorizer}, so the scenarios read as the
  * roles of §4.2: alex (RUN_NODES), bob (RUN_NODES), reader (LIST_NODES only), root (ROOT_ACCESS).
+ * Users are identified by id (Phase 4): alex 7, bob 8, reader 9, root 1.
  */
 @ExtendWith(MockitoExtension.class)
 class NodeControllerTest {
@@ -49,13 +50,13 @@ class NodeControllerTest {
   private static final NodeRef REF = new NodeRef(REGION, TASK_ID);
   private static final Integer MESSAGE_ID = 42;
 
-  private static final UiContext ALEX = new UiContext(100L, "alex", "Alex", "en-US");
-  private static final UiContext BOB = new UiContext(300L, "bob", "Bob", "en-US");
-  private static final UiContext READER = new UiContext(400L, "reader", "Reader", "en-US");
-  private static final UiContext ROOT = new UiContext(200L, "root", "Root", "en-US");
+  private static final UiContext ALEX = new UiContext(100L, 7L, "alex", "Alex", "en-US");
+  private static final UiContext BOB = new UiContext(300L, 8L, "bob", "Bob", "en-US");
+  private static final UiContext READER = new UiContext(400L, 9L, "reader", "Reader", "en-US");
+  private static final UiContext ROOT = new UiContext(200L, 1L, "root", "Root", "en-US");
 
-  /** alex's node, started in 2b: tagged with alex's chat id and language. */
-  private static final TaskInfo ALEX_NODE = node("alex", "100", "ru");
+  /** alex's node, started in Phase 4: RunBy = alex's id, tagged with alex's chat id and language. */
+  private static final TaskInfo ALEX_NODE = node("7", "100", "ru");
 
   private static final Screen ALREADY_STOPPED = screen("alreadyStopped");
   private static final Screen NOT_ALLOWED = screen("notAllowed");
@@ -81,10 +82,10 @@ class NodeControllerTest {
   void setUp() {
     controller = new NodeController(nodeService, new NodeAccess(authorizer), messenger, nodeScreens,
                                     launchScreens);
-    grant("alex", Permission.LIST_NODES, Permission.RUN_NODES);
-    grant("bob", Permission.LIST_NODES, Permission.RUN_NODES);
-    grant("reader", Permission.LIST_NODES);
-    grant("root", Permission.ROOT_ACCESS, Permission.LIST_NODES, Permission.RUN_NODES);
+    grant(ALEX, Permission.LIST_NODES, Permission.RUN_NODES);
+    grant(BOB, Permission.LIST_NODES, Permission.RUN_NODES);
+    grant(READER, Permission.LIST_NODES);
+    grant(ROOT, Permission.ROOT_ACCESS, Permission.LIST_NODES, Permission.RUN_NODES);
     lenient().when(nodeScreens.alreadyStopped()).thenReturn(ALREADY_STOPPED);
     lenient().when(nodeScreens.notAllowed()).thenReturn(NOT_ALLOWED);
     lenient().when(nodeScreens.confirmStop(any())).thenReturn(CONFIRM);
@@ -131,9 +132,9 @@ class NodeControllerTest {
   }
 
   @Test
-  @DisplayName("2b D-10: stop with a null username shows notAllowed before any node-service call")
+  @DisplayName("2b D-10: stop by a user without a username and without permissions shows notAllowed before any node-service call")
   void stopNullUsername() {
-    UiContext anonymous = new UiContext(500L, null, "Anon", "en-US");
+    UiContext anonymous = new UiContext(500L, 50L, null, "Anon", "en-US");
 
     controller.stop(anonymous, MESSAGE_ID, REF);
 
@@ -185,7 +186,7 @@ class NodeControllerTest {
   @Test
   @DisplayName("2b AC-3, D-9: root on its own node stops at once without confirmation, stopping edited first")
   void stopByRootOnOwnNode() {
-    TaskInfo rootNode = node("root", "200", "en");
+    TaskInfo rootNode = node("1", "200", "en");
     when(nodeService.getNode(REGION, TASK_ID)).thenReturn(Optional.of(rootNode));
 
     controller.stop(ROOT, MESSAGE_ID, REF);
@@ -219,7 +220,7 @@ class NodeControllerTest {
   @Test
   @DisplayName("2b D-11: the owner notification passes the task's missing language code through as null")
   void confirmStopNotificationWithoutLanguage() {
-    when(nodeService.getNode(REGION, TASK_ID)).thenReturn(Optional.of(node("alex", "100", null)));
+    when(nodeService.getNode(REGION, TASK_ID)).thenReturn(Optional.of(node("7", "100", null)));
 
     controller.confirmStop(ROOT, MESSAGE_ID, REF);
 
@@ -229,9 +230,9 @@ class NodeControllerTest {
   }
 
   @Test
-  @DisplayName("2b D-10: confirmStop with a null username shows notAllowed before any node-service call")
+  @DisplayName("2b D-10: confirmStop by a user without a username and without permissions shows notAllowed before any node-service call")
   void confirmStopNullUsername() {
-    UiContext anonymous = new UiContext(500L, null, "Anon", "en-US");
+    UiContext anonymous = new UiContext(500L, 50L, null, "Anon", "en-US");
 
     controller.confirmStop(anonymous, MESSAGE_ID, REF);
 
@@ -287,7 +288,7 @@ class NodeControllerTest {
   @Test
   @DisplayName("2b AC-4: a node without ChatId tag (started before 2b) is stopped without notifying the owner")
   void confirmStopWithoutChatIdTag() {
-    when(nodeService.getNode(REGION, TASK_ID)).thenReturn(Optional.of(node("alex", null, null)));
+    when(nodeService.getNode(REGION, TASK_ID)).thenReturn(Optional.of(node("7", null, null)));
 
     controller.confirmStop(ROOT, MESSAGE_ID, REF);
 
@@ -299,7 +300,7 @@ class NodeControllerTest {
   @Test
   @DisplayName("2b AC-4 (D-2), D-9: root confirming the stop of its own node notifies nobody")
   void confirmStopOwnNodeByRootNotifiesNobody() {
-    when(nodeService.getNode(REGION, TASK_ID)).thenReturn(Optional.of(node("root", "200", "en")));
+    when(nodeService.getNode(REGION, TASK_ID)).thenReturn(Optional.of(node("1", "200", "en")));
 
     controller.confirmStop(ROOT, MESSAGE_ID, REF);
 
@@ -380,9 +381,9 @@ class NodeControllerTest {
   }
 
   @Test
-  @DisplayName("2b D-10: use with a null username shows notAllowed before any node-service call")
+  @DisplayName("2b D-10: use by a user without a username and without permissions shows notAllowed before any node-service call")
   void useNullUsername() {
-    UiContext anonymous = new UiContext(500L, null, "Anon", "en-US");
+    UiContext anonymous = new UiContext(500L, 50L, null, "Anon", "en-US");
 
     controller.use(anonymous, MESSAGE_ID, REF);
 
@@ -410,15 +411,42 @@ class NodeControllerTest {
     verify(launchScreens, never()).ready(any(), any(), any(), any());
   }
 
+  // --- identity (Phase 4) --------------------------------------------------------------------
+
+  @Test
+  @DisplayName("4 AC-9, D-3: a node started before Phase 4 (RunBy = username) can still be stopped by its owner")
+  void stopLegacyNodeByOwner() {
+    when(nodeService.getNode(REGION, TASK_ID)).thenReturn(Optional.of(node("alex", "100", "ru")));
+
+    controller.stop(ALEX, MESSAGE_ID, REF);
+
+    verify(nodeService).stopNode(REGION, TASK_ID, "Stopped by @alex via the bot");
+    verify(nodeScreens, never()).confirmStop(any());
+  }
+
+  @Test
+  @DisplayName("4 AC-9: a user without a username but with RUN_NODES (by id) may stop an own node (RunBy = id)")
+  void stopByOwnerWithoutUsername() {
+    UiContext anna = new UiContext(600L, 11L, null, "Anna", "en-US");
+    grant(anna, Permission.RUN_NODES);
+    when(nodeService.getNode(REGION, TASK_ID)).thenReturn(Optional.of(node("11", "600", "en")));
+
+    controller.stop(anna, MESSAGE_ID, REF);
+
+    verify(messenger).edit(anna, MESSAGE_ID, STOPPING);
+    verify(nodeService).stopNode(eq(REGION), eq(TASK_ID), any());
+    verify(nodeScreens, never()).confirmStop(any());
+  }
+
   private UiContext sentContext(Screen screen) {
     ArgumentCaptor<UiContext> captor = ArgumentCaptor.forClass(UiContext.class);
     verify(messenger).send(captor.capture(), eq(screen));
     return captor.getValue();
   }
 
-  private void grant(String username, Permission... permissions) {
+  private void grant(UiContext user, Permission... permissions) {
     for (Permission permission : permissions) {
-      lenient().when(authorizer.hasPermission(username, permission)).thenReturn(true);
+      lenient().when(authorizer.hasPermission(user.user(), permission)).thenReturn(true);
     }
   }
 

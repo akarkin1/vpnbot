@@ -19,6 +19,7 @@ import java.util.List;
 import static org.github.akarkin1.ui.TelegramUpdates.CALLBACK_ID;
 import static org.github.akarkin1.ui.TelegramUpdates.CHAT_ID;
 import static org.github.akarkin1.ui.TelegramUpdates.MESSAGE_ID;
+import static org.github.akarkin1.ui.TelegramUpdates.USER_ID;
 import static org.github.akarkin1.ui.TelegramUpdates.callbackUpdate;
 import static org.github.akarkin1.ui.TelegramUpdates.messageUpdate;
 import static org.github.akarkin1.ui.TelegramUpdates.user;
@@ -36,7 +37,7 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class UiRouterTest {
 
-  private static final UiContext CONTEXT = new UiContext(CHAT_ID, "alex", "Alex", "ru");
+  private static final UiContext CONTEXT = new UiContext(CHAT_ID, USER_ID, "alex", "Alex", "ru");
   private static final Screen ERROR = new Screen("error", List.of(), List.of());
   private static final String TASK_ID = "0123456789abcdef0123456789abcdef";
   private static final NodeRef NODE = new NodeRef("eu-central-1", TASK_ID);

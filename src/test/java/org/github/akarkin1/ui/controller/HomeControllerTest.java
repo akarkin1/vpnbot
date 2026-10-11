@@ -2,6 +2,7 @@ package org.github.akarkin1.ui.controller;
 
 import org.github.akarkin1.auth.Authorizer;
 import org.github.akarkin1.auth.Permission;
+import org.github.akarkin1.auth.TgUser;
 import org.github.akarkin1.ecs.TaskInfo;
 import org.github.akarkin1.tailscale.TailscaleNodeService;
 import org.github.akarkin1.ui.UiContext;
@@ -32,7 +33,8 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class HomeControllerTest {
 
-  private static final UiContext CONTEXT = new UiContext(100L, "alex", "Alex", "en-US");
+  private static final UiContext CONTEXT = new UiContext(100L, 7L, "alex", "Alex", "en-US");
+  private static final TgUser ALEX = new TgUser(7L, "alex");
   private static final Integer MESSAGE_ID = 42;
   private static final Screen HOME = new Screen("home", List.of(), List.of());
   private static final Screen HELP = new Screen("help", List.of(), List.of());
@@ -63,7 +65,7 @@ class HomeControllerTest {
   @DisplayName("AC-9: non-root user lists own nodes and supported regions")
   void nonRootListsOwnNodes() {
     grant(Permission.LIST_NODES, Permission.RUN_NODES);
-    when(nodeService.listTasks("alex")).thenReturn(NODES);
+    when(nodeService.listTasks("7")).thenReturn(NODES);
     when(nodeService.getSupportedRegionIds()).thenReturn(Set.of("eu-central-1"));
     when(homeScreen.home(any())).thenReturn(HOME);
 
@@ -89,14 +91,48 @@ class HomeControllerTest {
   }
 
   @Test
-  @DisplayName("AC-9, 2b AC-8: null username makes no service calls, has no permissions and no stoppable nodes")
-  void nullUsername() {
-    UiContext anonymous = new UiContext(100L, null, "Alex", "en-US");
+  @DisplayName("4 AC-9: non-root user lists own nodes by the user id (listTasks(\"7\"))")
+  void listsOwnNodesByUserId() {
+    grant(Permission.LIST_NODES);
+    when(nodeService.listTasks("7")).thenReturn(NODES);
+    when(homeScreen.home(any())).thenReturn(HOME);
+
+    controller.showHome(CONTEXT);
+
+    verify(nodeService).listTasks("7");
+    verify(nodeService, never()).listTasks("alex");
+  }
+
+  @Test
+  @DisplayName("4 AC-9 (was 2b AC-8 null username): a user without a username is authorized by the user id and lists own nodes by id")
+  void userWithoutUsername() {
+    UiContext anna = new UiContext(100L, 11L, null, "Anna", "en-US");
+    TgUser annaUser = new TgUser(11L, null);
+    TaskInfo node = TaskInfo.builder().id("task-1").runBy("11").build();
+    lenient().when(authorizer.hasPermission(annaUser, Permission.LIST_NODES)).thenReturn(true);
+    lenient().when(authorizer.hasPermission(annaUser, Permission.RUN_NODES)).thenReturn(true);
+    when(nodeService.listTasks("11")).thenReturn(List.of(node));
+    when(nodeService.getSupportedRegionIds()).thenReturn(Set.of("eu-central-1"));
+    when(nodeAccess.canStop(annaUser, node)).thenReturn(true);
+    when(homeScreen.home(any())).thenReturn(HOME);
+
+    controller.showHome(anna);
+
+    assertEquals(new HomeModel("Anna", null, true, true, false, List.of(node), List.of("eu-central-1"),
+                               List.of("task-1")),
+                 capturedModel());
+    verify(messenger).send(anna, HOME);
+  }
+
+  @Test
+  @DisplayName("AC-9, 2b AC-8: a user without permissions (and without a username) makes no node service calls and has no stoppable nodes")
+  void userWithoutUsernameAndPermissions() {
+    UiContext anonymous = new UiContext(100L, 11L, null, "Alex", "en-US");
     when(homeScreen.home(any())).thenReturn(HOME);
 
     controller.showHome(anonymous);
 
-    verifyNoInteractions(nodeService, authorizer, nodeAccess);
+    verifyNoInteractions(nodeService, nodeAccess);
     assertEquals(new HomeModel("Alex", null, false, false, false, List.of(), List.of(), List.of()),
                  capturedModel());
     verify(messenger).send(anonymous, HOME);
@@ -118,7 +154,7 @@ class HomeControllerTest {
   @DisplayName("AC-9: read-only user lists nodes but does not load regions")
   void readOnlyUser() {
     grant(Permission.LIST_NODES);
-    when(nodeService.listTasks("alex")).thenReturn(NODES);
+    when(nodeService.listTasks("7")).thenReturn(NODES);
     when(homeScreen.home(any())).thenReturn(HOME);
 
     controller.showHome(CONTEXT);
@@ -146,16 +182,16 @@ class HomeControllerTest {
   @Test
   @DisplayName("2b AC-8: stoppableTaskIds holds the ids of the listed nodes the user may stop, in list order")
   void stoppableTaskIds() {
-    TaskInfo first = TaskInfo.builder().id("task-1").runBy("alex").build();
-    TaskInfo second = TaskInfo.builder().id("task-2").runBy("bob").build();
-    TaskInfo third = TaskInfo.builder().id("task-3").runBy("alex").build();
+    TaskInfo first = TaskInfo.builder().id("task-1").runBy("7").build();
+    TaskInfo second = TaskInfo.builder().id("task-2").runBy("8").build();
+    TaskInfo third = TaskInfo.builder().id("task-3").runBy("7").build();
     List<TaskInfo> nodes = List.of(first, second, third);
     grant(Permission.LIST_NODES, Permission.RUN_NODES);
-    when(nodeService.listTasks("alex")).thenReturn(nodes);
+    when(nodeService.listTasks("7")).thenReturn(nodes);
     when(nodeService.getSupportedRegionIds()).thenReturn(Set.of("eu-central-1"));
-    lenient().when(nodeAccess.canStop("alex", first)).thenReturn(true);
-    lenient().when(nodeAccess.canStop("alex", second)).thenReturn(false);
-    lenient().when(nodeAccess.canStop("alex", third)).thenReturn(true);
+    lenient().when(nodeAccess.canStop(ALEX, first)).thenReturn(true);
+    lenient().when(nodeAccess.canStop(ALEX, second)).thenReturn(false);
+    lenient().when(nodeAccess.canStop(ALEX, third)).thenReturn(true);
     when(homeScreen.home(any())).thenReturn(HOME);
 
     controller.showHome(CONTEXT);
@@ -168,11 +204,11 @@ class HomeControllerTest {
   @Test
   @DisplayName("2b AC-8: refreshHome computes the stoppable nodes as well")
   void refreshHomeStoppableTaskIds() {
-    TaskInfo node = TaskInfo.builder().id("task-9").runBy("bob").build();
+    TaskInfo node = TaskInfo.builder().id("task-9").runBy("8").build();
     grant(Permission.LIST_NODES, Permission.RUN_NODES, Permission.ROOT_ACCESS);
     when(nodeService.listTasks(null)).thenReturn(List.of(node));
     when(nodeService.getSupportedRegionIds()).thenReturn(Set.of());
-    when(nodeAccess.canStop("alex", node)).thenReturn(true);
+    when(nodeAccess.canStop(ALEX, node)).thenReturn(true);
     when(homeScreen.home(any())).thenReturn(HOME);
 
     controller.refreshHome(CONTEXT, MESSAGE_ID);
@@ -184,7 +220,7 @@ class HomeControllerTest {
   @DisplayName("2b AC-8: no stoppable nodes when the user may stop none of them")
   void noStoppableNodes() {
     grant(Permission.LIST_NODES);
-    when(nodeService.listTasks("alex")).thenReturn(NODES);
+    when(nodeService.listTasks("7")).thenReturn(NODES);
     when(homeScreen.home(any())).thenReturn(HOME);
 
     controller.showHome(CONTEXT);
@@ -218,7 +254,7 @@ class HomeControllerTest {
   @DisplayName("AC-9: refreshHome builds the same model as showHome")
   void refreshHomeBuildsModel() {
     grant(Permission.LIST_NODES);
-    when(nodeService.listTasks("alex")).thenReturn(NODES);
+    when(nodeService.listTasks("7")).thenReturn(NODES);
     when(homeScreen.home(any())).thenReturn(HOME);
 
     controller.refreshHome(CONTEXT, MESSAGE_ID);
@@ -240,7 +276,7 @@ class HomeControllerTest {
 
   private void grant(Permission... permissions) {
     for (Permission permission : permissions) {
-      lenient().when(authorizer.hasPermission("alex", permission)).thenReturn(true);
+      lenient().when(authorizer.hasPermission(ALEX, permission)).thenReturn(true);
     }
   }
 

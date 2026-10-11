@@ -3,6 +3,7 @@ package org.github.akarkin1.dispatcher.command.ecs;
 import org.github.akarkin1.auth.Authorizer;
 import org.github.akarkin1.auth.Permission;
 import org.github.akarkin1.auth.PermissionsService;
+import org.github.akarkin1.auth.TgUser;
 import org.github.akarkin1.dispatcher.command.AssignRolesCommand;
 import org.github.akarkin1.dispatcher.CommandDispatcher;
 import org.github.akarkin1.dispatcher.command.DeleteUsersCommand;
@@ -32,7 +33,6 @@ import java.util.Collections;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -88,9 +88,9 @@ class HelpCommandV2Test {
       TgRequestContext.class)) {
 
       mockedContext.when(TgRequestContext::getLanguageCode).thenReturn("ru-RU");
-      mockedContext.when(TgRequestContext::getUsername).thenReturn("alex");
+      mockedContext.when(TgRequestContext::getUser).thenReturn(new TgUser(7L, "alex"));
 
-      when(authorizer.hasPermission(anyString(), any(Permission.class)))
+      when(authorizer.hasPermission(any(), any(Permission.class)))
         .thenReturn(true);
 
       Translator translator = new ResourceBasedTranslator();
