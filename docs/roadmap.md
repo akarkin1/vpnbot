@@ -79,7 +79,7 @@ EC2 instance that needs AMI patching.
 ## Later
 
 - **Phase 4 – access & admin** (spec: `docs/specs/access-admin-phase4.md`, branch
-  `feature/access-admin`): permissions and node ownership keyed by Telegram user id (lazy migration
+  `feature/access-admin`, implemented – to deploy): permissions and node ownership keyed by Telegram user id (lazy migration
   of the username-keyed records); "Request access" button → admins get role buttons → requester
   notified; Users screen with role toggles and 🗑; housekeeping: `java-tests.yml` on pull requests,
   node image on Python 3.11.
