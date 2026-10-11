@@ -1,6 +1,6 @@
 # Clean-up 2026.10 – system commands, pending users deprecated, sealed UI actions
 
-Status: draft for review, 2026-10-12. Branch `feature/cleanup-3.0`, version `2026.10-SNAPSHOT`
+Status: approved 2026-10-12. Branch `feature/cleanup-3.0`, version `2026.10-SNAPSHOT`
 (calendar versioning from this release on; `2.0` = `release/2.0`, the last pre-UI version).
 
 ## 1. Goal
@@ -43,7 +43,8 @@ compatibility, so that the code going into release 2026.10 has one way to do eac
 
 Same as `docs/specs/node-lifecycle-2a.md` §3 (CLAUDE.md, existing patterns, exact contracts,
 file ownership, `SPEC DEVIATION: <what> / <why> / <proposed option>` escalation). Every removal is a
-deletion, not a `@Deprecated`: the bot has a handful of users and one deployer.
+deletion, not a `@Deprecated` (the bot has a handful of users and one deployer) – except the
+pending-user code, which is deprecated on purpose (§4.3, D-10).
 
 ## 4. Behaviour
 
@@ -199,7 +200,7 @@ public sealed interface UiAction {
   -DforceStdout)` for `LambdaSourceVersion`. `pom.xml` is the only place holding the version.
 - "Register Telegram bot commands" registers `menu`, `help`, `version`, `supportedRegions`,
   `describeRoles` (EN and RU descriptions taken from the `command.*.description.message` texts).
-- `java-tests.yml`: the migration script test step goes; the other two shell tests stay.
+- `java-tests.yml`: unchanged (the three shell tests stay, the migration script included, D-10).
 
 ### 4.7 Composition root (`VpnBot`)
 
@@ -331,8 +332,8 @@ EcsNode: id, hostName, state, publicIp, location, region, runBy, runByName, chat
   each record to the right controller method with the typed arguments.
 - AC-7 Workflows: `deploy-tgbot-lambda.yml` has no `lambda-source-version` input and passes the pom
   version; both workflows use `LAMBDA_JAR_BUCKET`; the stack parameter is `LambdaJarBucketName`;
-  `setMyCommands` lists the five commands in EN and RU; `java-tests.yml` runs two shell tests.
-- AC-8 `mvn -B verify` green; the two remaining shell tests green; properties ASCII-only.
+  `setMyCommands` lists the five commands in EN and RU; `java-tests.yml` still runs the three shell tests.
+- AC-8 `mvn -B verify` green; the three shell tests green; properties ASCII-only.
 - AC-9 Composition root: `TailscaleVpnLambdaHandler` has no static block and no field other than
   `BOT`, `MAPPER` and constants; `grep` for `ConfigManager`, `Configurer` and `System.getenv` in
   `src/main` hits only `Settings`; `VpnBotTest` builds the graph from mocked externals and calls
