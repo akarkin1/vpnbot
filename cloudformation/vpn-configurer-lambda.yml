@@ -7,7 +7,7 @@ Parameters:
     Description: S3 Bucket with source code of the lambda.
   LambdaSourceVersion:
     Type: String
-    Description: Version of the lambda source code, e.g. 3.0-SNAPSHOT
+    Description: Version of the lambda source code, e.g. 2026.10-SNAPSHOT
   # Lambda environment variables
   EnvTgBotUsername:
     Type: String
