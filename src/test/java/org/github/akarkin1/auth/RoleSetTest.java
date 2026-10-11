@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -49,6 +50,28 @@ class RoleSetTest {
     }
 
     assertEquals(Set.of(0, 1, 2, 3, 4, 5, 6, 7), masks);
+  }
+
+  @Test
+  @DisplayName("cleanup §4.5: describe() maps each of the three roles to its permissions (former UserSignupService.describeRoles())")
+  void describe() {
+    Map<UserRole, List<Permission>> expected = Map.of(
+        UserRole.NODE_ADMIN, List.of(Permission.SUPPORTED_REGIONS, Permission.LIST_NODES, Permission.RUN_NODES),
+        UserRole.READ_ONLY, List.of(Permission.SUPPORTED_REGIONS, Permission.LIST_NODES),
+        UserRole.USER_ADMIN, List.of(Permission.USER_MANAGEMENT));
+
+    assertEquals(expected, RoleSet.describe());
+  }
+
+  @Test
+  @DisplayName("cleanup §4.5: describe() agrees with permissions(role) for every role")
+  void describeAgreesWithPermissions() {
+    Map<UserRole, List<Permission>> described = RoleSet.describe();
+
+    assertEquals(EnumSet.allOf(UserRole.class), EnumSet.copyOf(described.keySet()));
+    for (UserRole role : UserRole.values()) {
+      assertEquals(RoleSet.permissions(role), described.get(role), role.name());
+    }
   }
 
   private static List<Set<UserRole>> subsets() {
