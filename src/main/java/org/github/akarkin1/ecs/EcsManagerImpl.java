@@ -109,7 +109,6 @@ public class EcsManagerImpl implements EcsManager {
 
     return EcsNode.builder()
         .id(taskIdFromArn(task.taskArn()))
-        .cluster(taskParams.getEcsClusterName())
         .region(region)
         .build();
   }
@@ -211,19 +210,18 @@ public class EcsManagerImpl implements EcsManager {
         continue;
       }
 
-      foundTasks.add(toEcsNode(region, clusterName, task));
+      foundTasks.add(toEcsNode(region, task));
     }
 
     return foundTasks;
   }
 
-  private EcsNode toEcsNode(Region region, String clusterName, Task task) {
+  private EcsNode toEcsNode(Region region, Task task) {
     log.debug("Task attachments: {}", task.attachments());
     return EcsNode.builder()
         .hostName(tagValue(task, config.getHostNameTag()))
         .id(taskIdFromArn(task.taskArn()))
         .state(getContainerHealthStatus(task).name())
-        .cluster(clusterName)
         .region(region)
         .location(regionToCitiesMap.get(region.id()))
         .publicIp(getTaskPublicIp(region, task))
@@ -267,7 +265,7 @@ public class EcsManagerImpl implements EcsManager {
         .stream()
         .filter(task -> !STOPPED.equals(task.desiredStatus()) && !STOPPED.equals(task.lastStatus()))
         .findFirst()
-        .map(task -> toEcsNode(region, clusterName, task));
+        .map(task -> toEcsNode(region, task));
   }
 
   @Override

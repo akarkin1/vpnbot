@@ -17,6 +17,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Runs against {@link FakePermissionsService}, so the activation is observed as the sequence of
  * record writes, whichever of {@code updateUserPermissions}/{@code deleteUser} the code uses.
  */
+// Pending users are deprecated: pre-registration by username ended with 2026.10. Remove once
+// PENDING_USER records no longer exist (query pk = PENDING_USER); see docs/specs/cleanup-2026-10.md §4.3.
+@SuppressWarnings("removal")
 class PendingUserActivatorTest {
 
   private static final TgUser ALICE = new TgUser(42L, "alice");
@@ -51,7 +54,7 @@ class PendingUserActivatorTest {
   }
 
   @Test
-  @DisplayName("4 AC-2a, D-16: the PENDING_USER lookup is case-insensitive like findByUsername (@Alice pre-registered, alice writes)")
+  @DisplayName("4 AC-2a, D-16: the PENDING_USER lookup is case-insensitive (@Alice pre-registered, alice writes)")
   void pendingLookupIgnoresCase() {
     permissions.withPending("Alice", Permission.RUN_NODES);
 

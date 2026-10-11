@@ -2,7 +2,6 @@ package org.github.akarkin1.ui.screen;
 
 import org.apache.commons.lang3.StringUtils;
 import org.github.akarkin1.auth.AccessRequest;
-import org.github.akarkin1.auth.RoleSet;
 import org.github.akarkin1.auth.UserRole;
 import org.github.akarkin1.ui.UiAction;
 
@@ -26,14 +25,13 @@ public class AccessScreens {
 
   /**
    * The admin's message: who asks, the role checkboxes and Grant/Decline. Every button carries the
-   * current selection as a {@link RoleSet} mask.
+   * current selection.
    */
   public Screen adminRequest(AccessRequest request, Set<UserRole> selected) {
-    int mask = RoleSet.encode(selected);
     long userId = request.userId();
     List<List<Button>> keyboard = new ArrayList<>(RoleFormat.toggleRows(
-        selected, role -> UiAction.accessToggle(userId, mask, role)));
-    keyboard.add(List.of(Button.action("✅ ${ui.button.grant}", UiAction.accessGrant(userId, mask)),
+        selected, role -> UiAction.accessToggle(userId, selected, role)));
+    keyboard.add(List.of(Button.action("✅ ${ui.button.grant}", UiAction.accessGrant(userId, selected)),
                          Button.action("✖ ${ui.button.decline}", UiAction.accessDecline(userId))));
 
     Requester requester = requester(request);

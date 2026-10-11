@@ -67,7 +67,7 @@ class HomeControllerTest {
   @DisplayName("AC-9: non-root user lists own nodes and supported regions")
   void nonRootListsOwnNodes() {
     grant(Permission.LIST_NODES, Permission.RUN_NODES);
-    when(nodeService.listTasks("7")).thenReturn(NODES);
+    when(nodeService.listNodes("7")).thenReturn(NODES);
     when(nodeService.getSupportedRegionIds()).thenReturn(Set.of("eu-central-1"));
     when(homeScreen.home(any())).thenReturn(HOME);
 
@@ -79,15 +79,15 @@ class HomeControllerTest {
   }
 
   @Test
-  @DisplayName("AC-9: root user lists all nodes with listTasks(null)")
+  @DisplayName("AC-9: root user lists all nodes with listNodes(null)")
   void rootListsAllNodes() {
     grant(Permission.LIST_NODES, Permission.ROOT_ACCESS);
-    when(nodeService.listTasks(null)).thenReturn(NODES);
+    when(nodeService.listNodes(null)).thenReturn(NODES);
     when(homeScreen.home(any())).thenReturn(HOME);
 
     controller.showHome(CONTEXT);
 
-    verify(nodeService).listTasks(null);
+    verify(nodeService).listNodes(null);
     assertEquals(new HomeModel("Alex", "alex", true, false, true, NODES, List.of(), List.of(), true, true),
                  capturedModel());
   }
@@ -110,7 +110,7 @@ class HomeControllerTest {
   @DisplayName("4 §4.2: any permission means access; a read-only user does not manage users")
   void readOnlyHasAccessButNoUsers() {
     grant(Permission.LIST_NODES, Permission.SUPPORTED_REGIONS);
-    when(nodeService.listTasks("7")).thenReturn(List.of());
+    when(nodeService.listNodes("7")).thenReturn(List.of());
     when(homeScreen.home(any())).thenReturn(HOME);
 
     controller.showHome(CONTEXT);
@@ -121,16 +121,16 @@ class HomeControllerTest {
   }
 
   @Test
-  @DisplayName("4 AC-9: non-root user lists own nodes by the user id (listTasks(\"7\"))")
+  @DisplayName("4 AC-9: non-root user lists own nodes by the user id (listNodes(\"7\"))")
   void listsOwnNodesByUserId() {
     grant(Permission.LIST_NODES);
-    when(nodeService.listTasks("7")).thenReturn(NODES);
+    when(nodeService.listNodes("7")).thenReturn(NODES);
     when(homeScreen.home(any())).thenReturn(HOME);
 
     controller.showHome(CONTEXT);
 
-    verify(nodeService).listTasks("7");
-    verify(nodeService, never()).listTasks("alex");
+    verify(nodeService).listNodes("7");
+    verify(nodeService, never()).listNodes("alex");
   }
 
   @Test
@@ -141,7 +141,7 @@ class HomeControllerTest {
     EcsNode node = EcsNode.builder().id("task-1").runBy("11").build();
     lenient().when(authorizer.hasPermission(annaUser, Permission.LIST_NODES)).thenReturn(true);
     lenient().when(authorizer.hasPermission(annaUser, Permission.RUN_NODES)).thenReturn(true);
-    when(nodeService.listTasks("11")).thenReturn(List.of(node));
+    when(nodeService.listNodes("11")).thenReturn(List.of(node));
     when(nodeService.getSupportedRegionIds()).thenReturn(Set.of("eu-central-1"));
     when(nodeAccess.canStop(annaUser, node)).thenReturn(true);
     when(homeScreen.home(any())).thenReturn(HOME);
@@ -184,7 +184,7 @@ class HomeControllerTest {
   @DisplayName("AC-9: read-only user lists nodes but does not load regions")
   void readOnlyUser() {
     grant(Permission.LIST_NODES);
-    when(nodeService.listTasks("7")).thenReturn(NODES);
+    when(nodeService.listNodes("7")).thenReturn(NODES);
     when(homeScreen.home(any())).thenReturn(HOME);
 
     controller.showHome(CONTEXT);
@@ -203,7 +203,7 @@ class HomeControllerTest {
 
     controller.showHome(CONTEXT);
 
-    verify(nodeService, never()).listTasks(any());
+    verify(nodeService, never()).listNodes(any());
     assertEquals(new HomeModel("Alex", "alex", false, true, false, List.of(), List.of("eu-central-1"),
                                List.of(), false, true),
                  capturedModel());
@@ -217,7 +217,7 @@ class HomeControllerTest {
     EcsNode third = EcsNode.builder().id("task-3").runBy("7").build();
     List<EcsNode> nodes = List.of(first, second, third);
     grant(Permission.LIST_NODES, Permission.RUN_NODES);
-    when(nodeService.listTasks("7")).thenReturn(nodes);
+    when(nodeService.listNodes("7")).thenReturn(nodes);
     when(nodeService.getSupportedRegionIds()).thenReturn(Set.of("eu-central-1"));
     lenient().when(nodeAccess.canStop(ALEX, first)).thenReturn(true);
     lenient().when(nodeAccess.canStop(ALEX, second)).thenReturn(false);
@@ -236,7 +236,7 @@ class HomeControllerTest {
   void refreshHomeStoppableTaskIds() {
     EcsNode node = EcsNode.builder().id("task-9").runBy("8").build();
     grant(Permission.LIST_NODES, Permission.RUN_NODES, Permission.ROOT_ACCESS);
-    when(nodeService.listTasks(null)).thenReturn(List.of(node));
+    when(nodeService.listNodes(null)).thenReturn(List.of(node));
     when(nodeService.getSupportedRegionIds()).thenReturn(Set.of());
     when(nodeAccess.canStop(ALEX, node)).thenReturn(true);
     when(homeScreen.home(any())).thenReturn(HOME);
@@ -250,7 +250,7 @@ class HomeControllerTest {
   @DisplayName("2b AC-8: no stoppable nodes when the user may stop none of them")
   void noStoppableNodes() {
     grant(Permission.LIST_NODES);
-    when(nodeService.listTasks("7")).thenReturn(NODES);
+    when(nodeService.listNodes("7")).thenReturn(NODES);
     when(homeScreen.home(any())).thenReturn(HOME);
 
     controller.showHome(CONTEXT);
@@ -284,7 +284,7 @@ class HomeControllerTest {
   @DisplayName("AC-9: refreshHome builds the same model as showHome")
   void refreshHomeBuildsModel() {
     grant(Permission.LIST_NODES);
-    when(nodeService.listTasks("7")).thenReturn(NODES);
+    when(nodeService.listNodes("7")).thenReturn(NODES);
     when(homeScreen.home(any())).thenReturn(HOME);
 
     controller.refreshHome(CONTEXT, MESSAGE_ID);

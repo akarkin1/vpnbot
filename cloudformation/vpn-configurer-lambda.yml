@@ -2,12 +2,12 @@ AWSTemplateFormatVersion: '2010-09-09'
 Description: VPN Configurer Lambda Stack
 
 Parameters:
-  LambdaConfigBucketName:
+  LambdaJarBucketName:
     Type: String
-    Description: S3 Bucket with source code of the lambda.
+    Description: S3 bucket holding the Lambda jar (key vpntgbot/vpnbot-<version>.jar).
   LambdaSourceVersion:
     Type: String
-    Description: Version of the lambda source code, i. g. 2.0-SNAPSHOT
+    Description: Version of the lambda source code, e.g. 2026.10-SNAPSHOT
   # Lambda environment variables
   EnvTgBotUsername:
     Type: String
@@ -137,7 +137,7 @@ Resources:
           CONFIG_CACHE_ENABLED: !Ref EnvConfigCacheEnabled
           CONFIG_TABLE_NAME: !Ref ConfigTable
       Code:
-        S3Bucket: !Ref LambdaConfigBucketName
+        S3Bucket: !Ref LambdaJarBucketName
         S3Key: !Sub
           - 'vpntgbot/vpnbot-${LambdaSourceVersion}.jar'
           - LambdaSourceVersion: !Ref LambdaSourceVersion

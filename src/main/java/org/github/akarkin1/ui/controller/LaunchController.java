@@ -8,7 +8,6 @@ import org.github.akarkin1.auth.TgUser;
 import org.github.akarkin1.ecs.EcsNode;
 import org.github.akarkin1.tailscale.NodeOrigin;
 import org.github.akarkin1.tailscale.TailscaleNodeService;
-import org.github.akarkin1.ui.NodeLauncher;
 import org.github.akarkin1.ui.UiContext;
 import org.github.akarkin1.ui.messenger.NodeNotifications;
 import org.github.akarkin1.ui.messenger.UiMessenger;
@@ -19,7 +18,7 @@ import java.util.Map;
 
 @Log4j2
 @RequiredArgsConstructor
-public class LaunchController implements NodeLauncher {
+public class LaunchController {
 
   private final TailscaleNodeService nodeService;
   private final Authorizer authorizer;
@@ -66,7 +65,6 @@ public class LaunchController implements NodeLauncher {
     startNode(context, messageId, regionId, null);
   }
 
-  @Override
   public void launchInNewMessage(UiContext context, String regionId, String hostName) {
     Integer messageId = messenger.send(context, launchScreens.starting(regionId));
     if (isRegionSupported(context, messageId, regionId)) {
@@ -83,7 +81,7 @@ public class LaunchController implements NodeLauncher {
   }
 
   private List<EcsNode> ownNodesInRegion(String userId, String regionId) {
-    return nodeService.listTasks(userId)
+    return nodeService.listNodes(userId)
         .stream()
         .filter(node -> userId.equals(node.getRunBy()))
         .filter(node -> node.getRegion() != null && regionId.equals(node.getRegion().id()))

@@ -41,7 +41,7 @@ public class SnapStartPrimer {
   public void prime() {
     long begin = System.nanoTime();
     runStep("permissions", permissionsService::getUsers);
-    runStep("nodes", () -> nodeService.listTasks(PRIMER_USER));
+    runStep("nodes", () -> nodeService.listNodes(PRIMER_USER));
     List<String> regionIds = new ArrayList<>();
     runStep("regions", () -> regionIds.addAll(new TreeSet<>(nodeService.getSupportedRegionIds())));
     for (String regionId : regionIds) {

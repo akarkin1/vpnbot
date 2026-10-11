@@ -41,6 +41,8 @@ public class UsersScreen {
    * The card: name, id (or pending) and roles; for an editable user the role toggles and, when
    * {@code canRemove}, the Remove button; always the back button.
    */
+  // Pre-registration by username ended with 2026.10. Remove once PENDING_USER records no longer exist (query pk = PENDING_USER); see docs/specs/cleanup-2026-10.md §4.3.
+  @SuppressWarnings("removal")
   public Screen user(UserRow row, boolean canRemove) {
     TgUser user = row.user();
     String roles = RoleFormat.describe(row.permissions());
@@ -82,6 +84,8 @@ public class UsersScreen {
     return new Screen("⛔ ${ui.users.not-allowed}", List.of(), List.of(List.of(MENU)));
   }
 
+  // Pre-registration by username ended with 2026.10. Remove once PENDING_USER records no longer exist (query pk = PENDING_USER); see docs/specs/cleanup-2026-10.md §4.3.
+  @SuppressWarnings("removal")
   private static String label(UserRow row) {
     TgUser user = row.user();
     String label = escapePercent(displayName(user)) + " · " + RoleFormat.describe(row.permissions());

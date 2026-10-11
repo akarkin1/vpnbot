@@ -19,7 +19,14 @@ public record TgUser(Long id, String username) {
     return id != null ? String.valueOf(id) : "@" + username;
   }
 
-  /** True for a user known by username only (a {@code PENDING_USER} record). */
+  /**
+   * True for a user known by username only (a {@code PENDING_USER} record).
+   *
+   * @deprecated Pre-registration by username ended with 2026.10. Remove once
+   *     {@code PENDING_USER} records no longer exist (query {@code pk = PENDING_USER}); see
+   *     docs/specs/cleanup-2026-10.md §4.3.
+   */
+  @Deprecated(forRemoval = true)
   public boolean pending() {
     return id == null;
   }

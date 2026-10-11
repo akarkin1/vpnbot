@@ -1,34 +1,21 @@
 package org.github.akarkin1.ecs;
 
+import lombok.RequiredArgsConstructor;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.ecs.EcsClient;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 
-public class EcsClientPool implements EcsClientProvider {
+/** One ECS client per region, created by {@code clients} on the region's first use. */
+@RequiredArgsConstructor
+public class EcsClientPool {
 
+  private final Function<Region, EcsClient> clients;
   private final Map<Region, EcsClient> regionalInstances = new ConcurrentHashMap<>();
-  private final EcsClient defaultInstance;
-  private final EcsClientProvider delegate;
 
-  EcsClientPool(EcsClientProvider delegate) {
-    this.delegate = delegate;
-    this.defaultInstance = delegate.get();
-  }
-
-  public EcsClientPool() {
-    this.delegate = new SimpleEcsClientProvider();
-    this.defaultInstance = delegate.get();
-  }
-
-  @Override
-  public EcsClient get() {
-    return defaultInstance;
-  }
-
-  @Override
   public EcsClient get(Region region) {
-    return regionalInstances.computeIfAbsent(region, this.delegate::get);
+    return regionalInstances.computeIfAbsent(region, clients);
   }
 }

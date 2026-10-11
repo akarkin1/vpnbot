@@ -7,57 +7,10 @@ import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang3.StringUtils;
-import org.github.akarkin1.auth.Authorizer;
-import org.github.akarkin1.auth.AuthorizerConfigurer;
-import org.github.akarkin1.auth.PendingUserActivator;
-import org.github.akarkin1.auth.RequestAuthenticator;
-import org.github.akarkin1.auth.RequestAuthenticatorConfigurer;
-import org.github.akarkin1.auth.PermissionsService;
-import org.github.akarkin1.auth.PermissionsServiceConfigurer;
-import org.github.akarkin1.config.BotTokenResolver;
-import org.github.akarkin1.deduplication.DynamoDbUpdateEventsRegistry;
-import org.github.akarkin1.deduplication.UpdateEventsRegistry;
-import org.github.akarkin1.dispatcher.command.AssignRolesCommand;
-import org.github.akarkin1.dispatcher.CommandDispatcher;
-import org.github.akarkin1.dispatcher.command.DeleteUsersCommand;
-import org.github.akarkin1.dispatcher.command.DescribeRolesCommand;
-import org.github.akarkin1.dispatcher.command.ListNodesCommand;
-import org.github.akarkin1.dispatcher.command.ListUsersCommand;
-import org.github.akarkin1.dispatcher.command.RunNodeCommand;
-import org.github.akarkin1.dispatcher.command.SupportedRegionCommand;
-import org.github.akarkin1.dispatcher.command.VersionCommand;
-import org.github.akarkin1.dynamodb.ConfigTables;
-import org.github.akarkin1.metrics.EmfRequestMetrics;
-import org.github.akarkin1.metrics.RequestMetrics;
-import org.github.akarkin1.startup.SnapStartPrimer;
-import org.github.akarkin1.tailscale.NodeServices;
-import org.github.akarkin1.tailscale.TailscaleEcsNodeServiceConfigurer;
-import org.github.akarkin1.tailscale.TailscaleNodeService;
-import org.github.akarkin1.tg.BotCommunicator;
-import org.github.akarkin1.tg.TgRequestContext;
-import org.github.akarkin1.translation.ResourceBasedTranslator;
-import org.github.akarkin1.translation.Translator;
-import org.github.akarkin1.ui.UiComponents;
-import org.github.akarkin1.ui.UiConfigurer;
-import org.github.akarkin1.ui.UiRouter;
+import org.github.akarkin1.ui.UiContext;
+import org.github.akarkin1.ui.screen.ErrorScreen;
 import org.github.akarkin1.util.LambdaHandler;
-import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
-import org.telegram.telegrambots.meta.api.objects.User;
-import org.telegram.telegrambots.meta.bots.AbsSender;
-import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
-import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
-import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient;
-
-import java.time.Clock;
-import java.util.Optional;
-
-import static org.github.akarkin1.config.ConfigManager.getAppVersion;
-import static org.github.akarkin1.config.ConfigManager.getBotTokenSecretId;
-import static org.github.akarkin1.config.ConfigManager.getBotUsernameEnv;
-import static org.github.akarkin1.config.ConfigManager.getConfigTableName;
-import static org.github.akarkin1.config.ConfigManager.isMetricsEnabled;
-import static org.github.akarkin1.tg.TelegramBotFactory.sender;
 
 @Log4j2
 @LambdaHandler
@@ -65,69 +18,9 @@ public class TailscaleVpnLambdaHandler implements
     RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
-  private static final CommandDispatcher SYSTEM_COMMANDS_DISPATCHER;
-  private static final BotCommunicator COMMUNICATOR;
-  private static final UpdateEventsRegistry EVENTS_REGISTRY;
-  private static final String BOT_SERVER_ERROR = "${bot.internal.error}";
-  private static final RequestAuthenticator REQUEST_AUTHENTICATOR;
-  private static final UiRouter UI_ROUTER;
-  private static final RequestMetrics METRICS;
-  private static final PendingUserActivator PENDING_USER_ACTIVATOR;
-
-  static {
-    METRICS = new EmfRequestMetrics(isMetricsEnabled(), Clock.systemUTC(), System.out::println);
-    REQUEST_AUTHENTICATOR = new RequestAuthenticatorConfigurer().configure();
-
-    final DynamoDbEnhancedClient dynamoDb = DynamoDbEnhancedClient.builder()
-        .dynamoDbClient(DynamoDbClient.create())
-        .build();
-    final ConfigTables configTables = ConfigTables.create(dynamoDb, getConfigTableName());
-    EVENTS_REGISTRY = new DynamoDbUpdateEventsRegistry(configTables.updateLocks(),
-                                                       Clock.systemUTC(), METRICS);
-
-    final String botToken = new BotTokenResolver(SecretsManagerClient.create())
-        .resolve(getBotTokenSecretId());
-    final AbsSender sender = sender(botToken, getBotUsernameEnv());
-    final NodeServices nodeServices = new TailscaleEcsNodeServiceConfigurer()
-        .configure(configTables.regions(), METRICS);
-    final TailscaleNodeService nodeService = nodeServices.nodeService();
-    final PermissionsService permissionsService = new PermissionsServiceConfigurer()
-        .configure(configTables.users(), configTables.pendingUsers(), METRICS);
-    final Authorizer authorizer = new AuthorizerConfigurer().configure(permissionsService);
-    PENDING_USER_ACTIVATOR = new PendingUserActivator(permissionsService);
-
-    final Translator translator = new ResourceBasedTranslator();
-
-    final UiComponents ui = new UiConfigurer().configure(sender, translator, nodeService,
-                                                         authorizer, permissionsService,
-                                                         configTables.accessRequests(), METRICS);
-    UI_ROUTER = ui.router();
-
-    COMMUNICATOR = new BotCommunicator(sender, translator, METRICS);
-    SYSTEM_COMMANDS_DISPATCHER = new CommandDispatcher(COMMUNICATOR, authorizer);
-
-    SYSTEM_COMMANDS_DISPATCHER.registerCommand("/version", new VersionCommand());
-    SYSTEM_COMMANDS_DISPATCHER.registerCommand("/listRunningNodes", new ListNodesCommand(
-        nodeService, authorizer));
-    SYSTEM_COMMANDS_DISPATCHER.registerCommand("/runNodeIn",
-                                       new RunNodeCommand(nodeService,
-                                                          COMMUNICATOR::sendMessageToTheBot,
-                                                          ui.nodeLauncher()));
-    SYSTEM_COMMANDS_DISPATCHER.registerCommand("/supportedRegions",
-                                       new SupportedRegionCommand(nodeService));
-    SYSTEM_COMMANDS_DISPATCHER.registerCommand("/assignRoles",
-                                       new AssignRolesCommand(permissionsService));
-    SYSTEM_COMMANDS_DISPATCHER.registerCommand("/describeRoles",
-                                       new DescribeRolesCommand(permissionsService));
-    SYSTEM_COMMANDS_DISPATCHER.registerCommand("/deleteUsers",
-                                       new DeleteUsersCommand(permissionsService,
-                                                              COMMUNICATOR::sendMessageToTheBot));
-    SYSTEM_COMMANDS_DISPATCHER.registerCommand("/listRegisteredUsers",
-                                       new ListUsersCommand(permissionsService));
-
-    new SnapStartPrimer(nodeService, nodeServices.ec2ClientPool(), permissionsService,
-                        EVENTS_REGISTRY, sender).prime();
-  }
+  private static final ErrorScreen ERROR_SCREEN = new ErrorScreen();
+  /** Built at class init, so SnapStart snapshots the primed graph. */
+  private static final BotDependencies DEPS = BotDependencies.build();
 
   @Override
   public APIGatewayProxyResponseEvent handleRequest(
@@ -136,7 +29,7 @@ public class TailscaleVpnLambdaHandler implements
     try {
       return processRequest(gwEvent);
     } finally {
-      METRICS.finish();
+      DEPS.metrics().finish();
     }
   }
 
@@ -144,31 +37,30 @@ public class TailscaleVpnLambdaHandler implements
     Update update;
     try {
       log.debug("Got request: {}", serializeObject(gwEvent));
-      REQUEST_AUTHENTICATOR.authenticate(gwEvent);
+      DEPS.requestAuthenticator().authenticate(gwEvent);
       String receivedPayload = gwEvent.getBody();
       log.debug("Received payload: {}", receivedPayload);
       if (StringUtils.isBlank(receivedPayload)) {
         return new APIGatewayProxyResponseEvent()
             .withBody("VPN Bot Lambda performs noramlly. Application version: %s "
-                          .formatted(getAppVersion()))
+                          .formatted(DEPS.settings().appVersion()))
             .withStatusCode(200);
       }
 
       update = MAPPER.readValue(receivedPayload, Update.class);
     } catch (Exception e) {
+      // no chat to answer before the update is read (D-5): logged only
       log.error("Failed to process request: ", e);
-      COMMUNICATOR.sendMessageToTheBot(BOT_SERVER_ERROR);
       return new APIGatewayProxyResponseEvent()
           .withBody("{}")
           .withStatusCode(201);
     }
 
-    METRICS.start(updateKind(update));
+    DEPS.metrics().start(updateKind(update));
     try {
       handleUpdate(update);
     } catch (Exception e) {
       log.error("Failed to handle update: ", e);
-      COMMUNICATOR.sendMessageToTheBot(BOT_SERVER_ERROR);
       return new APIGatewayProxyResponseEvent()
           .withBody("{}")
           .withStatusCode(201);
@@ -186,7 +78,7 @@ public class TailscaleVpnLambdaHandler implements
     boolean isCommand = update.hasMessage()
                         && update.getMessage().hasText()
                         && update.getMessage().getText().startsWith("/");
-    return isCommand && !UI_ROUTER.canHandle(update) ? "Command" : "Message";
+    return isCommand && !DEPS.router().canHandle(update) ? "Command" : "Message";
   }
 
   private static String serializeObject(APIGatewayProxyRequestEvent gwEvent) {
@@ -198,37 +90,42 @@ public class TailscaleVpnLambdaHandler implements
   }
 
   private void handleUpdate(Update update) {
-    if (!EVENTS_REGISTRY.register(update)) {
+    if (!DEPS.updateEvents().register(update)) {
       log.info("Skipping duplicated event: {}", update);
       return;
     }
 
-    TgRequestContext.initContext(update);
-    // before any permission check: a pre-registered user gets their USER record (D-24)
-    PENDING_USER_ACTIVATOR.activate(TgRequestContext.getUser());
-
-    if (UI_ROUTER.canHandle(update)) {
-      UI_ROUTER.handle(update);
+    UiContext context;
+    try {
+      context = UiContext.fromUpdate(update);
+    } catch (IllegalArgumentException e) {
+      log.warn("Dropping an update with neither a message nor a callback query: {}", update);
       return;
     }
 
-    Message message = update.getMessage();
-    if (message == null) {
-      log.warn("Empty message received from a user. Update Event: {}", update);
-      return;
-    }
+    try {
+      // before any permission check: a pre-registered user gets their USER record (D-24)
+      DEPS.pendingUserActivator().activate(context.user());
 
-    if (message.getChatId() == null) {
-      log.warn("Chat ID is missing. The bot cannot sent response back to user. Update Event: {}",
-               update);
-      return;
-    }
+      if (DEPS.router().canHandle(update)) {
+        DEPS.router().handle(update);
+        return;
+      }
 
-    String userName = Optional.ofNullable(message.getFrom())
-        .map(User::getUserName)
-        .orElse("<Unknown>");
-    log.info("User {} has started communication with the bot", userName);
-    SYSTEM_COMMANDS_DISPATCHER.handle(update);
+      log.info("User {} sent a system command", context.user());
+      DEPS.systemCommands().handle(context, update.getMessage().getText());
+    } catch (Exception e) {
+      log.error("Failed to handle update: {}", update, e);
+      sendGenericError(context);
+    }
+  }
+
+  private static void sendGenericError(UiContext context) {
+    try {
+      DEPS.messenger().send(context, ERROR_SCREEN.generic());
+    } catch (Exception e) {
+      log.error("Failed to send the error message to chat {}", context.chatId(), e);
+    }
   }
 
 }

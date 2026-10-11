@@ -1,5 +1,6 @@
 package org.github.akarkin1.tailscale;
 
+import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.github.akarkin1.config.YamlApplicationConfiguration.AWSConfiguration;
 import org.github.akarkin1.config.YamlApplicationConfiguration.EcsConfiguration;
@@ -11,45 +12,29 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+@RequiredArgsConstructor
 public class TailscaleEcsNodeService implements TailscaleNodeService {
 
   private final EcsManager ecsManager;
   private final EcsConfiguration config;
-  private final Map<String, Region> regionByCity;
-  private final Set<String> knownRegions;
-  private final Map<String, String> cityByRegion;
-
-  public TailscaleEcsNodeService(EcsManager ecsManager,
-                                 EcsConfiguration ecsConfig,
-                                 AWSConfiguration awsConfig) {
-    this.ecsManager = ecsManager;
-    this.config = ecsConfig;
-    this.regionByCity = awsConfig.getRegionCities()
-        .entrySet()
-        .stream()
-        .collect(Collectors.toMap(Entry::getValue,
-                                  entry -> Region.of(entry.getKey())));
-    this.cityByRegion = awsConfig.getRegionCities();
-    this.knownRegions = awsConfig.getRegionCities().keySet();
-  }
+  private final AWSConfiguration awsConfig;
 
   @Override
   public boolean isRegionValid(String userRegion) {
-    if (knownRegions.contains(userRegion)) {
+    if (cityByRegion().containsKey(userRegion)) {
       return true;
     }
 
-    return regionByCity.containsKey(userRegion);
+    return regionOfCity(userRegion).isPresent();
   }
 
   @Override
   public boolean isRegionSupported(String userRegion) {
-    Region region = regionByCity.getOrDefault(userRegion, Region.of(userRegion));
+    Region region = regionOf(userRegion);
     return ecsManager.getSupportedRegions().contains(region.id());
   }
 
@@ -70,7 +55,7 @@ public class TailscaleEcsNodeService implements TailscaleNodeService {
   public EcsNode runNode(String userRegion, NodeOrigin origin, String userHostName,
                          Map<String, String> environment) {
     String userTgId = String.valueOf(origin.userId());
-    Region region = regionByCity.getOrDefault(userRegion, Region.of(userRegion));
+    Region region = regionOf(userRegion);
 
     String hostName = userHostName;
     if (userHostName == null) {
@@ -106,7 +91,7 @@ public class TailscaleEcsNodeService implements TailscaleNodeService {
 
   @Override
   public String toRegionId(String userRegion) {
-    return regionByCity.getOrDefault(userRegion, Region.of(userRegion)).id();
+    return regionOf(userRegion).id();
   }
 
   private String chooseHostName(String hostNamePrefix, String regionId) {
@@ -128,7 +113,7 @@ public class TailscaleEcsNodeService implements TailscaleNodeService {
   }
 
   private String suggestHostName(String hostNamePrefix, String regionId, int nodeNumber) {
-    String city = cityByRegion.get(regionId);
+    String city = cityByRegion().get(regionId);
     return sanitizeHostName("%s-%s-%d".formatted(hostNamePrefix, city, nodeNumber));
   }
 
@@ -137,11 +122,11 @@ public class TailscaleEcsNodeService implements TailscaleNodeService {
   }
 
   @Override
-  public List<EcsNode> listTasks(String userTgId) {
+  public List<EcsNode> listNodes(String userId) {
     Map<String, String> matchingTags = new HashMap<>();
     matchingTags.put(config.getServiceNameTag(), config.getServiceName());
-    if (userTgId != null) {
-      matchingTags.put(config.getRunByTag(), userTgId);
+    if (userId != null) {
+      matchingTags.put(config.getRunByTag(), userId);
     }
 
     return ecsManager.listTasks(matchingTags);
@@ -151,12 +136,29 @@ public class TailscaleEcsNodeService implements TailscaleNodeService {
   public List<String> getSupportedRegionDescriptions() {
     return ecsManager.getSupportedRegions()
         .stream()
-        .map(region -> "%s (%s)".formatted(this.cityByRegion.get(region), region))
+        .map(region -> "%s (%s)".formatted(cityByRegion().get(region), region))
         .toList();
   }
 
   @Override
   public Set<String> getSupportedRegionIds() {
     return ecsManager.getSupportedRegions();
+  }
+
+  private Map<String, String> cityByRegion() {
+    return awsConfig.getRegionCities();
+  }
+
+  /** The region named by its id or by its city. */
+  private Region regionOf(String userRegion) {
+    return regionOfCity(userRegion).orElseGet(() -> Region.of(userRegion));
+  }
+
+  private Optional<Region> regionOfCity(String city) {
+    return cityByRegion().entrySet()
+        .stream()
+        .filter(entry -> entry.getValue().equals(city))
+        .map(entry -> Region.of(entry.getKey()))
+        .findFirst();
   }
 }

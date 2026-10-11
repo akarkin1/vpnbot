@@ -78,11 +78,15 @@ EC2 instance that needs AMI patching.
 
 ## Later
 
-- **Phase 4 – access & admin** (spec: `docs/specs/access-admin-phase4.md`, branch
-  `feature/access-admin`, implemented – to deploy): permissions and node ownership keyed by Telegram user id (lazy migration
-  of the username-keyed records); "Request access" button → admins get role buttons → requester
-  notified; Users screen with role toggles and 🗑; housekeeping: `java-tests.yml` on pull requests,
-  node image on Python 3.11.
+- **Phase 4 – access & admin** (spec: `docs/specs/access-admin-phase4.md`, deployed 2026-10-11):
+  permissions and node ownership keyed by Telegram user id (pending users activated at first
+  contact); "Request access" button → admins get role checkboxes → requester notified; Users screen
+  with role toggles and 🗑; housekeeping: `java-tests.yml` on pull requests, node image on Python 3.11.
+- **Clean-up 2026.10** (spec: `docs/specs/cleanup-2026-10.md`, branch `feature/cleanup-3.0`,
+  implemented – PR open, to deploy): system commands only (`/help`, `/version`, `/supportedRegions`, `/describeRoles`), the
+  rest retired with `TgRequestContext` and `BotCommunicator`; pending users deprecated (removed
+  later, once none is left); composition root `VpnBot`; sealed `UiAction`; `LAMBDA_JAR_BUCKET`, version read from the pom; calendar versioning
+  (`2026.10`; `2.0` = `release/2.0`).
 - **Phase 5 – region requests**: "🌍 Other region…" lists regions enabled in the account
   (`ec2:DescribeRegions`) that are not set up yet; tapping one sends the admin a request with
   `[✅ Deployed, notify] [✖ Decline]`.

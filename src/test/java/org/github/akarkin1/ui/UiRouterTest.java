@@ -35,8 +35,10 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -84,19 +86,49 @@ class UiRouterTest {
   }
 
   @Test
-  @DisplayName("4 AC-8: ACCESS_TOGGLE callback is answered first, then toggles the role with id and mask")
+  @DisplayName("4 AC-8, cleanup AC-6: ACCESS_TOGGLE callback is answered first, then toggles the role with the id and the role set of the mask")
   void accessToggleCallback() {
     router.handle(callbackUpdate("ACCESS_TOGGLE:9999999999:5:READ_ONLY"));
 
     InOrder inOrder = inOrder(messenger, accessController);
     inOrder.verify(messenger).answerCallback(CALLBACK_ID);
-    inOrder.verify(accessController).toggle(CONTEXT, MESSAGE_ID, 9_999_999_999L, 5, UserRole.READ_ONLY);
+    inOrder.verify(accessController).toggle(CONTEXT, MESSAGE_ID, 9_999_999_999L,
+                                            Set.of(UserRole.NODE_ADMIN, UserRole.USER_ADMIN),
+                                            UserRole.READ_ONLY);
     verify(accessController, never()).grant(any(), any(), anyLong(), any());
     verify(accessController, never()).decline(any(), any(), anyLong());
   }
 
   @Test
-  @DisplayName("4 AC-8: ACCESS_GRANT callback grants the roles of the mask")
+  @DisplayName("cleanup AC-6: ACCESS_TOGGLE:123:5:READ_ONLY toggles READ_ONLY within {NODE_ADMIN, USER_ADMIN} of user 123")
+  void accessToggleTypedArguments() {
+    router.handle(callbackUpdate("ACCESS_TOGGLE:123:5:READ_ONLY"));
+
+    verify(accessController).toggle(CONTEXT, MESSAGE_ID, 123L,
+                                    Set.of(UserRole.NODE_ADMIN, UserRole.USER_ADMIN), UserRole.READ_ONLY);
+    verifyNoInteractions(usersController, homeController);
+  }
+
+  @Test
+  @DisplayName("cleanup AC-6: ACCESS_TOGGLE with mask 0 toggles within the empty set (only a grant with no role is ignored)")
+  void accessToggleEmptySelection() {
+    router.handle(callbackUpdate("ACCESS_TOGGLE:123:0:NODE_ADMIN"));
+
+    verify(accessController).toggle(CONTEXT, MESSAGE_ID, 123L, Set.of(), UserRole.NODE_ADMIN);
+  }
+
+  @Test
+  @DisplayName("cleanup AC-6: the data a factory encodes reaches the controller with the same typed arguments")
+  void factoryEncodedToggleRoundTripsThroughRouter() {
+    String data = UiAction.accessToggle(123L, Set.of(UserRole.READ_ONLY), UserRole.USER_ADMIN).encode();
+
+    router.handle(callbackUpdate(data));
+
+    verify(accessController).toggle(CONTEXT, MESSAGE_ID, 123L, Set.of(UserRole.READ_ONLY), UserRole.USER_ADMIN);
+  }
+
+  @Test
+  @DisplayName("4 AC-8, cleanup AC-6: ACCESS_GRANT callback grants the role set of the mask")
   void accessGrantCallback() {
     router.handle(callbackUpdate("ACCESS_GRANT:123:5"));
 
@@ -104,10 +136,20 @@ class UiRouterTest {
     inOrder.verify(messenger).answerCallback(CALLBACK_ID);
     inOrder.verify(accessController).grant(CONTEXT, MESSAGE_ID, 123L,
                                            Set.of(UserRole.NODE_ADMIN, UserRole.USER_ADMIN));
+    verify(accessController, never()).toggle(any(), any(), anyLong(), any(), any());
   }
 
   @Test
-  @DisplayName("4 AC-5, §4.3: ACCESS_GRANT with mask 0 only answers the callback, nothing changes")
+  @DisplayName("cleanup AC-6: ACCESS_GRANT with mask 7 grants all three roles")
+  void accessGrantAllRoles() {
+    router.handle(callbackUpdate("ACCESS_GRANT:123:7"));
+
+    verify(accessController).grant(CONTEXT, MESSAGE_ID, 123L,
+                                   Set.of(UserRole.NODE_ADMIN, UserRole.READ_ONLY, UserRole.USER_ADMIN));
+  }
+
+  @Test
+  @DisplayName("4 AC-5, §4.3, cleanup §4.4: ACCESS_GRANT with an empty role set (mask 0) only answers the callback, nothing changes")
   void accessGrantWithoutRolesOnlyAnswers() {
     router.handle(callbackUpdate("ACCESS_GRANT:123:0"));
 
@@ -149,6 +191,17 @@ class UiRouterTest {
   }
 
   @Test
+  @DisplayName("cleanup AC-6, D-6: USER:@alice (a pending user's key) shows the user card of @alice")
+  void pendingUserCallback() {
+    router.handle(callbackUpdate("USER:@alice"));
+
+    InOrder inOrder = inOrder(messenger, usersController);
+    inOrder.verify(messenger).answerCallback(CALLBACK_ID);
+    inOrder.verify(usersController).showUser(CONTEXT, MESSAGE_ID, "@alice");
+    verifyNoInteractions(accessController, homeController);
+  }
+
+  @Test
   @DisplayName("4 AC-8: USER_ROLE callback toggles the role of the user")
   void userRoleCallback() {
     router.handle(callbackUpdate("USER_ROLE:@carol:USER_ADMIN"));
@@ -183,6 +236,22 @@ class UiRouterTest {
 
     verify(homeController).refreshHome(CONTEXT, MESSAGE_ID);
     verifyNoInteractions(accessController, usersController);
+  }
+
+  @Test
+  @DisplayName("cleanup AC-6: undecodable data (USER:alice, USER:@a:b, ACCESS_GRANT:123:9, RUN:, HOME:x, NOPE, …) is answered and refreshes home, no other controller is called")
+  void invalidDataRefreshesHome() {
+    List<String> invalid = List.of("USER:alice", "USER:@a:b", "USER:@", "ACCESS_GRANT:123:9",
+                                   "ACCESS_TOGGLE:0:1:NODE_ADMIN", "ACCESS_TOGGLE:1:1:ADMIN",
+                                   "RUN:", "HOME:x", "RUN", "NOPE", "");
+    for (String data : invalid) {
+      router.handle(callbackUpdate(data));
+    }
+
+    verify(messenger, times(invalid.size())).answerCallback(CALLBACK_ID);
+    verify(homeController, times(invalid.size())).refreshHome(CONTEXT, MESSAGE_ID);
+    verifyNoMoreInteractions(homeController);
+    verifyNoInteractions(launchController, nodeController, accessController, usersController);
   }
 
   @Test

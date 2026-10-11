@@ -1,11 +1,15 @@
 package org.github.akarkin1.ui.screen;
 
 import org.github.akarkin1.auth.AccessRequest;
+import org.github.akarkin1.auth.RoleSet;
 import org.github.akarkin1.auth.UserRole;
+import org.github.akarkin1.ui.UiAction;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
@@ -14,6 +18,7 @@ import static org.github.akarkin1.ui.screen.ScreenTestSupport.MENU;
 import static org.github.akarkin1.ui.screen.ScreenTestSupport.buttons;
 import static org.github.akarkin1.ui.screen.ScreenTestSupport.render;
 import static org.github.akarkin1.ui.screen.ScreenTestSupport.renderedLabels;
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -146,6 +151,44 @@ class AccessScreensTest {
                      List.of(new Button("✅ ${ui.button.grant}", "ACCESS_GRANT:123456789:5", null),
                              new Button("✖ ${ui.button.decline}", "ACCESS_DECLINE:123456789", null))),
                  screen.keyboard());
+  }
+
+  @Test
+  @DisplayName("cleanup AC-6, D-6: for every selection the checkboxes encode ACCESS_TOGGLE:<id>:<mask>:<ROLE> and Grant ACCESS_GRANT:<id>:<mask>, mask = RoleSet.encode(selected)")
+  void adminRequestKeyboardEveryMask() {
+    List<Executable> checks = new ArrayList<>();
+    for (int mask = 0; mask <= RoleSet.ALL; mask++) {
+      Set<UserRole> selected = RoleSet.decode(mask);
+      List<String> expected = new ArrayList<>();
+      for (UserRole role : RoleSet.ROLES) {
+        expected.add("ACCESS_TOGGLE:123456789:" + mask + ":" + role.name());
+      }
+      expected.add("ACCESS_GRANT:123456789:" + mask);
+      expected.add("ACCESS_DECLINE:123456789");
+      List<String> data = buttons(screens.adminRequest(REQUEST, selected)).stream()
+          .map(Button::callbackData)
+          .toList();
+      checks.add(() -> assertEquals(expected, data, "selected " + selected));
+    }
+    assertAll(checks);
+  }
+
+  @Test
+  @DisplayName("cleanup AC-6: the adminRequest buttons decode to the typed records with the requester's id and the selected set")
+  void adminRequestButtonsDecodeToRecords() {
+    Set<UserRole> selected = Set.of(UserRole.NODE_ADMIN, UserRole.USER_ADMIN);
+    List<UiAction> expected = new ArrayList<>();
+    RoleSet.ROLES.forEach(role -> expected.add(UiAction.accessToggle(USER_ID, selected, role)));
+    expected.add(UiAction.accessGrant(USER_ID, selected));
+    expected.add(UiAction.accessDecline(USER_ID));
+
+    List<UiAction> decoded = buttons(screens.adminRequest(REQUEST, selected)).stream()
+        .map(button -> UiAction.decode(button.callbackData()).orElseThrow())
+        .toList();
+
+    assertEquals(expected, decoded);
+    assertEquals(new UiAction.AccessToggle(USER_ID, selected, UserRole.READ_ONLY), decoded.get(1));
+    assertEquals(new UiAction.AccessGrant(USER_ID, selected), decoded.get(3));
   }
 
   @Test

@@ -23,6 +23,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -212,11 +213,11 @@ class AccessControllerTest {
   // --- toggle ----------------------------------------------------------------------------------
 
   @Test
-  @DisplayName("4 AC-5: a role tap redraws the message with the role ticked; nothing is written")
+  @DisplayName("4 AC-5, cleanup §4.4: a role tap redraws the message with the role ticked within the given set; nothing is written")
   void toggleOn() {
     when(requests.find(REQUESTER_ID)).thenReturn(Optional.of(REQUEST));
 
-    controller.toggle(ADMIN, MESSAGE_ID, REQUESTER_ID, 1, UserRole.READ_ONLY);
+    controller.toggle(ADMIN, MESSAGE_ID, REQUESTER_ID, Set.of(UserRole.NODE_ADMIN), UserRole.READ_ONLY);
 
     verify(screens).adminRequest(REQUEST, Set.of(UserRole.NODE_ADMIN, UserRole.READ_ONLY));
     verify(messenger).edit(ADMIN, MESSAGE_ID, ADMIN_REQUEST);
@@ -224,14 +225,40 @@ class AccessControllerTest {
   }
 
   @Test
-  @DisplayName("4 AC-5: a tap on a ticked role unticks it; nothing is written")
+  @DisplayName("4 AC-5, cleanup §4.4: a tap on a ticked role unticks it within the given set; nothing is written")
   void toggleOff() {
     when(requests.find(REQUESTER_ID)).thenReturn(Optional.of(REQUEST));
 
-    controller.toggle(ROOT, MESSAGE_ID, REQUESTER_ID, 3, UserRole.NODE_ADMIN);
+    controller.toggle(ROOT, MESSAGE_ID, REQUESTER_ID, Set.of(UserRole.NODE_ADMIN, UserRole.READ_ONLY),
+                      UserRole.NODE_ADMIN);
 
     verify(screens).adminRequest(REQUEST, Set.of(UserRole.READ_ONLY));
     verify(messenger).edit(ROOT, MESSAGE_ID, ADMIN_REQUEST);
+    assertNothingWritten();
+  }
+
+  @Test
+  @DisplayName("cleanup §4.4: unticking the only ticked role redraws with nothing selected; nothing is written")
+  void toggleLastRoleOff() {
+    when(requests.find(REQUESTER_ID)).thenReturn(Optional.of(REQUEST));
+
+    controller.toggle(ADMIN, MESSAGE_ID, REQUESTER_ID, Set.of(UserRole.USER_ADMIN), UserRole.USER_ADMIN);
+
+    verify(screens).adminRequest(REQUEST, Set.of());
+    verify(messenger).edit(ADMIN, MESSAGE_ID, ADMIN_REQUEST);
+    assertNothingWritten();
+  }
+
+  @Test
+  @DisplayName("cleanup §4.4: a tap with nothing selected ticks just that role; the given set is not modified")
+  void toggleFromEmptySelectionLeavesInputUnchanged() {
+    when(requests.find(REQUESTER_ID)).thenReturn(Optional.of(REQUEST));
+    Set<UserRole> selected = EnumSet.noneOf(UserRole.class);
+
+    controller.toggle(ADMIN, MESSAGE_ID, REQUESTER_ID, selected, UserRole.NODE_ADMIN);
+
+    verify(screens).adminRequest(REQUEST, Set.of(UserRole.NODE_ADMIN));
+    assertEquals(Set.of(), selected, "the caller's set");
     assertNothingWritten();
   }
 
@@ -243,7 +270,7 @@ class AccessControllerTest {
                                                             new AccessScreens(), CLOCK);
     when(requests.find(REQUESTER_ID)).thenReturn(Optional.of(REQUEST));
 
-    withRealScreens.toggle(ADMIN, MESSAGE_ID, REQUESTER_ID, 2, UserRole.USER_ADMIN);
+    withRealScreens.toggle(ADMIN, MESSAGE_ID, REQUESTER_ID, Set.of(UserRole.READ_ONLY), UserRole.USER_ADMIN);
 
     ArgumentCaptor<Screen> screen = ArgumentCaptor.forClass(Screen.class);
     verify(messenger).edit(eq(ADMIN), eq(MESSAGE_ID), screen.capture());
@@ -262,7 +289,7 @@ class AccessControllerTest {
   void toggleNotAllowed() {
     lenient().when(requests.find(REQUESTER_ID)).thenReturn(Optional.of(REQUEST));
 
-    controller.toggle(READER, MESSAGE_ID, REQUESTER_ID, 1, UserRole.READ_ONLY);
+    controller.toggle(READER, MESSAGE_ID, REQUESTER_ID, Set.of(UserRole.NODE_ADMIN), UserRole.READ_ONLY);
 
     verify(messenger).edit(READER, MESSAGE_ID, NOT_ALLOWED);
     verify(screens, never()).adminRequest(any(), any());
@@ -274,7 +301,7 @@ class AccessControllerTest {
   void toggleAlreadyHandled() {
     when(requests.find(REQUESTER_ID)).thenReturn(Optional.empty());
 
-    controller.toggle(ADMIN, MESSAGE_ID, REQUESTER_ID, 1, UserRole.READ_ONLY);
+    controller.toggle(ADMIN, MESSAGE_ID, REQUESTER_ID, Set.of(UserRole.NODE_ADMIN), UserRole.READ_ONLY);
 
     verify(messenger).edit(ADMIN, MESSAGE_ID, ALREADY_HANDLED);
     verify(screens, never()).adminRequest(any(), any());

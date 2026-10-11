@@ -3,21 +3,23 @@ package org.github.akarkin1.dispatcher.command;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.github.akarkin1.auth.Permission;
-import org.github.akarkin1.dispatcher.CommandDispatcher;
-import org.github.akarkin1.dispatcher.response.TextCommandResponse;
+import org.github.akarkin1.dispatcher.CommandCatalog;
+import org.github.akarkin1.ui.UiContext;
+import org.github.akarkin1.ui.screen.Screen;
 
 import java.util.Collections;
 import java.util.List;
 
 @Log4j2
 @RequiredArgsConstructor
-public final class HelpCommand implements BotCommand<TextCommandResponse> {
+public final class HelpCommand implements SystemCommand {
 
-  private final CommandDispatcher commandDispatcher;
+  private final CommandCatalog catalog;
 
   @Override
-  public TextCommandResponse run(List<String> args) {
-    return new TextCommandResponse("${command.help.app-description.message}%n" + commandDispatcher.getSupportedCommands());
+  public Screen run(UiContext context, List<String> args) {
+    return SystemCommand.reply("${command.help.app-description.message}%n"
+                            + catalog.supportedCommands(context.user()));
   }
 
   @Override

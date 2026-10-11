@@ -12,6 +12,9 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+// Pending users are deprecated: pre-registration by username ended with 2026.10. Remove once
+// PENDING_USER records no longer exist (query pk = PENDING_USER); see docs/specs/cleanup-2026-10.md §4.3.
+@SuppressWarnings("removal")
 class PendingUserRecordTest {
 
   private static final TableSchema<PendingUserRecord> SCHEMA =

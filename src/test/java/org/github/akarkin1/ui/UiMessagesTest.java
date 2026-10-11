@@ -23,7 +23,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Checks the real message bundles in {@code src/main/resources}. They are read from the file
- * system because the test classpath has its own {@code messages*.properties}.
+ * system because the test classpath has its own {@code messages*.properties}. Since
+ * cleanup-2026-10 (AC-2) it covers every key family, not only {@code ui.*}.
  */
 class UiMessagesTest {
 
@@ -32,6 +33,29 @@ class UiMessagesTest {
   private static final Path UI_SOURCES = Path.of("src/main/java/org/github/akarkin1/ui");
   private static final Path MAIN_SOURCES = Path.of("src/main/java");
   private static final Pattern UI_KEY_REFERENCE = Pattern.compile("\\$\\{(ui\\.[^}]+)}");
+  /** cleanup-2026-10 AC-2: the key families that must be referenced from Java. */
+  private static final Pattern MESSAGE_KEY_REFERENCE =
+      Pattern.compile("\\$\\{((?:command|common|user|bot|ui)\\.[^}]+)}");
+
+  /** cleanup-2026-10 §4.1: key prefixes deleted with the retired commands. */
+  private static final List<String> CLEANUP_REMOVED_PREFIXES = List.of(
+      "command.run-node.", "command.list-nodes.", "command.assign-roles.", "command.delete-users.",
+      "command.list-users.", "common.node.", "common.region.");
+
+  /** cleanup-2026-10 §4.1: single keys deleted with the retired commands. */
+  private static final List<String> CLEANUP_REMOVED_KEYS = List.of(
+      "common.command.invalid-syntax.message", "common.command.description.message",
+      "common.syntax.not-supported.error");
+
+  /** cleanup-2026-10 §4.1: the system commands keep their texts. */
+  private static final List<String> SYSTEM_COMMAND_KEYS = List.of(
+      "command.help.app-description.message", "command.help.description.message",
+      "command.version.app-version.message", "command.version.description.message",
+      "command.supported-regions.supported-regions.message",
+      "command.supported-regions.no-supported-regions.message",
+      "command.supported-regions.description.message",
+      "command.describe-roles.available-roles.message", "command.describe-roles.description.message",
+      "common.command.not-supported.error", "user.not-authorized.error");
 
   private static final List<String> SPEC_KEYS = List.of(
       "ui.home.greeting", "ui.home.no-access", "ui.home.your-nodes", "ui.home.all-nodes",
@@ -172,7 +196,7 @@ class UiMessagesTest {
   }
 
   @Test
-  @DisplayName("AC-15, stop-in-place AC-4: message files contain only ASCII characters")
+  @DisplayName("AC-15, stop-in-place AC-4, cleanup AC-8: message files contain only ASCII characters")
   void filesAreAscii() throws IOException {
     for (Path file : List.of(EN, RU)) {
       List<String> lines = Files.readAllLines(file, StandardCharsets.ISO_8859_1);
@@ -228,6 +252,60 @@ class UiMessagesTest {
     }
   }
 
+  @Test
+  @DisplayName("cleanup AC-2: both message files have the same key set")
+  void sameKeysInBothFiles() throws IOException {
+    assertEquals(new TreeSet<>(load(EN).stringPropertyNames()),
+                 new TreeSet<>(load(RU).stringPropertyNames()));
+  }
+
+  @Test
+  @DisplayName("cleanup AC-2: every command.*, common.*, user.*, bot.* and ui.* key of messages.properties is referenced as ${key} from src/main/java")
+  void everyKeyIsReferenced() throws IOException {
+    Set<String> used = usedKeys(MAIN_SOURCES, MESSAGE_KEY_REFERENCE);
+
+    for (String key : new TreeSet<>(load(EN).stringPropertyNames())) {
+      if (MESSAGE_KEY_REFERENCE.matcher("${" + key + "}").matches()) {
+        assertTrue(used.contains(key), "not referenced from src/main/java: " + key);
+      }
+    }
+  }
+
+  @Test
+  @DisplayName("cleanup AC-2: every ${command.…}, ${common.…}, ${user.…} and ${bot.…} key used in src/main/java exists in both message files")
+  void usedCommandKeysExistInBothFiles() throws IOException {
+    Properties en = load(EN);
+    Properties ru = load(RU);
+
+    for (String key : usedKeys(MAIN_SOURCES, MESSAGE_KEY_REFERENCE)) {
+      assertTrue(en.containsKey(key), "used but missing in messages.properties: " + key);
+      assertTrue(ru.containsKey(key), "used but missing in messages_ru.properties: " + key);
+    }
+  }
+
+  @Test
+  @DisplayName("cleanup §4.1, AC-2: the keys of the retired commands are gone from both message files")
+  void retiredCommandKeysAreGone() throws IOException {
+    for (Path file : List.of(EN, RU)) {
+      for (String key : load(file).stringPropertyNames()) {
+        assertFalse(CLEANUP_REMOVED_KEYS.contains(key), file + " still has " + key);
+        assertTrue(CLEANUP_REMOVED_PREFIXES.stream().noneMatch(key::startsWith), file + " still has " + key);
+      }
+    }
+  }
+
+  @Test
+  @DisplayName("cleanup §4.1, §6: the system commands keep their keys in both message files")
+  void systemCommandKeysExist() throws IOException {
+    Properties en = load(EN);
+    Properties ru = load(RU);
+
+    for (String key : SYSTEM_COMMAND_KEYS) {
+      assertTrue(en.containsKey(key), "missing in messages.properties: " + key);
+      assertTrue(ru.containsKey(key), "missing in messages_ru.properties: " + key);
+    }
+  }
+
   private static Properties load(Path file) throws IOException {
     Properties properties = new Properties();
     try (InputStream in = Files.newInputStream(file)) {
@@ -247,10 +325,14 @@ class UiMessagesTest {
   }
 
   private static Set<String> usedUiKeys(Path sources) throws IOException {
+    return usedKeys(sources, UI_KEY_REFERENCE);
+  }
+
+  private static Set<String> usedKeys(Path sources, Pattern reference) throws IOException {
     Set<String> keys = new TreeSet<>();
     try (Stream<Path> files = Files.walk(sources)) {
       for (Path file : files.filter(path -> path.toString().endsWith(".java")).toList()) {
-        Matcher matcher = UI_KEY_REFERENCE.matcher(Files.readString(file));
+        Matcher matcher = reference.matcher(Files.readString(file));
         while (matcher.find()) {
           keys.add(matcher.group(1));
         }

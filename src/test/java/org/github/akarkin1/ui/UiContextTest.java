@@ -51,6 +51,9 @@ class UiContextTest {
 
   @Test
   @DisplayName("4 AC-1: a user without a username still carries the user id; user() is not pending")
+  // TgUser.pending() is deprecated: remove this check once PENDING_USER records no longer exist
+  // (query pk = PENDING_USER); see docs/specs/cleanup-2026-10.md §4.3.
+  @SuppressWarnings("removal")
   void userWithoutUsername() {
     UiContext context = UiContext.fromUpdate(messageUpdate(user(null, "Anna", "ru"), "hi"));
 

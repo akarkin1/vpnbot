@@ -61,7 +61,7 @@ class SnapStartPrimerTest {
   }
 
   @Test
-  @DisplayName("AC-P5: with two regions prime() runs permissions, listTasks, getNode + EC2 prime per region (sorted), register and getMe in this order, nothing else")
+  @DisplayName("AC-P5: with two regions prime() runs permissions, listNodes, getNode + EC2 prime per region (sorted), register and getMe in this order, nothing else")
   void primesAllStepsInOrderWithRegions() throws TelegramApiException {
     // Reverse iteration order: the primer has to sort the regions itself.
     when(nodeService.getSupportedRegionIds()).thenReturn(new LinkedHashSet<>(List.of(US, EU)));
@@ -71,7 +71,7 @@ class SnapStartPrimerTest {
     InOrder inOrder = inOrder(permissionsService, nodeService, ec2ClientPool, eventsRegistry,
                               sender);
     inOrder.verify(permissionsService).getUsers();
-    inOrder.verify(nodeService).listTasks(SnapStartPrimer.PRIMER_USER);
+    inOrder.verify(nodeService).listNodes(SnapStartPrimer.PRIMER_USER);
     inOrder.verify(nodeService).getSupportedRegionIds();
     inOrder.verify(nodeService).getNode(EU, SnapStartPrimer.PRIMER_TASK_ID);
     inOrder.verify(ec2ClientPool).prime(EU);
@@ -95,7 +95,7 @@ class SnapStartPrimerTest {
 
     InOrder inOrder = inOrder(permissionsService, nodeService, eventsRegistry, sender);
     inOrder.verify(permissionsService).getUsers();
-    inOrder.verify(nodeService).listTasks(SnapStartPrimer.PRIMER_USER);
+    inOrder.verify(nodeService).listNodes(SnapStartPrimer.PRIMER_USER);
     inOrder.verify(nodeService).getSupportedRegionIds();
     ArgumentCaptor<Update> update = ArgumentCaptor.forClass(Update.class);
     inOrder.verify(eventsRegistry).register(update.capture());
@@ -128,10 +128,10 @@ class SnapStartPrimerTest {
   }
 
   @Test
-  @DisplayName("AC-P2: a failing listTasks step does not stop the other steps")
-  void listTasksFailureIsSwallowed() throws TelegramApiException {
+  @DisplayName("AC-P2: a failing listNodes step does not stop the other steps")
+  void listNodesFailureIsSwallowed() throws TelegramApiException {
     givenTwoRegions();
-    when(nodeService.listTasks(SnapStartPrimer.PRIMER_USER))
+    when(nodeService.listNodes(SnapStartPrimer.PRIMER_USER))
         .thenThrow(new RuntimeException("ecs down"));
 
     assertDoesNotThrow(primer::prime);
@@ -204,7 +204,7 @@ class SnapStartPrimerTest {
     assertDoesNotThrow(primer::prime);
 
     verify(permissionsService).getUsers();
-    verify(nodeService).listTasks(SnapStartPrimer.PRIMER_USER);
+    verify(nodeService).listNodes(SnapStartPrimer.PRIMER_USER);
     verify(nodeService, never()).getNode(anyString(), anyString());
     verifyNoInteractions(ec2ClientPool);
     verify(eventsRegistry).register(any(Update.class));
@@ -225,7 +225,7 @@ class SnapStartPrimerTest {
 
   private void verifyAllStepsCalled() throws TelegramApiException {
     verify(permissionsService).getUsers();
-    verify(nodeService).listTasks(SnapStartPrimer.PRIMER_USER);
+    verify(nodeService).listNodes(SnapStartPrimer.PRIMER_USER);
     verify(nodeService).getSupportedRegionIds();
     verify(nodeService).getNode(EU, SnapStartPrimer.PRIMER_TASK_ID);
     verify(nodeService).getNode(US, SnapStartPrimer.PRIMER_TASK_ID);

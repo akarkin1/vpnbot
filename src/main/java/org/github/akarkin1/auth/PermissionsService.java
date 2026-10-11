@@ -1,11 +1,11 @@
 package org.github.akarkin1.auth;
 
+import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
+import java.util.Set;
 
-public interface PermissionsService extends UserSignupService {
+public interface PermissionsService {
 
   /**
    * Every known user with their permissions: {@code USER} records (id + username) and
@@ -14,30 +14,24 @@ public interface PermissionsService extends UserSignupService {
   Map<TgUser, List<Permission>> getUsers();
 
   /**
-   * Finds a known user by username, ignoring case and a leading {@code @}. A user with an id
-   * ({@code USER} record) wins over a pending one with the same username.
+   * Replaces the user's permissions: a user with an id is kept in a {@code USER} record (the
+   * username attribute is the given one, or the stored one when null), a user without an id in a
+   * {@code PENDING_USER} record keyed by the username. Null or empty permissions delete that record.
    */
-  default Optional<TgUser> findByUsername(String username) {
-    if (username == null) {
-      return Optional.empty();
-    }
-    String wanted = (username.startsWith("@") ? username.substring(1) : username)
-        .toLowerCase(Locale.ROOT);
-    if (wanted.isEmpty()) {
-      return Optional.empty();
+  void updateUserPermissions(TgUser user, Set<Permission> permissions);
+
+  default void deleteUser(TgUser user) {
+    this.updateUserPermissions(user, null);
+  }
+
+  /** Replaces the user's permissions with the union of the roles' permissions. */
+  default void assignRolesToUser(TgUser user, Set<UserRole> roles) {
+    Set<Permission> allPermissions = new HashSet<>();
+    for (UserRole role : roles) {
+      allPermissions.addAll(RoleSet.permissions(role));
     }
 
-    Optional<TgUser> pendingMatch = Optional.empty();
-    for (TgUser user : getUsers().keySet()) {
-      if (user.username() == null || !wanted.equals(user.username().toLowerCase(Locale.ROOT))) {
-        continue;
-      }
-      if (!user.pending()) {
-        return Optional.of(user);
-      }
-      pendingMatch = Optional.of(user);
-    }
-    return pendingMatch;
+    this.updateUserPermissions(user, allPermissions);
   }
 
 }

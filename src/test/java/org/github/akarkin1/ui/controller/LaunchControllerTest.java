@@ -49,7 +49,6 @@ class LaunchControllerTest {
                                                                     "TG_MESSAGE_ID", "77");
   private static final EcsNode TASK = EcsNode.builder()
       .id("task-1")
-      .cluster("cluster-1")
       .region(Region.EU_CENTRAL_1)
       .build();
   private static final EcsNode OWN_NODE_HERE = node("task-1", "alex-frankfurt-1", Region.EU_CENTRAL_1);
@@ -121,7 +120,7 @@ class LaunchControllerTest {
     inOrder.verify(messenger).edit(CONTEXT, MESSAGE_ID, STARTING);
     inOrder.verify(messenger).edit(CONTEXT, MESSAGE_ID, REGION_UNAVAILABLE);
     verify(nodeService, never()).runNode(any(), any(), any(), any());
-    verify(nodeService, never()).listTasks(any());
+    verify(nodeService, never()).listNodes(any());
     verifyNoInteractions(nodeNotifications);
   }
 
@@ -153,7 +152,7 @@ class LaunchControllerTest {
     InOrder inOrder = inOrder(messenger, nodeService, nodeNotifications);
     inOrder.verify(messenger).edit(CONTEXT, MESSAGE_ID, STARTING);
     inOrder.verify(nodeService).getSupportedRegionIds();
-    inOrder.verify(nodeService).listTasks("7");
+    inOrder.verify(nodeService).listNodes("7");
     inOrder.verify(nodeNotifications).build(CONTEXT, MESSAGE_ID, REGION);
     inOrder.verify(nodeService).runNode(REGION, OWNER, null, ENV);
     inOrder.verify(messenger).edit(CONTEXT, MESSAGE_ID, WAITING);
@@ -179,7 +178,7 @@ class LaunchControllerTest {
     inOrder.verify(messenger).edit(CONTEXT, MESSAGE_ID, FAILED);
     verify(messenger, never()).edit(CONTEXT, MESSAGE_ID, WAITING);
     verify(nodeService).getSupportedRegionIds();
-    verify(nodeService).listTasks("7");
+    verify(nodeService).listNodes("7");
     verifyNoMoreInteractions(nodeService);
   }
 
@@ -188,7 +187,7 @@ class LaunchControllerTest {
   void launchShowsExistingNodes() {
     allowRun();
     supportRegion();
-    when(nodeService.listTasks("7")).thenReturn(List.of(OWN_NODE_HERE));
+    when(nodeService.listNodes("7")).thenReturn(List.of(OWN_NODE_HERE));
     when(launchScreens.existingNodes(REGION, List.of(OWN_NODE_HERE))).thenReturn(EXISTING);
 
     controller.launch(CONTEXT, MESSAGE_ID, REGION);
@@ -196,7 +195,7 @@ class LaunchControllerTest {
     InOrder inOrder = inOrder(messenger, nodeService);
     inOrder.verify(messenger).edit(CONTEXT, MESSAGE_ID, STARTING);
     inOrder.verify(nodeService).getSupportedRegionIds();
-    inOrder.verify(nodeService).listTasks("7");
+    inOrder.verify(nodeService).listNodes("7");
     inOrder.verify(messenger).edit(CONTEXT, MESSAGE_ID, EXISTING);
     verify(nodeService, never()).runNode(any(), any(), any(), any());
     verify(messenger, never()).edit(CONTEXT, MESSAGE_ID, WAITING);
@@ -209,7 +208,7 @@ class LaunchControllerTest {
     allowRun();
     supportRegion();
     EcsNode secondHere = node("task-3", "alex-frankfurt-2", Region.EU_CENTRAL_1);
-    when(nodeService.listTasks("7"))
+    when(nodeService.listNodes("7"))
         .thenReturn(List.of(OWN_NODE_HERE, OWN_NODE_ELSEWHERE, secondHere));
     when(launchScreens.existingNodes(REGION, List.of(OWN_NODE_HERE, secondHere)))
         .thenReturn(EXISTING);
@@ -225,7 +224,7 @@ class LaunchControllerTest {
   void nodesInOtherRegionsOnly() {
     allowRun();
     supportRegion();
-    when(nodeService.listTasks("7")).thenReturn(List.of(OWN_NODE_ELSEWHERE));
+    when(nodeService.listNodes("7")).thenReturn(List.of(OWN_NODE_ELSEWHERE));
     when(nodeNotifications.build(CONTEXT, MESSAGE_ID, REGION)).thenReturn(ENV);
     when(nodeService.runNode(REGION, OWNER, null, ENV)).thenReturn(TASK);
 
@@ -243,7 +242,7 @@ class LaunchControllerTest {
     supportRegion();
     EcsNode untagged = node("task-4", "legacy-frankfurt-1", Region.EU_CENTRAL_1, null);
     EcsNode bobs = node("task-5", "bob-frankfurt-1", Region.EU_CENTRAL_1, "8");
-    when(nodeService.listTasks("7")).thenReturn(List.of(untagged, bobs));
+    when(nodeService.listNodes("7")).thenReturn(List.of(untagged, bobs));
     when(nodeNotifications.build(CONTEXT, MESSAGE_ID, REGION)).thenReturn(ENV);
     when(nodeService.runNode(REGION, OWNER, null, ENV)).thenReturn(TASK);
 
@@ -261,7 +260,7 @@ class LaunchControllerTest {
     supportRegion();
     EcsNode untagged = node("task-4", "legacy-frankfurt-1", Region.EU_CENTRAL_1, null);
     EcsNode bobs = node("task-5", "bob-frankfurt-1", Region.EU_CENTRAL_1, "8");
-    when(nodeService.listTasks("7")).thenReturn(List.of(untagged, OWN_NODE_HERE, bobs));
+    when(nodeService.listNodes("7")).thenReturn(List.of(untagged, OWN_NODE_HERE, bobs));
     when(launchScreens.existingNodes(REGION, List.of(OWN_NODE_HERE))).thenReturn(EXISTING);
 
     controller.launch(CONTEXT, MESSAGE_ID, REGION);
@@ -275,7 +274,7 @@ class LaunchControllerTest {
   void reuseCheckFailureShowsFailed() {
     allowRun();
     supportRegion();
-    when(nodeService.listTasks("7")).thenThrow(new IllegalStateException("ECS down"));
+    when(nodeService.listNodes("7")).thenThrow(new IllegalStateException("ECS down"));
 
     controller.launch(CONTEXT, MESSAGE_ID, REGION);
 
@@ -298,8 +297,8 @@ class LaunchControllerTest {
 
     controller.launch(CONTEXT, MESSAGE_ID, REGION);
 
-    verify(nodeService).listTasks("7");
-    verify(nodeService, never()).listTasks(null);
+    verify(nodeService).listNodes("7");
+    verify(nodeService, never()).listNodes(null);
     verify(nodeService).runNode(REGION, OWNER, null, ENV);
   }
 
@@ -321,7 +320,7 @@ class LaunchControllerTest {
   void launchAnotherSkipsReuseCheck() {
     allowRun();
     supportRegion();
-    lenient().when(nodeService.listTasks("7")).thenReturn(List.of(OWN_NODE_HERE));
+    lenient().when(nodeService.listNodes("7")).thenReturn(List.of(OWN_NODE_HERE));
     when(nodeNotifications.build(CONTEXT, MESSAGE_ID, REGION)).thenReturn(ENV);
     when(nodeService.runNode(REGION, OWNER, null, ENV)).thenReturn(TASK);
 
@@ -333,7 +332,7 @@ class LaunchControllerTest {
     inOrder.verify(nodeNotifications).build(CONTEXT, MESSAGE_ID, REGION);
     inOrder.verify(nodeService).runNode(REGION, OWNER, null, ENV);
     inOrder.verify(messenger).edit(CONTEXT, MESSAGE_ID, WAITING);
-    verify(nodeService, never()).listTasks(any());
+    verify(nodeService, never()).listNodes(any());
     verify(launchScreens, never()).existingNodes(any(), any());
   }
 
@@ -462,7 +461,7 @@ class LaunchControllerTest {
 
     controller.launch(anna, MESSAGE_ID, REGION);
 
-    verify(nodeService).listTasks("11");
+    verify(nodeService).listNodes("11");
     verify(nodeService).runNode(REGION, new NodeOrigin(11L, null, 100L, "en-US"), null, ENV);
     verify(messenger).edit(anna, MESSAGE_ID, WAITING);
   }
@@ -472,12 +471,12 @@ class LaunchControllerTest {
   void reuseCheckByUserId() {
     allowRun();
     supportRegion();
-    when(nodeService.listTasks("7")).thenReturn(List.of(OWN_NODE_HERE));
+    when(nodeService.listNodes("7")).thenReturn(List.of(OWN_NODE_HERE));
     when(launchScreens.existingNodes(REGION, List.of(OWN_NODE_HERE))).thenReturn(EXISTING);
 
     controller.launch(CONTEXT, MESSAGE_ID, REGION);
 
-    verify(nodeService, never()).listTasks("alex");
+    verify(nodeService, never()).listNodes("alex");
     verify(messenger).edit(CONTEXT, MESSAGE_ID, EXISTING);
   }
 

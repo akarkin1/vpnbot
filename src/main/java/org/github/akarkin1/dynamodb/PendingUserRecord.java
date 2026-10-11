@@ -14,7 +14,12 @@ import java.util.Set;
  * The permissions of a user pre-registered by username who has not contacted the bot yet
  * (pk {@code PENDING_USER}, sk username as typed by the admin, without {@code @}). Becomes a
  * {@link UserRecord} at the user's first request.
+ *
+ * @deprecated Pre-registration by username ended with 2026.10. Remove once
+ *     {@code PENDING_USER} records no longer exist (query {@code pk = PENDING_USER}); see
+ *     docs/specs/cleanup-2026-10.md §4.3.
  */
+@Deprecated(forRemoval = true)
 @DynamoDbBean
 @Data
 @NoArgsConstructor

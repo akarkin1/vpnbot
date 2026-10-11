@@ -24,7 +24,8 @@ import java.util.stream.Collectors;
  * a user without permissions has no record.
  */
 @Log4j2
-@RequiredArgsConstructor
+// Pre-registration by username ended with 2026.10. Remove once PENDING_USER records no longer exist (query pk = PENDING_USER); see docs/specs/cleanup-2026-10.md §4.3.
+@RequiredArgsConstructor(onConstructor_ = @SuppressWarnings("removal"))
 public class DynamoDbPermissionsService implements PermissionsService {
 
   private static final Set<String> KNOWN_PERMISSIONS = Arrays.stream(Permission.values())
@@ -32,6 +33,8 @@ public class DynamoDbPermissionsService implements PermissionsService {
       .collect(Collectors.toUnmodifiableSet());
 
   private final DynamoDbTable<UserRecord> users;
+  // Pre-registration by username ended with 2026.10. Remove once PENDING_USER records no longer exist (query pk = PENDING_USER); see docs/specs/cleanup-2026-10.md §4.3.
+  @SuppressWarnings("removal")
   private final DynamoDbTable<PendingUserRecord> pendingUsers;
   private final RequestMetrics metrics;
 
@@ -40,9 +43,7 @@ public class DynamoDbPermissionsService implements PermissionsService {
     List<UserRecord> userRecords = metrics.time(
         MetricComponent.DYNAMODB,
         () -> users.query(allOf(UserRecord.TYPE)).items().stream().toList());
-    List<PendingUserRecord> pendingRecords = metrics.time(
-        MetricComponent.DYNAMODB,
-        () -> pendingUsers.query(allOf(PendingUserRecord.TYPE)).items().stream().toList());
+    Map<TgUser, List<Permission>> pending = getPendingUsers();
 
     Map<TgUser, List<Permission>> result = new LinkedHashMap<>();
     for (UserRecord record : userRecords) {
@@ -54,7 +55,26 @@ public class DynamoDbPermissionsService implements PermissionsService {
       result.put(new TgUser(id, record.getUsername()),
                  toPermissions(record.getPermissions(), record.getUserId()));
     }
-    for (PendingUserRecord record : pendingRecords) {
+    result.putAll(pending);
+    return result;
+  }
+
+  /**
+   * The users of the {@code PENDING_USER} records, keyed by username without an id.
+   *
+   * @deprecated Pre-registration by username ended with 2026.10. Remove once
+   *     {@code PENDING_USER} records no longer exist (query {@code pk = PENDING_USER}); see
+   *     docs/specs/cleanup-2026-10.md §4.3.
+   */
+  @Deprecated(forRemoval = true)
+  // Pre-registration by username ended with 2026.10. Remove once PENDING_USER records no longer exist (query pk = PENDING_USER); see docs/specs/cleanup-2026-10.md §4.3.
+  @SuppressWarnings("removal")
+  private Map<TgUser, List<Permission>> getPendingUsers() {
+    List<PendingUserRecord> records = metrics.time(
+        MetricComponent.DYNAMODB,
+        () -> pendingUsers.query(allOf(PendingUserRecord.TYPE)).items().stream().toList());
+    Map<TgUser, List<Permission>> result = new LinkedHashMap<>();
+    for (PendingUserRecord record : records) {
       result.put(new TgUser(null, record.getUsername()),
                  toPermissions(record.getPermissions(), record.getUsername()));
     }
@@ -91,6 +111,8 @@ public class DynamoDbPermissionsService implements PermissionsService {
         .toList();
   }
 
+  // Pre-registration by username ended with 2026.10. Remove once PENDING_USER records no longer exist (query pk = PENDING_USER); see docs/specs/cleanup-2026-10.md §4.3.
+  @SuppressWarnings("removal")
   @Override
   public void updateUserPermissions(TgUser user, Set<Permission> permissions) {
     if (user.pending()) {
@@ -126,6 +148,16 @@ public class DynamoDbPermissionsService implements PermissionsService {
     metrics.time(MetricComponent.DYNAMODB, () -> users.putItem(record));
   }
 
+  /**
+   * Writes or deletes the {@code PENDING_USER} record of {@code username}.
+   *
+   * @deprecated Pre-registration by username ended with 2026.10. Remove once
+   *     {@code PENDING_USER} records no longer exist (query {@code pk = PENDING_USER}); see
+   *     docs/specs/cleanup-2026-10.md §4.3.
+   */
+  @Deprecated(forRemoval = true)
+  // Pre-registration by username ended with 2026.10. Remove once PENDING_USER records no longer exist (query pk = PENDING_USER); see docs/specs/cleanup-2026-10.md §4.3.
+  @SuppressWarnings("removal")
   private void updatePendingUser(String username, Set<Permission> permissions) {
     if (permissions == null || permissions.isEmpty()) {
       Key key = Key.builder()
