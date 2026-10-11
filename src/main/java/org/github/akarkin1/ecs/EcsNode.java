@@ -14,7 +14,6 @@ public class EcsNode {
   private String id;
   private String hostName;
   private String state;
-  private String cluster;
   private String publicIp;
   private String location;
   private Region region;
