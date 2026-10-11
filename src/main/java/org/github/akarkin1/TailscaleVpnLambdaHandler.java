@@ -20,7 +20,7 @@ public class TailscaleVpnLambdaHandler implements
   private static final ObjectMapper MAPPER = new ObjectMapper();
   private static final ErrorScreen ERROR_SCREEN = new ErrorScreen();
   /** Built at class init, so SnapStart snapshots the primed graph. */
-  private static final BotDependencies DEPS = BotDependencies.create();
+  private static final BotDependencies DEPS = BotDependencies.build();
 
   @Override
   public APIGatewayProxyResponseEvent handleRequest(

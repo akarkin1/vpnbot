@@ -463,3 +463,6 @@ final shape) → H1. Each task is one commit series on
   `TailscaleEcsNodeService` computes its region lookups on use instead of in the constructor.
   `VpnBotTest` builds the graph from mocked clients and `FakeTable`s, checks the system-command
   list, the cache and metrics flags and that `prime()` reaches every mock.
+- D-18 (owner) Renames after review: `VpnBot` → `BotDependencies` (`create()` → `build()`),
+  `CommandDispatcher` → `SystemCommandDispatcher`, `BotCommand` → `SystemCommand`; the spec's §4.7/§7
+  keep the names used during implementation.

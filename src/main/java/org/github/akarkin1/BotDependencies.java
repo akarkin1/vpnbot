@@ -86,7 +86,7 @@ public final class BotDependencies {
   private final SnapStartPrimer primer;
 
   /** The bot over the real AWS and Telegram clients, configured from the environment, primed. */
-  public static BotDependencies create() {
+  public static BotDependencies build() {
     Settings settings = Settings.fromEnvironment();
     Externals externals = new Externals(
         DynamoDbEnhancedClient.builder()

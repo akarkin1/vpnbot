@@ -18,7 +18,7 @@ Planned work lives in `docs/roadmap.md`.
 - `java-tests.yml` runs the build and the shell script tests on pull requests.
 - Deployment is manual via GitHub Actions (`.github/workflows/deploy-*.yml`). API Gateway invokes the
   Lambda alias `live` (SnapStart): every code/config deploy ends with `publish-live-version.sh`, which
-  publishes a version and moves the alias. `VpnBot.create()` runs at publish time, not on first request.
+  publishes a version and moves the alias. `BotDependencies.build()` runs at publish time, not on first request.
   The jar lives in the S3 bucket named by the repository variable `LAMBDA_JAR_BUCKET`.
 - Versioning is calendar-based (`YYYY.MM[.N]`, e.g. `2026.10-SNAPSHOT` while in progress); `pom.xml` is
   the only place holding the version (the workflows read it). `2.0` (branch `release/2.0`, tag `v2.0`)
@@ -28,14 +28,14 @@ Planned work lives in `docs/roadmap.md`.
 
 ```
 TailscaleVpnLambdaHandler  (API Gateway → Lambda entry point; the request flow only)
- └─ VpnBot                  composition root: builds the whole object graph from Externals (AWS clients,
+ └─ BotDependencies         composition root: builds the whole object graph from Externals (AWS clients,
                             Telegram sender factory, Clock) + Settings (env + application.yml), primes it
  ├─ UiRouter (ui)           button taps (callback queries: sealed UiAction records), /start, /menu, plain text
  │   ├─ HomeController, LaunchController, NodeController (stop/use) + NodeAccess (ui.controller)
  │   ├─ AccessController (request access → admins' role checkboxes), UsersController (users screen)
  │   ├─ *Screen classes (ui.screen): pure functions, data → Screen (template + params + buttons)
  │   └─ UiMessenger (ui.messenger): sends/edits Telegram messages, translates, HTML-escapes
- └─ CommandDispatcher       system commands /help, /version, /supportedRegions, /describeRoles
+ └─ SystemCommandDispatcher system commands /help, /version, /supportedRegions, /describeRoles
                             (dispatcher.command.*); replies are Screens with a Menu button; any other
                             "/command" gets the "not supported" reply with the /help list
 Services: TailscaleNodeService (tailscale) → EcsManager (ecs); Authorizer + PermissionsService (auth)
@@ -65,7 +65,7 @@ same message into the stopped card – all via the Telegram Bot API.
 ## Conventions
 
 - Constructor injection with `final` fields and Lombok `@RequiredArgsConstructor`; logging with `@Log4j2`.
-- Wiring lives in `VpnBot` (the composition root), not in business code: constructor injection only,
+- Wiring lives in `BotDependencies` (the composition root), not in business code: constructor injection only,
   externals and config passed in, one implementation per interface chosen there, no work in constructors
   beyond assignment, no dependency cycles – so that a DI framework (Dagger) could replace it mechanically
   (docs/specs/cleanup-2026-10.md §4.7).
@@ -81,8 +81,8 @@ same message into the stopped card – all via the Telegram Bot API.
 
 ## Tests
 
-- JUnit 5 + Mockito (`@ExtendWith(MockitoExtension.class)`, `@Mock`), see `CommandDispatcherTest`.
-- `VpnBotTest` builds the whole graph from mocked externals: a wiring regression shows up there.
+- JUnit 5 + Mockito (`@ExtendWith(MockitoExtension.class)`, `@Mock`), see `SystemCommandDispatcherTest`.
+- `BotDependenciesTest` builds the whole graph from mocked externals: a wiring regression shows up there.
 - Test class per production class, in the same package under `src/test/java`.
 - `src/test/resources` has its own `messages*.properties` and `application.yml` that shadow the
   main ones on the test classpath; tests that need the real files read them from `src/main/resources`.
