@@ -53,7 +53,7 @@ class RoleSetTest {
   }
 
   @Test
-  @DisplayName("cleanup §4.5: describe() maps each of the three roles to its permissions (former UserSignupService.describeRoles())")
+  @DisplayName("cleanup §4.5: describe() maps each of the three roles to its permissions (former describeRoles())")
   void describe() {
     Map<UserRole, List<Permission>> expected = Map.of(
         UserRole.NODE_ADMIN, List.of(Permission.SUPPORTED_REGIONS, Permission.LIST_NODES, Permission.RUN_NODES),
