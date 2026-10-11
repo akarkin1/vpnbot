@@ -49,7 +49,6 @@ class LaunchControllerTest {
                                                                     "TG_MESSAGE_ID", "77");
   private static final EcsNode TASK = EcsNode.builder()
       .id("task-1")
-      .cluster("cluster-1")
       .region(Region.EU_CENTRAL_1)
       .build();
   private static final EcsNode OWN_NODE_HERE = node("task-1", "alex-frankfurt-1", Region.EU_CENTRAL_1);
