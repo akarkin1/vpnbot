@@ -8,12 +8,13 @@ Planned work lives in `docs/roadmap.md`.
 ## Build & test
 
 - Java 21, Maven: `mvn -B verify` (compiles, runs unit tests, builds the shaded Lambda jar).
-- Node agent (Python 3.9, deps pinned in `docker/requirements.txt`):
+- Node agent (Python 3.11, deps pinned in `docker/requirements.txt`):
   `cd docker/node_agent && PYTHONPATH=src python3 -m unittest discover -s tests -t .`
   (production code in `docker/node_agent/src/node_agent`, tests in `docker/node_agent/tests`)
 - The build rewrites `dependency-reduced-pom.xml`; never commit that change
   (`git checkout dependency-reduced-pom.xml`).
 - Shell script tests (need `jq`): `.github/scripts/region-item-test.sh`, `.github/scripts/publish-live-version-test.sh`.
+- `java-tests.yml` runs the build and the shell script tests on pull requests.
 - Deployment is manual via GitHub Actions (`.github/workflows/deploy-*.yml`). API Gateway invokes the
   Lambda alias `live` (SnapStart): every code/config deploy ends with `publish-live-version.sh`, which
   publishes a version and moves the alias. The static block runs at publish time, not on first request.
