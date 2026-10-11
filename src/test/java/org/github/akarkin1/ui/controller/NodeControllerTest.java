@@ -414,13 +414,14 @@ class NodeControllerTest {
   // --- identity (Phase 4) --------------------------------------------------------------------
 
   @Test
-  @DisplayName("4 AC-9, D-3: a node started before Phase 4 (RunBy = username) can still be stopped by its owner")
-  void stopLegacyNodeByOwner() {
+  @DisplayName("cleanup AC-5, D-11: a node whose RunBy is the caller's username is not the caller's: stop shows notAllowed and stops nothing")
+  void stopNodeTaggedWithUsernameNotAllowed() {
     when(nodeService.getNode(REGION, TASK_ID)).thenReturn(Optional.of(node("alex", "100", "ru")));
 
     controller.stop(ALEX, MESSAGE_ID, REF);
 
-    verify(nodeService).stopNode(REGION, TASK_ID, "Stopped by @alex via the bot");
+    verify(messenger).edit(ALEX, MESSAGE_ID, NOT_ALLOWED);
+    verify(nodeService, never()).stopNode(any(), any(), any());
     verify(nodeScreens, never()).confirmStop(any());
   }
 
