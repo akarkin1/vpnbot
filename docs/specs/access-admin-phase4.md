@@ -30,30 +30,38 @@ file ownership, `SPEC DEVIATION: <what> / <why> / <proposed option>` escalation)
 
 - `org.github.akarkin1.auth.TgUser(Long id, String username)` (record; one of the two may be null:
   requests always carry the id; a pre-registration carries only the username). `TgUser.key()` = the
-  record key: the id as a decimal string when known, else the username.
+  id as a decimal string when known, else `@username` – used to reference a user in callback data.
   `UiContext` gains `Long userId` (from `User.getId()`), and `UiContext.user()` returns the `TgUser`.
   `TgRequestContext` (legacy, used by text commands) gains `getUser()` returning the same.
 - `Authorizer.hasPermission(TgUser user, Permission permission)` replaces the username variant;
   every caller passes the `TgUser` of the request. The root/"all nodes" checks in `HomeController`,
   `NodeAccess`, `ListNodesCommand` and `CommandDispatcher.checkUserPermissions` use it.
 - `PermissionsService`:
-  - `Map<String, UserEntry> getUsers()` keyed by user id (decimal string), `UserEntry(String username,
-    List<Permission> permissions)`; replaces `getUserPermissions()` (and `UserPermissionsProvider`).
-  - `updateUserPermissions(TgUser user, Set<Permission> permissions)`: non-empty → put the record
-    keyed by `user.key()` with the username as attribute (null username keeps the stored one);
-    null/empty → delete. `assignRolesToUser`/`deleteUser` defaults take a `TgUser` likewise.
-  - `Optional<TgUser> findByUsername(String username)`: the user with that username (attribute or
-    key, case-insensitive, without `@`), for the text commands and the Users screen.
-- `UserRecord`: sk = user id (decimal string) for users who have contacted the bot, or the username
-  for **pending** users (pre-registered by an admin, and the records existing before this phase);
-  attributes `username` (S, nullable), `permissions` (SS). `isUsernameKey(sk)` = sk is not all digits.
-  **Migration on first contact** (D-2): `WhiteListAuthorizer`, on a request by a user with no id-keyed
-  record, looks for a record keyed by the username; if found it writes the id-keyed record (same
-  permissions, `username` attribute) and deletes the old one, in that order, then answers from the new
-  record. Pre-registrations therefore work as today, with the record re-keyed once the user shows up.
-- The workflow bootstrap of the root user (`deploy-tgbot-lambda.yml`) keeps writing the username-keyed
-  record (`TG_ROOT_USERNAME`); it is migrated at the root's next request. Its condition
-  `attribute_not_exists(pk)` still prevents overwriting.
+  - `Map<TgUser, List<Permission>> getUsers()`: every known user – `USER` records (id + username) and
+    `PENDING_USER` records (username only); replaces `getUserPermissions()` (and
+    `UserPermissionsProvider`).
+  - `updateUserPermissions(TgUser user, Set<Permission> permissions)`: with an id → `USER` record
+    (username attribute: the given one, or the stored one when null); without an id → `PENDING_USER`
+    record keyed by the username. Null/empty permissions → delete that record.
+    `assignRolesToUser`/`deleteUser` defaults take a `TgUser` likewise.
+  - `Optional<TgUser> findByUsername(String username)`: case-insensitive, without `@`; a `USER` record
+    with that username attribute wins over a `PENDING_USER` record.
+- Records (§5): `USER` is always keyed by the user id; `PENDING_USER` is keyed by the username and
+  holds the permissions of a user pre-registered by an admin who has not contacted the bot yet.
+  **Activation on first contact** (D-2): `WhiteListAuthorizer`, on a request by a user with no `USER`
+  record, looks for `PENDING_USER` by the request's username; if found it writes the `USER` record
+  (same permissions, `username` attribute) and deletes the pending one, in that order, then answers
+  from the new record. Pre-registration therefore works as today; the record changes type once the
+  user shows up.
+- One-off migration of today's username-keyed `USER` records (D-2): `scripts/migrate-pending-users.sh
+  [--dry-run]` (AWS CLI + `jq`; same style and fake-`aws` test as the Phase 3 script) scans `pk =
+  USER`, and for every item whose sk is not all digits writes `PENDING_USER`/`<sk>` with the same
+  `permissions` and deletes the `USER` item. Run by the owner before the T1 deploy; idempotent.
+- The workflow bootstrap of the root user (`deploy-tgbot-lambda.yml`) writes `PENDING_USER`/
+  `$TG_ROOT_USERNAME` with `ROOT_ACCESS` under the condition `attribute_not_exists(pk)` (so it never
+  overwrites); after the root's first request the `USER` record exists and the condition fails as
+  today. (Until the migration script has run, the old username-keyed `USER` record still answers
+  requests, as the pre-Phase-4 code does.)
 - Node ownership: the `RunBy` tag holds the user id; new tag `RunByName` (config `run-by-name-tag`)
   holds the username for display (`NodeOwner` gains `userId`; `TaskInfo` gains `runByName`).
   `NodeAccess.isOwner` matches `runBy` against the id or, during the transition, the username (D-3).
@@ -118,8 +126,9 @@ Home screen: for users with `USER_MANAGEMENT` (or root) a row `[👥 ${ui.button
 `@username · <roles>` (or `id · <roles>` without a username; a pending user gets the suffix
 `· ${ui.users.pending}`; `RoleFormat.describe`: the `UserRole`s whose permission sets are covered,
 root → `${ui.role.root}`, otherwise the permission names), each `UiAction.user(key)` (`USER:<key>`,
-key = id or `@username`); last row `[🏠 Menu]`. Users are referenced by their record key in every
-callback of this screen (`<key>` below), so pending users can be edited and removed too.
+key = `TgUser.key()`: the id, or `@username` for a pending user); last row `[🏠 Menu]`. Users are
+referenced by that key in every callback of this screen (`<key>` below), so pending users can be
+edited and removed too.
 
 **User card** – `UsersController.showUser(context, messageId, key)` → `usersScreen.user(row)`:
 `👤 <b>@username</b> (id or ${ui.users.pending})\n<roles>` and, unless the target is a root user or the caller:
@@ -155,8 +164,8 @@ root targets even on a forged callback, `deleteUser(row.user())`, back to the li
 
 `/assignRoles`, `/deleteUsers`, `/listRegisteredUsers` keep their syntax and behaviour. Internally a
 `@username` argument is resolved with `findByUsername`; an unknown username in `/assignRoles` creates a
-pending (username-keyed) record exactly as today. `/listRegisteredUsers` prints `@username (id): roles`,
-or `@username (pending): roles` for a pending user. A numeric id is accepted too.
+`PENDING_USER` record, which is what pre-registration meant until now. `/listRegisteredUsers` prints
+`@username (id): roles`, or `@username (pending): roles` for a pending user. A numeric id is accepted too.
 
 ### 4.7 Texts (EN / RU; RU as `\uXXXX` in the properties files)
 
@@ -193,11 +202,12 @@ or `@username (pending): roles` for a pending user. A numeric id is accepted too
 
 | pk | sk | Attributes |
 |---|---|---|
-| `USER` (changed) | user id, or username while pending | `username` (S, nullable), `permissions` (SS) |
+| `USER` (changed) | user id | `username` (S, nullable), `permissions` (SS) |
+| `PENDING_USER` (new) | username (as typed by the admin, without `@`) | `permissions` (SS) |
 | `ACCESS_REQUEST` (new) | user id | `username` (S, nullable), `firstName` (S), `languageCode` (S), `requestedAt` (N, epoch ms), `expiresAt` (N, TTL = requestedAt + 7 days) |
 
-Bean `AccessRequestRecord` in `dynamodb` (same style as the others, keys on Lombok getters);
-`ConfigTables` gains `accessRequests()`. Service `auth.DynamoDbAccessRequestService implements
+Beans `PendingUserRecord` and `AccessRequestRecord` in `dynamodb` (same style as the others, keys on
+Lombok getters); `ConfigTables` gains `pendingUsers()` and `accessRequests()`. Service `auth.DynamoDbAccessRequestService implements
 AccessRequestService` (`find(long id)`, `create(AccessRequest)`, `delete(long id)`), timed as
 `DYNAMODB`. A request that is never decided expires after 7 days (the user can ask again).
 
@@ -219,11 +229,10 @@ on) per region.
 
 ```java
 // auth
-public record TgUser(Long id, String username) { public String key(); }   // id or username, one may be null
+public record TgUser(Long id, String username) { public String key(); boolean pending(); }   // id or username, one may be null; pending = no id
 public interface Authorizer { boolean hasPermission(TgUser user, Permission permission); }
-public record UserEntry(String username, List<Permission> permissions) {}
 public interface PermissionsService extends UserSignupService {
-  Map<String, UserEntry> getUsers();                       // key: user id as decimal string
+  Map<TgUser, List<Permission>> getUsers();                // USER and PENDING_USER records
   Optional<TgUser> findByUsername(String username);
 }
 UserSignupService: updateUserPermissions(TgUser, Set<Permission>); deleteUser(TgUser); assignRolesToUser(TgUser, Set<UserRole>)
@@ -242,7 +251,7 @@ public class UsersController  { show(UiContext, Integer messageId); showUser(UiC
 // ui.screen
 public class AccessScreens { requested(); alreadyRequested(); adminRequest(AccessRequest, Set<UserRole> selected); granted(AccessRequest, Set<UserRole>); declined(AccessRequest); alreadyHandled(); accessGranted(Set<UserRole>); accessDeclined(); notAllowed(); }
 public class UsersScreen   { list(UsersModel); user(UserRow); confirmDelete(UserRow); notAllowed(); }
-public record UsersModel(List<UserRow> users) {}   public record UserRow(TgUser user, List<Permission> permissions, boolean editable) { boolean pending(); }   // editable = not root, not the caller
+public record UsersModel(List<UserRow> users) {}   public record UserRow(TgUser user, List<Permission> permissions, boolean editable) {}   // editable = not root, not the caller; user.pending()
 HomeModel: + boolean canManageUsers, boolean hasAccess
 // tailscale / ecs
 NodeOwner(long userId, String username, Long chatId, String languageCode); TaskInfo + runByName; EcsConfiguration + runByNameTag
@@ -251,13 +260,15 @@ NodeOwner(long userId, String username, Long chatId, String languageCode); TaskI
 ## 8. Acceptance criteria
 
 - AC-1 `UiContext.fromUpdate` carries the user id for messages and callbacks; `user()` matches.
-- AC-2 `WhiteListAuthorizer`: id-keyed record → answers from it; no id record but username record →
-  migrates (put new, delete old, in order) and answers; neither → false; auth disabled → true; root
-  implies every permission.
-- AC-3 `DynamoDbPermissionsService`: `getUsers` maps sk→key and `username` (pending = username key);
-  `updateUserPermissions` writes under `user.key()` and keeps the stored username when the given one
-  is null; `findByUsername` matches the attribute or a username key, case-insensitive, strips `@`;
-  delete on empty permissions.
+- AC-2 `WhiteListAuthorizer`: `USER` record → answers from it; none but a `PENDING_USER` for the
+  username → activates it (put `USER`, delete `PENDING_USER`, in order) and answers; neither → false;
+  auth disabled → true; root implies every permission.
+- AC-3 `DynamoDbPermissionsService`: `getUsers` returns `USER` and `PENDING_USER` records as `TgUser`s
+  (pending = no id); `updateUserPermissions` writes `USER` for an id (keeping the stored username when
+  the given one is null) and `PENDING_USER` otherwise; `findByUsername` is case-insensitive, strips `@`,
+  prefers `USER`; delete on empty permissions.
+- AC-3a `migrate-pending-users.sh` (fake-`aws` test): moves only non-numeric `USER` keys to
+  `PENDING_USER`, keeps numeric ones, `--dry-run` writes nothing, re-run is a no-op.
 - AC-4 `AccessController.request`: the three branches of §4.2; the admin notification goes to each
   admin's user id as chat id, not to non-admins; records the request with `expiresAt` = +7 days.
 - AC-5 `AccessController.toggle`: redraws with the flipped role and the new mask on every button,
@@ -276,23 +287,24 @@ NodeOwner(long userId, String username, Long chatId, String languageCode); TaskI
 - AC-8 `UiAction` round-trips for the nine new types; `UiRouter` dispatches them.
 - AC-9 `NodeAccess.isOwner` matches id, and username during the transition; `runNode` tags `RunBy` =
   id and `RunByName` = username; `getTask`/`listTasks` map `RunByName`.
-- AC-10 Text commands: `/assignRoles @unknown ROLE` creates a pending record; known users are updated
-  under their id; `/listRegisteredUsers` marks pending users; ids are accepted.
+- AC-10 Text commands: `/assignRoles @unknown ROLE` creates a `PENDING_USER` record; known users are
+  updated under their id; `/listRegisteredUsers` marks pending users; ids are accepted.
 - AC-11 Messages: all keys of §4.7 in both files, ASCII only.
 - AC-12 `java-tests.yml` runs on a PR touching `src/**` (checked by opening the PR); Dockerfile builds
   and `python3.11 -m node_agent` starts (checked by the Docker deploy); node tests run on 3.11 in CI.
 
 ## 9. Definition of done
 
-`mvn -B verify`, the Python suite (3.11) and the shell tests pass; every AC has a test; the lazy
-migration has been observed in prod (the root's record re-keyed, the old one gone); no TODOs.
+`mvn -B verify`, the Python suite (3.11) and the shell tests pass; every AC has a test; the activation
+has been observed in prod (the root's `USER` record created, the pending one gone); no TODOs.
 
 ## 10. Tasks and file ownership
 
 | Task | Files |
 |---|---|
 | H1 Housekeeping (tech lead) | `.github/workflows/java-tests.yml`, `node-agent-tests.yml`, `docker/Dockerfile`, `docker/requirements.txt`, `CLAUDE.md` |
-| T1 Identity (Java) | `auth/**`, `dynamodb/UserRecord`, `ui/UiContext`, `TgRequestContext`, `dispatcher/**` (commands), `tailscale/**`, `ecs/**`, `ui/controller/NodeAccess`, `HomeController`, `LaunchController`, `NodeController`, `application.yml` |
+| H2 Migration script (tech lead) | `scripts/migrate-pending-users.sh`, `scripts/migrate-pending-users-test.sh`, `deploy-tgbot-lambda.yml` (root bootstrap → `PENDING_USER`) |
+| T1 Identity (Java) | `auth/**`, `dynamodb/UserRecord`, `dynamodb/PendingUserRecord`, `ConfigTables`, `ui/UiContext`, `TgRequestContext`, `dispatcher/**` (commands), `tailscale/**`, `ecs/**`, `ui/controller/NodeAccess`, `HomeController`, `LaunchController`, `NodeController`, `application.yml` |
 | T2 Identity tests | `src/test/java/**` for T1 |
 | T3 Access + users (Java) | `dynamodb/AccessRequestRecord`, `ConfigTables`, `auth/*AccessRequest*`, `ui/UiAction`, `ui/UiRouter`, `ui/controller/AccessController`, `UsersController`, `ui/screen/AccessScreens`, `UsersScreen`, `HomeScreen`, `HomeModel`, `UiConfigurer`, messages |
 | T4 Access + users tests | `src/test/java/**` for T3 |
@@ -304,19 +316,22 @@ Order: H1 → T1/T2 (deploy, observe the migration) → T3/T4 (deploy).
 
 1. H1: merge-free from the branch: "Deploy Tailscale ECS Resources" (Docker on) per region; open a
    throwaway PR to see `java-tests.yml` run.
-2. T1: "VPN Bot Lambda CI-CD"; open the bot as root → the `USER` record is now keyed by your id with
-   `username` set; every other user's record migrates at their next request. Nodes started before
-   the deploy still show as yours (username match) until they stop.
+2. T1: run `scripts/migrate-pending-users.sh --dry-run`, then for real (today's records become
+   `PENDING_USER`); then "VPN Bot Lambda CI-CD"; open the bot as root → a `USER` record keyed by your
+   id with `username` set appears and your pending record is gone; every other user is activated at
+   their next request. Nodes started before the deploy still show as yours (username match) until
+   they stop.
 3. T3: "VPN Bot Lambda CI-CD"; test with a second Telegram account: request → admin message →
    grant → requester notified → home shows regions; Users screen: list, delete, cancel.
 
 ## 12. Decisions to confirm (review)
 
-- D-1 Keying by user id keeps pre-registration by username: such a record stays username-keyed
-  ("pending") until the user's first contact, then it is re-keyed (same mechanism as the migration of
-  today's records). The text commands' behaviour is unchanged.
-- D-2 Lazy migration of username-keyed records on first contact instead of a one-off script
-  (the ids are unknown until the users contact the bot).
+- D-1 `USER` is always keyed by the user id; pre-registration by username keeps working through a
+  separate `PENDING_USER` record (the Bot API has no username → id lookup, so the username is the only
+  identifier an admin can give). The text commands' behaviour is unchanged.
+- D-2 A pending record becomes a `USER` record at the user's first contact (activation); today's
+  username-keyed `USER` records are moved to `PENDING_USER` once by `scripts/migrate-pending-users.sh`
+  before the T1 deploy, so no "is this key a username" heuristic is needed in the code.
 - D-3 Transition rule for running nodes (`RunBy` = username) – owner match by username too; remove
   the fallback in a later phase.
 - D-4 Admins are notified at chat id = their user id (private chats); no `ADMIN_CHAT_ID` setting.
