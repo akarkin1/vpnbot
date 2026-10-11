@@ -81,7 +81,7 @@ public class LaunchController {
   }
 
   private List<EcsNode> ownNodesInRegion(String userId, String regionId) {
-    return nodeService.listTasks(userId)
+    return nodeService.listNodes(userId)
         .stream()
         .filter(node -> userId.equals(node.getRunBy()))
         .filter(node -> node.getRegion() != null && regionId.equals(node.getRegion().id()))

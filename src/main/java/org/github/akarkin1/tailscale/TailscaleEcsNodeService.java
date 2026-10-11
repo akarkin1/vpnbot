@@ -137,11 +137,11 @@ public class TailscaleEcsNodeService implements TailscaleNodeService {
   }
 
   @Override
-  public List<EcsNode> listTasks(String userTgId) {
+  public List<EcsNode> listNodes(String userId) {
     Map<String, String> matchingTags = new HashMap<>();
     matchingTags.put(config.getServiceNameTag(), config.getServiceName());
-    if (userTgId != null) {
-      matchingTags.put(config.getRunByTag(), userTgId);
+    if (userId != null) {
+      matchingTags.put(config.getRunByTag(), userId);
     }
 
     return ecsManager.listTasks(matchingTags);

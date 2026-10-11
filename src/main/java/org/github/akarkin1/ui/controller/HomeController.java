@@ -52,7 +52,7 @@ public class HomeController {
                         || UserAccess.hasAccess(authorizer, user);
 
     List<EcsNode> nodes = canListNodes
-        ? nodeService.listTasks(allNodes ? null : String.valueOf(user.id()))
+        ? nodeService.listNodes(allNodes ? null : String.valueOf(user.id()))
         : List.of();
     List<String> regionIds = canRunNodes
         ? new ArrayList<>(nodeService.getSupportedRegionIds())
