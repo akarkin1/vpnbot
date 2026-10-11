@@ -57,11 +57,11 @@ file ownership, `SPEC DEVIATION: <what> / <why> / <proposed option>` escalation)
   [--dry-run]` (AWS CLI + `jq`; same style and fake-`aws` test as the Phase 3 script) scans `pk =
   USER`, and for every item whose sk is not all digits writes `PENDING_USER`/`<sk>` with the same
   `permissions` and deletes the `USER` item. Run by the owner before the T1 deploy; idempotent.
-- The workflow bootstrap of the root user (`deploy-tgbot-lambda.yml`) writes `PENDING_USER`/
-  `$TG_ROOT_USERNAME` with `ROOT_ACCESS` under the condition `attribute_not_exists(pk)` (so it never
-  overwrites); after the root's first request the `USER` record exists and the condition fails as
-  today. (Until the migration script has run, the old username-keyed `USER` record still answers
-  requests, as the pre-Phase-4 code does.)
+- The workflow bootstrap of the root user (`deploy-tgbot-lambda.yml`) writes the `USER` record keyed
+  by the new repository variable `TG_ROOT_USER_ID` (username attribute from `TG_ROOT_USERNAME`,
+  `ROOT_ACCESS`) under `attribute_not_exists(pk)`, so it never overwrites; without the variable the
+  step is skipped with a warning (only a fresh installation needs it). It never writes a pending
+  record (D-23).
 - Node ownership: the `RunBy` tag holds the user id; new tag `RunByName` (config `run-by-name-tag`)
   holds the username for display (`NodeOwner` gains `userId`; `TaskInfo` gains `runByName`).
   `NodeAccess.isOwner` matches `runBy` against the id or, during the transition, the username (D-3).
@@ -389,3 +389,7 @@ Order: H1 → T1/T2 (deploy, observe the migration) → T3/T4 (deploy).
   (its permissions are a subset), and unticking Node admin leaves Read-only. Users are listed sorted by
   username case-insensitively, users without a username last. `decide` with an empty role set is a
   no-op (in addition to the router skipping mask 0).
+- D-23 (review) The root bootstrap is keyed by `TG_ROOT_USER_ID`, not by a pending username record:
+  the "not registered yet" check on a pending record would pass again after the root's activation, so
+  every later deploy would recreate `PENDING_USER/<root name>` with `ROOT_ACCESS` – a stale duplicate
+  and a takeover risk if the root ever changed username.
