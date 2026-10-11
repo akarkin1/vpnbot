@@ -319,8 +319,8 @@ Order: H1 → T1/T2 (deploy, observe the migration) → T3/T4 (deploy).
 2. T1: run `scripts/migrate-pending-users.sh --dry-run`, then for real (today's records become
    `PENDING_USER`); then "VPN Bot Lambda CI-CD"; open the bot as root → a `USER` record keyed by your
    id with `username` set appears and your pending record is gone; every other user is activated at
-   their next request. Nodes started before the deploy still show as yours (username match) until
-   they stop.
+   their next request. Nodes started before the deploy are not listed on the home screen until they
+   stop (D-12) but can still be stopped from their card.
 3. T3: "VPN Bot Lambda CI-CD"; test with a second Telegram account: request → admin message →
    grant → requester notified → home shows regions; Users screen: list, delete, cancel.
 
@@ -353,3 +353,16 @@ Order: H1 → T1/T2 (deploy, observe the migration) → T3/T4 (deploy).
 ## 13. Decision log
 
 (empty until implementation)
+
+- D-12 (T1) `listTasks(id)` matches the `RunBy` tag exactly, so nodes started before the deploy (tag =
+  username) are not listed for their owner on the home screen until they stop (at most the idle
+  timeout); they can still be opened and stopped from their card (ownership matches the username,
+  D-3), and root sees them. §11 step 2 is corrected accordingly.
+- D-13 (T1) `findByUsername` is a default method of `PermissionsService` over `getUsers()`, so the
+  caching decorator answers it from its cache; `getUsers()` makes two queries (USER, PENDING_USER).
+- D-14 (T1) `TgUser` equality: by id when present, else by username ignoring case; a user with an id
+  never equals one without. A `USER` record with a non-numeric key is skipped with a warning (no
+  heuristic, D-2): run `scripts/migrate-pending-users.sh` before the T1 deploy or those users have no
+  access until it runs.
+- D-15 (T1) `WhiteListAuthorizer` answers from the pending permissions even if the activation write
+  fails (logged); activation is retried on the next request.
