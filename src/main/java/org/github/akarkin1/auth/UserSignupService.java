@@ -1,6 +1,5 @@
 package org.github.akarkin1.auth;
 
-import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -19,16 +18,11 @@ public interface UserSignupService {
     this.updateUserPermissions(user, null);
   }
 
+  /** Replaces the user's permissions with the union of the roles' permissions. */
   default void assignRolesToUser(TgUser user, Set<UserRole> roles) {
     Set<Permission> allPermissions = new HashSet<>();
     for (UserRole role : roles) {
-      EnumSet<Permission> rolePermissions = switch (role) {
-        case READ_ONLY -> EnumSet.of(Permission.SUPPORTED_REGIONS, Permission.LIST_NODES);
-        case USER_ADMIN -> EnumSet.of(Permission.USER_MANAGEMENT);
-        case NODE_ADMIN -> EnumSet.of(Permission.SUPPORTED_REGIONS, Permission.LIST_NODES,
-                                      Permission.RUN_NODES);
-      };
-      allPermissions.addAll(rolePermissions);
+      allPermissions.addAll(RoleSet.permissions(role));
     }
 
     this.updateUserPermissions(user, allPermissions);
@@ -36,10 +30,9 @@ public interface UserSignupService {
 
   default Map<UserRole, List<Permission>> describeRoles() {
     return Map.of(
-        UserRole.READ_ONLY, List.of(Permission.SUPPORTED_REGIONS, Permission.LIST_NODES),
-        UserRole.USER_ADMIN, List.of(Permission.USER_MANAGEMENT),
-        UserRole.NODE_ADMIN, List.of(Permission.SUPPORTED_REGIONS, Permission.LIST_NODES,
-                                     Permission.RUN_NODES)
+        UserRole.READ_ONLY, RoleSet.permissions(UserRole.READ_ONLY),
+        UserRole.USER_ADMIN, RoleSet.permissions(UserRole.USER_ADMIN),
+        UserRole.NODE_ADMIN, RoleSet.permissions(UserRole.NODE_ADMIN)
     );
   }
 

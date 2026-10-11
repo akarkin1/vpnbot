@@ -1,8 +1,10 @@
 package org.github.akarkin1.ui;
 
+import org.github.akarkin1.ui.controller.AccessController;
 import org.github.akarkin1.ui.controller.HomeController;
 import org.github.akarkin1.ui.controller.LaunchController;
 import org.github.akarkin1.ui.controller.NodeController;
+import org.github.akarkin1.ui.controller.UsersController;
 import org.github.akarkin1.ui.messenger.UiMessenger;
 import org.github.akarkin1.ui.screen.ErrorScreen;
 import org.github.akarkin1.ui.screen.Screen;
@@ -49,6 +51,10 @@ class UiRouterTest {
   @Mock
   private NodeController nodeController;
   @Mock
+  private AccessController accessController;
+  @Mock
+  private UsersController usersController;
+  @Mock
   private UiMessenger messenger;
   @Mock
   private ErrorScreen errorScreen;
@@ -57,7 +63,8 @@ class UiRouterTest {
 
   @BeforeEach
   void setUp() {
-    router = new UiRouter(homeController, launchController, nodeController, messenger, errorScreen);
+    router = new UiRouter(homeController, launchController, nodeController, accessController,
+                          usersController, messenger, errorScreen);
   }
 
   @Test
