@@ -1,6 +1,6 @@
 # Clean-up 2026.10 – system commands, pending users deprecated, sealed UI actions
 
-Status: approved 2026-10-12. Branch `feature/cleanup-3.0`, version `2026.10-SNAPSHOT`
+Status: approved 2026-10-12; implemented on `feature/cleanup-3.0` (PR open), to deploy per §11. Branch `feature/cleanup-3.0`, version `2026.10-SNAPSHOT`
 (calendar versioning from this release on; `2.0` = `release/2.0`, the last pre-UI version).
 
 ## 1. Goal
@@ -217,15 +217,21 @@ public final class VpnBot {
   public UpdateEventsRegistry updateEvents();
   public UiMessenger messenger();                // for the handler's error path
   public RequestMetrics metrics();
+  public RequestAuthenticator requestAuthenticator();   // the handler authenticates API Gateway requests (D-17)
+  public PendingUserActivator pendingUserActivator();   // deprecated wiring, §4.3 (D-17)
+  public Settings settings();                    // the health check shows the version (D-17)
   public void prime();                           // SnapStartPrimer, called once by create()
 }
 public record Externals(DynamoDbEnhancedClient dynamoDb, SecretsManagerClient secrets,
                         Function<String, AbsSender> senderFactory /* bot token → sender */, Clock clock,
-                        Settings settings) {}
+                        Settings settings,
+                        Function<Region, EcsClient> ecsClients, Function<Region, Ec2Client> ec2Clients) {}  // per-region clients (D-17)
 public record Settings(String configTableName, String botTokenSecretId, String botUsername,
                        boolean metricsEnabled, boolean configCacheEnabled, Duration configCacheTtl,
-                       String appVersion, AuthConfiguration auth, EcsConfiguration ecs, …) {
+                       String appVersion, AuthConfiguration auth, EcsConfiguration ecs, AWSConfiguration aws,
+                       String webhookSecretTokenId) {
   public static Settings fromEnvironment();      // today's ConfigManager + application.yml, read once
+  static Settings from(Function<String, String> env, YamlApplicationConfiguration yaml);   // for tests
 }
 ```
 
@@ -271,7 +277,7 @@ No new keys. Deleted keys: §4.1. `ui.users.pending` stays. RU file stays ASCII-
 ```java
 // dispatcher
 public class CommandDispatcher {
-  public CommandDispatcher(UiMessenger messenger, Authorizer authorizer);   // registers /help itself
+  public CommandDispatcher(UiMessenger messenger, Authorizer authorizer);   // VpnBot registers /help and the others (D-13)
   public void registerCommand(String name, BotCommand command);
   public void handle(UiContext context, String text);                       // text starts with '/'
   public String supportedCommands(TgUser user);                             // for /help
@@ -445,3 +451,13 @@ final shape) → H1. Each task is one commit series on
   hold a private field); the records' `TAG`s are private. Over-long data is rejected by `encode()`,
   not by the constructors. JUnit's params module is not a dependency, so the AC-6 table tests use
   `assertAll` over lists.
+- D-17 (T7/T8) `VpnBot` exposes `requestAuthenticator()`, `pendingUserActivator()` and
+  `settings()` too (the handler needs them); `Externals` carries per-region `EcsClient`/`Ec2Client`
+  factories so the wiring test can stub them (the `*ClientProvider` classes are gone, the pools take
+  the factories); `Settings` ends with `webhookSecretTokenId` and has a package-private
+  `from(env, yaml)` for deterministic tests. The pending-user wiring sits in two factory methods
+  (`permissionsService`, `pendingUserActivator`), both suppressed with the note. The dispatcher
+  keeps a stateless `new ErrorScreen()` field (rule 1 is about collaborators with behaviour).
+  `TailscaleEcsNodeService` computes its region lookups on use instead of in the constructor.
+  `VpnBotTest` builds the graph from mocked clients and `FakeTable`s, checks the system-command
+  list, the cache and metrics flags and that `prime()` reaches every mock.
