@@ -18,24 +18,35 @@ Planned work lives in `docs/roadmap.md`.
 - `java-tests.yml` runs the build and the shell script tests on pull requests.
 - Deployment is manual via GitHub Actions (`.github/workflows/deploy-*.yml`). API Gateway invokes the
   Lambda alias `live` (SnapStart): every code/config deploy ends with `publish-live-version.sh`, which
-  publishes a version and moves the alias. The static block runs at publish time, not on first request.
+  publishes a version and moves the alias. `VpnBot.create()` runs at publish time, not on first request.
+  The jar lives in the S3 bucket named by the repository variable `LAMBDA_JAR_BUCKET`.
+- Versioning is calendar-based (`YYYY.MM[.N]`, e.g. `2026.10-SNAPSHOT` while in progress); `pom.xml` is
+  the only place holding the version (the workflows read it). `2.0` (branch `release/2.0`, tag `v2.0`)
+  is the last version before the button UI.
 
 ## Architecture
 
 ```
-TailscaleVpnLambdaHandler  (API Gateway → Lambda entry point, wiring in a static block)
- ├─ UiRouter (ui)           button taps (callback queries), /start, /menu, plain text
+TailscaleVpnLambdaHandler  (API Gateway → Lambda entry point; the request flow only)
+ └─ VpnBot                  composition root: builds the whole object graph from Externals (AWS clients,
+                            Telegram sender factory, Clock) + Settings (env + application.yml), primes it
+ ├─ UiRouter (ui)           button taps (callback queries: sealed UiAction records), /start, /menu, plain text
  │   ├─ HomeController, LaunchController, NodeController (stop/use) + NodeAccess (ui.controller)
  │   ├─ AccessController (request access → admins' role checkboxes), UsersController (users screen)
  │   ├─ *Screen classes (ui.screen): pure functions, data → Screen (template + params + buttons)
  │   └─ UiMessenger (ui.messenger): sends/edits Telegram messages, translates, HTML-escapes
- └─ CommandDispatcher       every other "/command" (dispatcher.command.*), plain-text replies
+ └─ CommandDispatcher       system commands /help, /version, /supportedRegions, /describeRoles
+                            (dispatcher.command.*); replies are Screens with a Menu button; any other
+                            "/command" gets the "not supported" reply with the /help list
 Services: TailscaleNodeService (tailscale) → EcsManager (ecs); Authorizer + PermissionsService (auth)
 Identity: TgUser(id, username) – permissions and node ownership (RunBy tag) are keyed by the Telegram
-          user id; a user pre-registered by username is a PENDING_USER record until their first request,
-          when the handler's PendingUserActivator turns it into a USER record (Authorizer.hasPermission
-          is read-only); roles (UserRole) are bundles of permissions, root is a permission (ROOT_ACCESS)
-Config:   application.yml → YamlApplicationConfiguration (via ConfigManager); DynamoDB table `vpnbot`
+          user id; new users come in through the Request access button. PENDING_USER records (users
+          pre-registered by username before 2026.10) are still activated at first request by
+          PendingUserActivator but never created: that code is @Deprecated(forRemoval) and goes once no
+          PENDING_USER record is left (docs/specs/cleanup-2026-10.md §4.3). Authorizer.hasPermission is
+          read-only; roles (UserRole) are bundles of permissions, root is a permission (ROOT_ACCESS)
+Config:   Settings.fromEnvironment() reads the env and application.yml once (YamlApplicationConfiguration
+          sections); nothing else reads System.getenv. DynamoDB table `vpnbot`
           holds runtime config: pk REGION/USER/PENDING_USER/ACCESS_REQUEST/TG_UPDATE_LOCK, beans in
           `dynamodb` (Enhanced Client),
           optional in-memory cache (CONFIG_CACHE_ENABLED, CONFIG_CACHE_TTL_SEC); workflows write regions;
@@ -54,9 +65,12 @@ same message into the stopped card – all via the Telegram Bot API.
 ## Conventions
 
 - Constructor injection with `final` fields and Lombok `@RequiredArgsConstructor`; logging with `@Log4j2`.
-- Wiring lives in `*Configurer` classes (see `TailscaleEcsNodeServiceConfigurer`), not in business code.
+- Wiring lives in `VpnBot` (the composition root), not in business code: constructor injection only,
+  externals and config passed in, one implementation per interface chosen there, no work in constructors
+  beyond assignment, no dependency cycles – so that a DI framework (Dagger) could replace it mechanically
+  (docs/specs/cleanup-2026-10.md §4.7).
 - Interface + implementation for anything that talks to the outside world (Telegram, AWS).
-- Records for small immutable values. No new static mutable state (`TgRequestContext` is legacy).
+- Records for small immutable values. No static mutable state.
   Exception: DynamoDB beans (`org.github.akarkin1.dynamodb`) are mutable JavaBeans as the Enhanced
   Client requires; they stay inside the DynamoDB services, which map them to domain types.
 - User-facing text lives in `src/main/resources/messages.properties` and `messages_ru.properties`.
@@ -67,7 +81,8 @@ same message into the stopped card – all via the Telegram Bot API.
 
 ## Tests
 
-- JUnit 5 + Mockito (`@ExtendWith(MockitoExtension.class)`, `@Mock`), see `HelpCommandV2Test`.
+- JUnit 5 + Mockito (`@ExtendWith(MockitoExtension.class)`, `@Mock`), see `CommandDispatcherTest`.
+- `VpnBotTest` builds the whole graph from mocked externals: a wiring regression shows up there.
 - Test class per production class, in the same package under `src/test/java`.
 - `src/test/resources` has its own `messages*.properties` and `application.yml` that shadow the
   main ones on the test classpath; tests that need the real files read them from `src/main/resources`.
