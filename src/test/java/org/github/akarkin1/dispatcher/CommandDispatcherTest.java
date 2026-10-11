@@ -6,6 +6,7 @@ import org.github.akarkin1.auth.TgUser;
 import org.github.akarkin1.dispatcher.command.BotCommand;
 import org.github.akarkin1.ui.UiContext;
 import org.github.akarkin1.ui.messenger.UiMessenger;
+import org.github.akarkin1.ui.screen.ErrorScreen;
 import org.github.akarkin1.ui.screen.Screen;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -26,12 +27,10 @@ import static org.github.akarkin1.ui.TelegramUpdates.USER_ID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
@@ -220,21 +219,18 @@ class CommandDispatcherTest {
   }
 
   @Test
-  @DisplayName("AC-3: an exception from a command is not swallowed (the handler answers with the generic error screen)")
-  void commandExceptionPropagates() {
-    IllegalStateException failure = new IllegalStateException("boom");
+  @DisplayName("AC-3: an exception from a command is answered with the generic error screen and not rethrown")
+  void commandExceptionAnsweredWithErrorScreen() {
     dispatcher.registerCommand("/fail", new RecordingCommand("${fail.description}", List.of(), null) {
       @Override
       public Screen run(UiContext context, List<String> args) {
-        throw failure;
+        throw new IllegalStateException("boom");
       }
     });
 
-    IllegalStateException thrown = assertThrows(IllegalStateException.class,
-                                                () -> dispatcher.handle(ALEX, "/fail"));
+    dispatcher.handle(ALEX, "/fail");
 
-    assertSame(failure, thrown);
-    verify(messenger, never()).send(any(), any());
+    assertEquals(new ErrorScreen().generic(), sentScreen(ALEX));
   }
 
   private void assertNotSupported(Screen sent, String command) {
