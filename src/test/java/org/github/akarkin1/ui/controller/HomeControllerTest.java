@@ -23,6 +23,8 @@ import java.util.List;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
@@ -88,6 +90,34 @@ class HomeControllerTest {
     verify(nodeService).listTasks(null);
     assertEquals(new HomeModel("Alex", "alex", true, false, true, NODES, List.of(), List.of(), true, true),
                  capturedModel());
+  }
+
+  @Test
+  @DisplayName("4 §4.4: a user admin without node permissions manages users, has access, makes no node service calls")
+  void userAdmin() {
+    grant(Permission.USER_MANAGEMENT);
+    when(homeScreen.home(any())).thenReturn(HOME);
+
+    controller.showHome(CONTEXT);
+
+    verifyNoInteractions(nodeService);
+    assertEquals(new HomeModel("Alex", "alex", false, false, false, List.of(), List.of(), List.of(),
+                               true, true),
+                 capturedModel());
+  }
+
+  @Test
+  @DisplayName("4 §4.2: any permission means access; a read-only user does not manage users")
+  void readOnlyHasAccessButNoUsers() {
+    grant(Permission.LIST_NODES, Permission.SUPPORTED_REGIONS);
+    when(nodeService.listTasks("7")).thenReturn(List.of());
+    when(homeScreen.home(any())).thenReturn(HOME);
+
+    controller.showHome(CONTEXT);
+
+    HomeModel model = capturedModel();
+    assertTrue(model.hasAccess());
+    assertFalse(model.canManageUsers());
   }
 
   @Test
