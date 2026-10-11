@@ -3,6 +3,7 @@ package org.github.akarkin1.ui.controller;
 import lombok.RequiredArgsConstructor;
 import org.github.akarkin1.auth.Authorizer;
 import org.github.akarkin1.auth.Permission;
+import org.github.akarkin1.auth.TgUser;
 import org.github.akarkin1.ecs.TaskInfo;
 import org.github.akarkin1.tailscale.TailscaleNodeService;
 import org.github.akarkin1.ui.UiContext;
@@ -37,29 +38,29 @@ public class HomeController {
   }
 
   private HomeModel buildModel(UiContext context) {
-    String username = context.username();
-    if (username == null) {
-      return new HomeModel(context.firstName(), null, false, false, false, List.of(), List.of(),
-                           List.of());
+    TgUser user = context.user();
+    if (user.id() == null) {
+      return new HomeModel(context.firstName(), context.username(), false, false, false, List.of(),
+                           List.of(), List.of());
     }
 
-    boolean canListNodes = authorizer.hasPermission(username, Permission.LIST_NODES);
-    boolean canRunNodes = authorizer.hasPermission(username, Permission.RUN_NODES);
-    boolean allNodes = authorizer.hasPermission(username, Permission.ROOT_ACCESS);
+    boolean canListNodes = authorizer.hasPermission(user, Permission.LIST_NODES);
+    boolean canRunNodes = authorizer.hasPermission(user, Permission.RUN_NODES);
+    boolean allNodes = authorizer.hasPermission(user, Permission.ROOT_ACCESS);
 
     List<TaskInfo> nodes = canListNodes
-        ? nodeService.listTasks(allNodes ? null : username)
+        ? nodeService.listTasks(allNodes ? null : String.valueOf(user.id()))
         : List.of();
     List<String> regionIds = canRunNodes
         ? new ArrayList<>(nodeService.getSupportedRegionIds())
         : List.of();
     List<String> stoppableTaskIds = nodes.stream()
-        .filter(node -> nodeAccess.canStop(username, node))
+        .filter(node -> nodeAccess.canStop(user, node))
         .map(TaskInfo::getId)
         .toList();
 
-    return new HomeModel(context.firstName(), username, canListNodes, canRunNodes, allNodes,
-                         nodes, regionIds, stoppableTaskIds);
+    return new HomeModel(context.firstName(), context.username(), canListNodes, canRunNodes,
+                         allNodes, nodes, regionIds, stoppableTaskIds);
   }
 
 }

@@ -1,8 +1,8 @@
 package org.github.akarkin1.tg;
 
 import lombok.Getter;
-import lombok.Setter;
 import org.apache.commons.lang3.StringUtils;
+import org.github.akarkin1.auth.TgUser;
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
@@ -14,6 +14,8 @@ import java.util.Optional;
 public class TgRequestContext {
 
   private static final String DEFAULT_LANGUAGE_CODE = "en-US";
+  @Getter
+  private static Long userId;
   @Getter
   private static String username;
   @Getter
@@ -32,13 +34,23 @@ public class TgRequestContext {
           .orElse(fromUser.getId());
       initContext(fromUser, callbackChatId);
     } else {
+      userId = null;
       username = null;
       languageCode = DEFAULT_LANGUAGE_CODE;
       chatId = null;
     }
   }
 
+  /** The user of the current request, or null when the update has none. */
+  public static TgUser getUser() {
+    if (userId == null && username == null) {
+      return null;
+    }
+    return new TgUser(userId, username);
+  }
+
   private static void initContext(User fromUser, Long userChatId) {
+    userId = fromUser.getId();
     username = fromUser.getUserName();
     languageCode = Optional.ofNullable(fromUser.getLanguageCode())
         .filter(StringUtils::isNotBlank)

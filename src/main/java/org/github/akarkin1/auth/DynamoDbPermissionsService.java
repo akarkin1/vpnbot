@@ -2,6 +2,7 @@ package org.github.akarkin1.auth;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
+import org.github.akarkin1.dynamodb.PendingUserRecord;
 import org.github.akarkin1.dynamodb.UserRecord;
 import org.github.akarkin1.metrics.MetricComponent;
 import org.github.akarkin1.metrics.RequestMetrics;
@@ -10,14 +11,18 @@ import software.amazon.awssdk.enhanced.dynamodb.Key;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryConditional;
 
 import java.util.Arrays;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-/** Keeps user permissions in the {@code USER} records; a user without permissions has no record. */
+/**
+ * Keeps user permissions in the {@code USER} records (keyed by the Telegram user id) and the
+ * {@code PENDING_USER} records (keyed by the username of a user pre-registered by an admin);
+ * a user without permissions has no record.
+ */
 @Log4j2
 @RequiredArgsConstructor
 public class DynamoDbPermissionsService implements PermissionsService {
@@ -27,30 +32,56 @@ public class DynamoDbPermissionsService implements PermissionsService {
       .collect(Collectors.toUnmodifiableSet());
 
   private final DynamoDbTable<UserRecord> users;
+  private final DynamoDbTable<PendingUserRecord> pendingUsers;
   private final RequestMetrics metrics;
 
   @Override
-  public Map<String, List<Permission>> getUserPermissions() {
-    QueryConditional allUsers = QueryConditional.keyEqualTo(
-        Key.builder().partitionValue(UserRecord.TYPE).build());
-    List<UserRecord> records = metrics.time(MetricComponent.DYNAMODB,
-                                            () -> users.query(allUsers).items()
-                                                .stream()
-                                                .toList());
+  public Map<TgUser, List<Permission>> getUsers() {
+    List<UserRecord> userRecords = metrics.time(
+        MetricComponent.DYNAMODB,
+        () -> users.query(allOf(UserRecord.TYPE)).items().stream().toList());
+    List<PendingUserRecord> pendingRecords = metrics.time(
+        MetricComponent.DYNAMODB,
+        () -> pendingUsers.query(allOf(PendingUserRecord.TYPE)).items().stream().toList());
 
-    Map<String, List<Permission>> userPermissions = new HashMap<>();
-    for (UserRecord record : records) {
-      userPermissions.put(record.getUsername(), toPermissions(record));
+    Map<TgUser, List<Permission>> result = new LinkedHashMap<>();
+    for (UserRecord record : userRecords) {
+      Long id = parseUserId(record.getUserId());
+      if (id == null) {
+        log.warn("USER record with a non-numeric key {} is skipped", record.getUserId());
+        continue;
+      }
+      result.put(new TgUser(id, record.getUsername()),
+                 toPermissions(record.getPermissions(), record.getUserId()));
     }
-    return userPermissions;
+    for (PendingUserRecord record : pendingRecords) {
+      result.put(new TgUser(null, record.getUsername()),
+                 toPermissions(record.getPermissions(), record.getUsername()));
+    }
+    return result;
   }
 
-  private static List<Permission> toPermissions(UserRecord record) {
-    Set<String> names = Optional.ofNullable(record.getPermissions()).orElse(Set.of());
+  private static QueryConditional allOf(String type) {
+    return QueryConditional.keyEqualTo(Key.builder().partitionValue(type).build());
+  }
+
+  private static Long parseUserId(String userId) {
+    if (userId == null || userId.isEmpty() || !userId.chars().allMatch(Character::isDigit)) {
+      return null;
+    }
+    try {
+      return Long.valueOf(userId);
+    } catch (NumberFormatException e) {
+      return null;
+    }
+  }
+
+  private static List<Permission> toPermissions(Set<String> permissionNames, String userKey) {
+    Set<String> names = Optional.ofNullable(permissionNames).orElse(Set.of());
     return names.stream()
         .filter(name -> {
           if (!KNOWN_PERMISSIONS.contains(name)) {
-            log.warn("Unknown permission {} of user {} is skipped", name, record.getUsername());
+            log.warn("Unknown permission {} of user {} is skipped", name, userKey);
             return false;
           }
           return true;
@@ -61,22 +92,60 @@ public class DynamoDbPermissionsService implements PermissionsService {
   }
 
   @Override
-  public void updateUserPermissions(String tgUsername, Set<Permission> permissions) {
+  public void updateUserPermissions(TgUser user, Set<Permission> permissions) {
+    if (user.pending()) {
+      if (user.username() == null || user.username().isBlank()) {
+        throw new IllegalArgumentException("A user needs an id or a username: " + user);
+      }
+      updatePendingUser(user.username(), permissions);
+    } else {
+      updateUser(user, permissions);
+    }
+  }
+
+  private void updateUser(TgUser user, Set<Permission> permissions) {
+    Key key = Key.builder()
+        .partitionValue(UserRecord.TYPE)
+        .sortValue(String.valueOf(user.id()))
+        .build();
     if (permissions == null || permissions.isEmpty()) {
-      Key key = Key.builder()
-          .partitionValue(UserRecord.TYPE)
-          .sortValue(tgUsername)
-          .build();
       metrics.time(MetricComponent.DYNAMODB, () -> users.deleteItem(key));
       return;
     }
 
+    String username = user.username();
+    if (username == null) {
+      UserRecord stored = metrics.time(MetricComponent.DYNAMODB, () -> users.getItem(key));
+      username = stored == null ? null : stored.getUsername();
+    }
+
     UserRecord record = new UserRecord();
-    record.setUsername(tgUsername);
-    record.setPermissions(permissions.stream()
-                              .map(Permission::name)
-                              .collect(Collectors.toSet()));
+    record.setUserId(String.valueOf(user.id()));
+    record.setUsername(username);
+    record.setPermissions(toNames(permissions));
     metrics.time(MetricComponent.DYNAMODB, () -> users.putItem(record));
+  }
+
+  private void updatePendingUser(String username, Set<Permission> permissions) {
+    if (permissions == null || permissions.isEmpty()) {
+      Key key = Key.builder()
+          .partitionValue(PendingUserRecord.TYPE)
+          .sortValue(username)
+          .build();
+      metrics.time(MetricComponent.DYNAMODB, () -> pendingUsers.deleteItem(key));
+      return;
+    }
+
+    PendingUserRecord record = new PendingUserRecord();
+    record.setUsername(username);
+    record.setPermissions(toNames(permissions));
+    metrics.time(MetricComponent.DYNAMODB, () -> pendingUsers.putItem(record));
+  }
+
+  private static Set<String> toNames(Set<Permission> permissions) {
+    return permissions.stream()
+        .map(Permission::name)
+        .collect(Collectors.toSet());
   }
 
 }

@@ -2,8 +2,9 @@ package org.github.akarkin1.dispatcher.command;
 
 import lombok.RequiredArgsConstructor;
 import org.github.akarkin1.auth.Permission;
+import org.github.akarkin1.auth.PermissionsService;
+import org.github.akarkin1.auth.TgUser;
 import org.github.akarkin1.auth.UserRole;
-import org.github.akarkin1.auth.UserSignupService;
 import org.github.akarkin1.dispatcher.response.TextCommandResponse;
 import org.github.akarkin1.util.UserNameUtil;
 
@@ -16,7 +17,7 @@ import java.util.stream.Stream;
 @RequiredArgsConstructor
 public class AssignRolesCommand implements BotCommand<TextCommandResponse> {
 
-  private final UserSignupService signupService;
+  private final PermissionsService permissionsService;
 
   @Override
   public TextCommandResponse run(List<String> args) {
@@ -55,10 +56,21 @@ public class AssignRolesCommand implements BotCommand<TextCommandResponse> {
     Set<UserRole> rolesToAssign = rolesValues.stream()
       .map(UserRole::valueOf)
       .collect(Collectors.toSet());
-    signupService.assignRolesToUser(username, rolesToAssign);
+    permissionsService.assignRolesToUser(resolveUser(username), rolesToAssign);
     return new TextCommandResponse(
       "${command.assign-roles.roles-assigned.success.message}",
       username, rolesToAssign);
+  }
+
+  /**
+   * An id is used as is; a known username resolves to its user; an unknown username becomes a
+   * pending user (pre-registration), activated at the user's first request.
+   */
+  private TgUser resolveUser(String username) {
+    return UserArguments.parseId(username)
+      .map(id -> new TgUser(id, null))
+      .orElseGet(() -> permissionsService.findByUsername(username)
+        .orElseGet(() -> new TgUser(null, username)));
   }
 
   @Override

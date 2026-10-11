@@ -2,6 +2,7 @@ package org.github.akarkin1.ui.controller;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
+import org.github.akarkin1.auth.TgUser;
 import org.github.akarkin1.ecs.TaskInfo;
 import org.github.akarkin1.tailscale.TailscaleNodeService;
 import org.github.akarkin1.ui.NodeRef;
@@ -35,7 +36,7 @@ public class NodeController {
       return;
     }
 
-    if (nodeAccess.needsConfirmation(context.username(), task.get())) {
+    if (nodeAccess.needsConfirmation(context.user(), task.get())) {
       messenger.edit(context, messageId, nodeScreens.confirmStop(task.get()));
       return;
     }
@@ -50,7 +51,7 @@ public class NodeController {
     }
 
     stopNode(context, messageId, node, task.get());
-    if (nodeAccess.needsConfirmation(context.username(), task.get())) {
+    if (nodeAccess.needsConfirmation(context.user(), task.get())) {
       notifyOwner(task.get());
     }
   }
@@ -60,8 +61,8 @@ public class NodeController {
    * Edits the message and returns empty when the node is gone or not accessible.
    */
   private Optional<TaskInfo> findNode(UiContext context, Integer messageId, NodeRef node,
-                                      BiPredicate<String, TaskInfo> access) {
-    if (!nodeAccess.canManageNodes(context.username())) {
+                                      BiPredicate<TgUser, TaskInfo> access) {
+    if (!nodeAccess.canManageNodes(context.user())) {
       messenger.edit(context, messageId, nodeScreens.notAllowed());
       return Optional.empty();
     }
@@ -75,7 +76,7 @@ public class NodeController {
       messenger.edit(context, messageId, nodeScreens.alreadyStopped());
       return Optional.empty();
     }
-    if (!access.test(context.username(), task.get())) {
+    if (!access.test(context.user(), task.get())) {
       messenger.edit(context, messageId, nodeScreens.notAllowed());
       return Optional.empty();
     }
@@ -83,20 +84,21 @@ public class NodeController {
   }
 
   private void stopNode(UiContext context, Integer messageId, NodeRef node, TaskInfo task) {
-    String reason = "Stopped by @%s via the bot".formatted(context.username());
+    String reason = "Stopped by %s via the bot".formatted(stoppedBy(context));
     messenger.edit(context, messageId, nodeScreens.stopping(task));
     nodeService.stopNode(node.regionId(), node.taskId(), reason);
   }
 
   private void notifyOwner(TaskInfo task) {
-    Long ownerChatId = parseChatId(task.getChatId());
+    Long ownerChatId = parseId(task.getChatId());
     if (ownerChatId == null) {
       log.info("Node {} has no valid owner chat id ({}), the owner is not notified",
                task.getId(), task.getChatId());
       return;
     }
 
-    UiContext owner = new UiContext(ownerChatId, task.getRunBy(), null, task.getLanguageCode());
+    UiContext owner = new UiContext(ownerChatId, parseId(task.getRunBy()), task.getRunByName(),
+                                    null, task.getLanguageCode());
     try {
       messenger.send(owner, nodeScreens.stoppedByAdmin(task));
     } catch (RuntimeException e) {
@@ -104,9 +106,13 @@ public class NodeController {
     }
   }
 
-  private static Long parseChatId(String chatId) {
+  private static String stoppedBy(UiContext context) {
+    return context.username() != null ? "@" + context.username() : String.valueOf(context.userId());
+  }
+
+  private static Long parseId(String id) {
     try {
-      return chatId == null ? null : Long.valueOf(chatId);
+      return id == null ? null : Long.valueOf(id);
     } catch (NumberFormatException e) {
       return null;
     }

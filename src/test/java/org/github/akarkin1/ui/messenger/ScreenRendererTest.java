@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ScreenRendererTest {
 
-  private static final UiContext CONTEXT = new UiContext(100L, "alex", "Alex", "ru");
+  private static final UiContext CONTEXT = new UiContext(100L, 7L, "alex", "Alex", "ru");
   private static final Screen SCREEN = new Screen(
       "Hi %s, <b>%s</b> %s",
       List.of("<x>", "a&\"b", 5),

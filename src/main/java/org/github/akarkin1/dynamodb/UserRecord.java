@@ -10,7 +10,10 @@ import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbSortK
 
 import java.util.Set;
 
-/** A user's permissions (pk {@code USER}, sk Telegram username); a user without permissions has no record. */
+/**
+ * A user's permissions (pk {@code USER}, sk Telegram user id); a user without permissions has no
+ * record.
+ */
 @DynamoDbBean
 @Data
 @NoArgsConstructor
@@ -20,7 +23,10 @@ public class UserRecord {
 
   @Getter(onMethod_ = {@DynamoDbPartitionKey, @DynamoDbAttribute("pk")})
   private String type = TYPE;
+  /** Telegram user id as a decimal string. */
   @Getter(onMethod_ = {@DynamoDbSortKey, @DynamoDbAttribute("sk")})
+  private String userId;
+  /** Telegram username (without {@code @}) for display, may be null. */
   private String username;
   /** String Set of {@code Permission} names, never empty. */
   private Set<String> permissions;

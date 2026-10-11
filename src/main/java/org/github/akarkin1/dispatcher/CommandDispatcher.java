@@ -4,6 +4,7 @@ import lombok.extern.log4j.Log4j2;
 import org.github.akarkin1.auth.Authorizer;
 import org.github.akarkin1.auth.UnauthorizedRequestException;
 import org.github.akarkin1.auth.Permission;
+import org.github.akarkin1.auth.TgUser;
 import org.github.akarkin1.dispatcher.command.BotCommand;
 import org.github.akarkin1.dispatcher.response.CommandResponse;
 import org.github.akarkin1.dispatcher.response.EmptyResponse;
@@ -83,7 +84,7 @@ public class CommandDispatcher {
       botCommunicator.sendMessageToTheBot(errMessage);
     } catch (UnauthorizedRequestException e) {
       log.debug("User {} is not authorized to run the command: {}. Permission required: {}",
-                TgRequestContext.getUsername(),
+                TgRequestContext.getUser(),
                 botCommand.getClass().getSimpleName(),
                 e.getRequiredPermission());
       botCommunicator.sendMessageToTheBot("${user.not-authorized.error}");
@@ -95,9 +96,9 @@ public class CommandDispatcher {
   }
 
   private void checkUserPermissions(BotCommand<?> botCommand) {
-    String username = TgRequestContext.getUsername();
+    TgUser user = TgRequestContext.getUser();
     for (Permission requiredPermission : botCommand.getRequiredPermissions()) {
-      if (!authorizer.hasPermission(username, requiredPermission)) {
+      if (!authorizer.hasPermission(user, requiredPermission)) {
         throw new UnauthorizedRequestException(requiredPermission);
       }
     }
@@ -114,17 +115,17 @@ public class CommandDispatcher {
   }
 
   public String getSupportedCommands() {
-    String username = TgRequestContext.getUsername();
+    TgUser user = TgRequestContext.getUser();
     return registeredCommand.entrySet()
         .stream()
-        .filter(command -> isAuthorizedToUseCommand(command.getValue(), username))
+        .filter(command -> isAuthorizedToUseCommand(command.getValue(), user))
         .map(entry -> "  %s – %s".formatted(entry.getKey(), entry.getValue().getDescription()))
         .collect(Collectors.joining(System.lineSeparator()));
   }
 
-  private boolean isAuthorizedToUseCommand(BotCommand<?> command, String username) {
+  private boolean isAuthorizedToUseCommand(BotCommand<?> command, TgUser user) {
     return command.getRequiredPermissions()
         .stream()
-        .allMatch(permission -> authorizer.hasPermission(username, permission));
+        .allMatch(permission -> authorizer.hasPermission(user, permission));
   }
 }

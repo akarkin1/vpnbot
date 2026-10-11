@@ -2,6 +2,7 @@ package org.github.akarkin1.ui.controller;
 
 import org.github.akarkin1.auth.Authorizer;
 import org.github.akarkin1.auth.Permission;
+import org.github.akarkin1.auth.TgUser;
 import org.github.akarkin1.ecs.TaskInfo;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -30,18 +31,18 @@ class NodeAccessTest {
   @BeforeEach
   void setUp() {
     access = new NodeAccess(authorizer);
-    grant("alex", Permission.LIST_NODES, Permission.RUN_NODES);
-    grant("reader", Permission.LIST_NODES);
-    grant("root", Permission.ROOT_ACCESS, Permission.LIST_NODES, Permission.RUN_NODES);
+    grant(user("alex"), Permission.LIST_NODES, Permission.RUN_NODES);
+    grant(user("reader"), Permission.LIST_NODES);
+    grant(user("root"), Permission.ROOT_ACCESS, Permission.LIST_NODES, Permission.RUN_NODES);
   }
 
   @Test
   @DisplayName("2b AC-2: owner with RUN_NODES may stop and view without confirmation")
   void ownerWithRunNodes() {
     assertAll(
-        () -> assertTrue(access.canStop("alex", ALEX_NODE)),
-        () -> assertFalse(access.needsConfirmation("alex", ALEX_NODE)),
-        () -> assertTrue(access.canView("alex", ALEX_NODE)));
+        () -> assertTrue(access.canStop(user("alex"), ALEX_NODE)),
+        () -> assertFalse(access.needsConfirmation(user("alex"), ALEX_NODE)),
+        () -> assertTrue(access.canView(user("alex"), ALEX_NODE)));
   }
 
   @Test
@@ -50,56 +51,56 @@ class NodeAccessTest {
     TaskInfo readerNode = node("reader");
 
     assertAll(
-        () -> assertFalse(access.canStop("reader", readerNode)),
-        () -> assertFalse(access.needsConfirmation("reader", readerNode)),
-        () -> assertTrue(access.canView("reader", readerNode)));
+        () -> assertFalse(access.canStop(user("reader"), readerNode)),
+        () -> assertFalse(access.needsConfirmation(user("reader"), readerNode)),
+        () -> assertTrue(access.canView(user("reader"), readerNode)));
   }
 
   @Test
   @DisplayName("2b AC-2: another user with RUN_NODES may neither stop nor view")
   void otherUser() {
     assertAll(
-        () -> assertFalse(access.canStop("alex", BOB_NODE)),
-        () -> assertFalse(access.needsConfirmation("alex", BOB_NODE)),
-        () -> assertFalse(access.canView("alex", BOB_NODE)));
+        () -> assertFalse(access.canStop(user("alex"), BOB_NODE)),
+        () -> assertFalse(access.needsConfirmation(user("alex"), BOB_NODE)),
+        () -> assertFalse(access.canView(user("alex"), BOB_NODE)));
   }
 
   @Test
   @DisplayName("2b AC-2: root on its own node may stop without confirmation and view")
   void rootOnOwnNode() {
     assertAll(
-        () -> assertTrue(access.canStop("root", ROOT_NODE)),
-        () -> assertFalse(access.needsConfirmation("root", ROOT_NODE)),
-        () -> assertTrue(access.canView("root", ROOT_NODE)));
+        () -> assertTrue(access.canStop(user("root"), ROOT_NODE)),
+        () -> assertFalse(access.needsConfirmation(user("root"), ROOT_NODE)),
+        () -> assertTrue(access.canView(user("root"), ROOT_NODE)));
   }
 
   @Test
   @DisplayName("2b AC-2: root on someone else's node may stop after confirmation and view")
   void rootOnOthersNode() {
     assertAll(
-        () -> assertTrue(access.canStop("root", ALEX_NODE)),
-        () -> assertTrue(access.needsConfirmation("root", ALEX_NODE)),
-        () -> assertTrue(access.canView("root", ALEX_NODE)));
+        () -> assertTrue(access.canStop(user("root"), ALEX_NODE)),
+        () -> assertTrue(access.needsConfirmation(user("root"), ALEX_NODE)),
+        () -> assertTrue(access.canView(user("root"), ALEX_NODE)));
   }
 
   @Test
   @DisplayName("2b AC-2: root with ROOT_ACCESS only (no other permission) may stop someone else's node after confirmation")
   void rootAccessAlone() {
-    grant("admin", Permission.ROOT_ACCESS);
+    grant(user("admin"), Permission.ROOT_ACCESS);
 
     assertAll(
-        () -> assertTrue(access.canStop("admin", ALEX_NODE)),
-        () -> assertTrue(access.needsConfirmation("admin", ALEX_NODE)),
-        () -> assertTrue(access.canView("admin", ALEX_NODE)));
+        () -> assertTrue(access.canStop(user("admin"), ALEX_NODE)),
+        () -> assertTrue(access.needsConfirmation(user("admin"), ALEX_NODE)),
+        () -> assertTrue(access.canView(user("admin"), ALEX_NODE)));
   }
 
   @Test
   @DisplayName("2b AC-2: read-only user may neither stop nor view someone else's node")
   void readOnlyUser() {
     assertAll(
-        () -> assertFalse(access.canStop("reader", ALEX_NODE)),
-        () -> assertFalse(access.needsConfirmation("reader", ALEX_NODE)),
-        () -> assertFalse(access.canView("reader", ALEX_NODE)));
+        () -> assertFalse(access.canStop(user("reader"), ALEX_NODE)),
+        () -> assertFalse(access.needsConfirmation(user("reader"), ALEX_NODE)),
+        () -> assertFalse(access.canView(user("reader"), ALEX_NODE)));
   }
 
   @Test
@@ -108,16 +109,21 @@ class NodeAccessTest {
     TaskInfo untagged = node(null);
 
     assertAll(
-        () -> assertFalse(access.canStop("alex", untagged)),
-        () -> assertFalse(access.canView("alex", untagged)),
-        () -> assertTrue(access.canStop("root", untagged)),
-        () -> assertTrue(access.needsConfirmation("root", untagged)));
+        () -> assertFalse(access.canStop(user("alex"), untagged)),
+        () -> assertFalse(access.canView(user("alex"), untagged)),
+        () -> assertTrue(access.canStop(user("root"), untagged)),
+        () -> assertTrue(access.needsConfirmation(user("root"), untagged)));
   }
 
-  private void grant(String username, Permission... permissions) {
+  private void grant(TgUser user, Permission... permissions) {
     for (Permission permission : permissions) {
-      lenient().when(authorizer.hasPermission(username, permission)).thenReturn(true);
+      lenient().when(authorizer.hasPermission(user, permission)).thenReturn(true);
     }
+  }
+
+  /** Nodes in this test are tagged with the username (the pre-Phase-4 RunBy value). */
+  private static TgUser user(String username) {
+    return new TgUser((long) Math.abs(username.hashCode()), username);
   }
 
   private static TaskInfo node(String runBy) {

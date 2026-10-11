@@ -228,6 +228,7 @@ public class EcsManagerImpl implements EcsManager {
         .location(regionToCitiesMap.get(region.id()))
         .publicIp(getTaskPublicIp(region, task))
         .runBy(tagValue(task, config.getRunByTag()))
+        .runByName(tagValue(task, config.getRunByNameTag()))
         .chatId(tagValue(task, config.getChatIdTag()))
         .languageCode(tagValue(task, config.getLanguageTag()))
         .build();

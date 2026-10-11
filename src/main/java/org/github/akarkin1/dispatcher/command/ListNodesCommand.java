@@ -3,6 +3,7 @@ package org.github.akarkin1.dispatcher.command;
 import lombok.RequiredArgsConstructor;
 import org.github.akarkin1.auth.Authorizer;
 import org.github.akarkin1.auth.Permission;
+import org.github.akarkin1.auth.TgUser;
 import org.github.akarkin1.dispatcher.response.TextCommandResponse;
 import org.github.akarkin1.ecs.TaskInfo;
 import org.github.akarkin1.tailscale.TailscaleNodeService;
@@ -18,18 +19,18 @@ public final class ListNodesCommand implements BotCommand<TextCommandResponse> {
 
   @Override
   public TextCommandResponse run(List<String> args) {
-    String username = TgRequestContext.getUsername();
+    TgUser user = TgRequestContext.getUser();
 
-    if (username == null) {
+    if (user == null || user.id() == null) {
       return new TextCommandResponse("${command.list-nodes.no-permission}");
     }
 
-    if (authorizer.hasPermission(username, Permission.ROOT_ACCESS)) {
-      // no username restriction is required, just list all nodes running
-      username = null;
-    }
+    // root: no owner restriction is required, just list all nodes running
+    String ownerId = authorizer.hasPermission(user, Permission.ROOT_ACCESS)
+        ? null
+        : String.valueOf(user.id());
 
-    List<TaskInfo> taskInfos = tailscaleNodeService.listTasks(username);
+    List<TaskInfo> taskInfos = tailscaleNodeService.listTasks(ownerId);
 
     if (taskInfos.isEmpty()) {
       return new TextCommandResponse("${command.list-nodes.no-nodes-run.message}");

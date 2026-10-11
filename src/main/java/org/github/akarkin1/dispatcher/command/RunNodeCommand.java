@@ -54,6 +54,7 @@ public final class RunNodeCommand implements BotCommand<EmptyResponse> {
     }
 
     UiContext context = new UiContext(TgRequestContext.getChatId(),
+                                      TgRequestContext.getUserId(),
                                       TgRequestContext.getUsername(),
                                       null,
                                       TgRequestContext.getLanguageCode());

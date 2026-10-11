@@ -1,5 +1,6 @@
 package org.github.akarkin1.ui.screen;
 
+import org.apache.commons.lang3.StringUtils;
 import org.github.akarkin1.ecs.TaskInfo;
 import org.github.akarkin1.ui.NodeRef;
 import org.github.akarkin1.ui.UiAction;
@@ -21,10 +22,25 @@ public class NodeScreens {
     NodeRef nodeRef = new NodeRef(node.getRegion().id(), node.getId());
     Button yes = Button.action("🛑 ${ui.button.yes-stop}", UiAction.confirmStop(nodeRef));
     Button cancel = Button.action("↩️ ${ui.button.cancel}", UiAction.home());
-    String owner = node.getRunBy() == null ? null : "@" + node.getRunBy();
+    String owner = owner(node);
     return new Screen("❓ ${ui.stop.confirm} <b>%s</b> (%s)?",
                       List.of(orDash(node.getHostName()), orDash(owner)),
                       List.of(List.of(yes, cancel)));
+  }
+
+  /**
+   * {@code @RunByName}; else the {@code RunBy} tag: an id as is, or {@code @username} for nodes
+   * started before Phase 4.
+   */
+  private static String owner(TaskInfo node) {
+    if (StringUtils.isNotBlank(node.getRunByName())) {
+      return "@" + node.getRunByName();
+    }
+    String runBy = node.getRunBy();
+    if (StringUtils.isBlank(runBy)) {
+      return null;
+    }
+    return StringUtils.isNumeric(runBy) ? runBy : "@" + runBy;
   }
 
   public Screen alreadyStopped() {

@@ -8,13 +8,18 @@ import java.util.Set;
 
 public interface UserSignupService {
 
-  void updateUserPermissions(String tgUsername, Set<Permission> actions);
+  /**
+   * Replaces the user's permissions: a user with an id is kept in a {@code USER} record (the
+   * username attribute is the given one, or the stored one when null), a user without an id in a
+   * {@code PENDING_USER} record keyed by the username. Null or empty permissions delete that record.
+   */
+  void updateUserPermissions(TgUser user, Set<Permission> permissions);
 
-  default void deleteUser(String tgUsername) {
-    this.updateUserPermissions(tgUsername, null);
+  default void deleteUser(TgUser user) {
+    this.updateUserPermissions(user, null);
   }
 
-  default void assignRolesToUser(String tgUsername, Set<UserRole> roles) {
+  default void assignRolesToUser(TgUser user, Set<UserRole> roles) {
     Set<Permission> allPermissions = new HashSet<>();
     for (UserRole role : roles) {
       EnumSet<Permission> rolePermissions = switch (role) {
@@ -26,7 +31,7 @@ public interface UserSignupService {
       allPermissions.addAll(rolePermissions);
     }
 
-    this.updateUserPermissions(tgUsername, allPermissions);
+    this.updateUserPermissions(user, allPermissions);
   }
 
   default Map<UserRole, List<Permission>> describeRoles() {
