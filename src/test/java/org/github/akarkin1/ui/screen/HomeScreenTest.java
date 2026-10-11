@@ -56,12 +56,14 @@ class HomeScreenTest {
   }
 
   @Test
-  @DisplayName("AC-4: user without LIST_NODES and RUN_NODES gets only the Refresh/Help row")
+  @DisplayName("AC-4, Phase 4 §4.2: user without access gets the Request access row and the Refresh/Help row")
   void noAccessKeyboard() {
     Screen screen = homeScreen.home(new HomeModel("Alex", "alex", false, false, false, List.of(),
-                                                  List.of("eu-central-1"), List.of()));
+                                                  List.of("eu-central-1"), List.of(), false, false));
 
-    assertEquals(List.of(REFRESH_HELP), screen.keyboard());
+    assertEquals(List.of(List.of(new Button("🙋 ${ui.button.request-access}", "REQUEST_ACCESS", null)),
+                         REFRESH_HELP),
+                 screen.keyboard());
   }
 
   @Test
@@ -73,7 +75,7 @@ class HomeScreenTest {
         node(null, null, null, null));
 
     Screen screen = homeScreen.home(new HomeModel("Alex", "alex", true, false, false, nodes, List.of(),
-                                                  List.of()));
+                                                  List.of(), false, true));
 
     assertEquals(GREETING + "\n\n<b>${ui.home.your-nodes}</b>" + NODE_LINE + NODE_LINE + NODE_LINE,
                  screen.template());
@@ -90,7 +92,7 @@ class HomeScreenTest {
     List<TaskInfo> nodes = List.of(node("PROVISIONING", " ", Region.EU_CENTRAL_1, ""));
 
     Screen screen = homeScreen.home(new HomeModel("Alex", "alex", true, false, false, nodes, List.of(),
-                                                  List.of()));
+                                                  List.of(), false, true));
 
     assertEquals(List.of("Alex", "🟡", "—", "🇩🇪 Frankfurt", "—"), screen.params());
   }
@@ -99,7 +101,7 @@ class HomeScreenTest {
   @DisplayName("AC-5: empty node list shows ui.home.no-nodes")
   void noNodes() {
     Screen screen = homeScreen.home(new HomeModel("Alex", "alex", true, false, false, List.of(),
-                                                  List.of(), List.of()));
+                                                  List.of(), List.of(), false, true));
 
     assertEquals(GREETING + "\n\n<b>${ui.home.your-nodes}</b>\n${ui.home.no-nodes}",
                  screen.template());
@@ -110,7 +112,7 @@ class HomeScreenTest {
   @DisplayName("AC-5: allNodes uses ui.home.all-nodes")
   void allNodesTitle() {
     Screen screen = homeScreen.home(new HomeModel("Alex", "alex", true, false, true, List.of(),
-                                                  List.of(), List.of()));
+                                                  List.of(), List.of(), false, true));
 
     assertEquals(GREETING + "\n\n<b>${ui.home.all-nodes}</b>\n${ui.home.no-nodes}",
                  screen.template());
@@ -123,7 +125,7 @@ class HomeScreenTest {
                                      "ap-south-1", "eu-north-1", "sa-east-1");
 
     Screen screen = homeScreen.home(new HomeModel("Alex", "alex", false, true, false, List.of(),
-                                                  regionIds, List.of()));
+                                                  regionIds, List.of(), false, true));
 
     assertEquals(List.of(
                      List.of(region("🇩🇪 Frankfurt", "eu-central-1"),
@@ -141,7 +143,7 @@ class HomeScreenTest {
   @DisplayName("AC-6: user with RUN_NODES sees the start-node section")
   void startNodeSection() {
     Screen screen = homeScreen.home(new HomeModel("Alex", "alex", false, true, false, List.of(),
-                                                  List.of("eu-central-1"), List.of()));
+                                                  List.of("eu-central-1"), List.of(), false, true));
 
     assertEquals(GREETING + "\n\n<b>${ui.home.start-node}</b>", screen.template());
   }
@@ -150,7 +152,7 @@ class HomeScreenTest {
   @DisplayName("AC-6: no region buttons and no start-node section without RUN_NODES")
   void noRegionButtonsWithoutRunNodes() {
     Screen screen = homeScreen.home(new HomeModel("Alex", "alex", true, false, false, List.of(),
-                                                  List.of("eu-central-1", "eu-west-2"), List.of()));
+                                                  List.of("eu-central-1", "eu-west-2"), List.of(), false, true));
 
     assertEquals(List.of(REFRESH_HELP), screen.keyboard());
     assertFalse(screen.template().contains("${ui.home.start-node}"), screen.template());
@@ -160,7 +162,7 @@ class HomeScreenTest {
   @DisplayName("AC-6: empty region list shows ui.home.no-regions")
   void noRegions() {
     Screen screen = homeScreen.home(new HomeModel("Alex", "alex", false, true, false, List.of(),
-                                                  List.of(), List.of()));
+                                                  List.of(), List.of(), false, true));
 
     assertEquals(GREETING + "\n\n<b>${ui.home.start-node}</b>\n${ui.home.no-regions}",
                  screen.template());
@@ -173,7 +175,7 @@ class HomeScreenTest {
     List<TaskInfo> nodes = List.of(node("HEALTHY", "node-1", Region.EU_CENTRAL_1, "1.2.3.4"));
 
     Screen screen = homeScreen.home(new HomeModel("Alex", "alex", true, true, false, nodes,
-                                                  List.of("eu-central-1"), List.of()));
+                                                  List.of("eu-central-1"), List.of(), false, true));
 
     assertEquals(GREETING + "\n\n<b>${ui.home.your-nodes}</b>" + NODE_LINE
                  + "\n\n<b>${ui.home.start-node}</b>",
@@ -192,7 +194,7 @@ class HomeScreenTest {
     Screen screen = homeScreen.home(new HomeModel("Alex", "alex", true, true, false,
                                                   List.of(first, notStoppable, third),
                                                   List.of("eu-central-1"),
-                                                  List.of("task-1", "task-3")));
+                                                  List.of("task-1", "task-3"), false, true));
 
     assertEquals(List.of(List.of(region("🇩🇪 Frankfurt", "eu-central-1")),
                          List.of(new Button("🛑 alex-frankfurt-1", "STOP:eu-central-1:task-1", null)),
@@ -207,7 +209,7 @@ class HomeScreenTest {
     TaskInfo node = stoppable("task-1", "bob-frankfurt-1", Region.EU_CENTRAL_1);
 
     Screen screen = homeScreen.home(new HomeModel("Alex", "alex", true, true, true, List.of(node),
-                                                  List.of("eu-central-1"), List.of()));
+                                                  List.of("eu-central-1"), List.of(), false, true));
 
     assertEquals(List.of(List.of(region("🇩🇪 Frankfurt", "eu-central-1")), REFRESH_HELP),
                  screen.keyboard());
@@ -220,10 +222,10 @@ class HomeScreenTest {
     TaskInfo stoppableNode = stoppable("task-1", "node-1", Region.EU_CENTRAL_1);
 
     Screen without = homeScreen.home(new HomeModel("Alex", "alex", true, true, false, List.of(node),
-                                                   List.of("eu-central-1"), List.of()));
+                                                   List.of("eu-central-1"), List.of(), false, true));
     Screen with = homeScreen.home(new HomeModel("Alex", "alex", true, true, false,
                                                 List.of(stoppableNode), List.of("eu-central-1"),
-                                                List.of("task-1")));
+                                                List.of("task-1"), false, true));
 
     assertEquals(without.template(), with.template());
   }
@@ -234,7 +236,7 @@ class HomeScreenTest {
     TaskInfo node = stoppable("task-1", "100%-node", Region.EU_CENTRAL_1);
 
     Screen screen = homeScreen.home(new HomeModel("Alex", "alex", true, false, false, List.of(node),
-                                                  List.of(), List.of("task-1")));
+                                                  List.of(), List.of("task-1"), false, true));
 
     String label = screen.keyboard().getFirst().getFirst().label();
     assertEquals("🛑 100%%-node", label);
@@ -251,16 +253,16 @@ class HomeScreenTest {
         noAccess(null, "alex"),
         noAccess(null, null),
         new HomeModel(null, null, true, true, true, nodes, List.of("eu-central-1", "ap-south-1"),
-                      List.of()),
-        new HomeModel("Alex", "alex", true, true, false, nodes, List.of(), List.of()),
-        new HomeModel("Alex", "alex", true, false, false, List.of(), List.of(), List.of()),
-        new HomeModel("Alex", "alex", false, true, false, List.of(), List.of("unknown-1"), List.of()));
+                      List.of(), false, true),
+        new HomeModel("Alex", "alex", true, true, false, nodes, List.of(), List.of(), false, true),
+        new HomeModel("Alex", "alex", true, false, false, List.of(), List.of(), List.of(), false, true),
+        new HomeModel("Alex", "alex", false, true, false, List.of(), List.of("unknown-1"), List.of(), false, true));
 
     models.forEach(model -> assertPlaceholdersMatchParams(homeScreen.home(model)));
   }
 
   private static HomeModel noAccess(String firstName, String username) {
-    return new HomeModel(firstName, username, false, false, false, List.of(), List.of(), List.of());
+    return new HomeModel(firstName, username, false, false, false, List.of(), List.of(), List.of(), false, false);
   }
 
   private static TaskInfo node(String state, String hostName, Region region, String publicIp) {

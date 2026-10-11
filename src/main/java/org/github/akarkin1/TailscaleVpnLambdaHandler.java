@@ -94,7 +94,8 @@ public class TailscaleVpnLambdaHandler implements
     final Translator translator = new ResourceBasedTranslator();
 
     final UiComponents ui = new UiConfigurer().configure(sender, translator, nodeService,
-                                                         authorizer, METRICS);
+                                                         authorizer, permissionsService,
+                                                         configTables.accessRequests(), METRICS);
     UI_ROUTER = ui.router();
 
     COMMUNICATOR = new BotCommunicator(sender, translator, METRICS);
