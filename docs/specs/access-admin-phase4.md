@@ -384,3 +384,8 @@ Order: H1 → T1/T2 (deploy, observe the migration) → T3/T4 (deploy).
   (behaviour unchanged). `DynamoDbAccessRequestService.find` ignores expired records (TTL deletion
   lags). The no-access home keyboard is `[🙋 Request access]` followed by the usual Refresh/Help row.
   Admins are notified with the bot's default language (their record stores none).
+- D-22 (T4) The admin request message shows the first name only (`AccessRequest` holds no last
+  name), without "@null" when there is no username. A node admin shows Read-only as ticked too
+  (its permissions are a subset), and unticking Node admin leaves Read-only. Users are listed sorted by
+  username case-insensitively, users without a username last. `decide` with an empty role set is a
+  no-op (in addition to the router skipping mask 0).
