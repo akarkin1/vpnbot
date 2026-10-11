@@ -26,12 +26,17 @@ Planned work lives in `docs/roadmap.md`.
 TailscaleVpnLambdaHandler  (API Gateway → Lambda entry point, wiring in a static block)
  ├─ UiRouter (ui)           button taps (callback queries), /start, /menu, plain text
  │   ├─ HomeController, LaunchController, NodeController (stop/use) + NodeAccess (ui.controller)
+ │   ├─ AccessController (request access → admins' role checkboxes), UsersController (users screen)
  │   ├─ *Screen classes (ui.screen): pure functions, data → Screen (template + params + buttons)
  │   └─ UiMessenger (ui.messenger): sends/edits Telegram messages, translates, HTML-escapes
  └─ CommandDispatcher       every other "/command" (dispatcher.command.*), plain-text replies
 Services: TailscaleNodeService (tailscale) → EcsManager (ecs); Authorizer + PermissionsService (auth)
+Identity: TgUser(id, username) – permissions and node ownership (RunBy tag) are keyed by the Telegram
+          user id; a user pre-registered by username is a PENDING_USER record until their first request
+          (activation); roles (UserRole) are bundles of permissions, root is a permission (ROOT_ACCESS)
 Config:   application.yml → YamlApplicationConfiguration (via ConfigManager); DynamoDB table `vpnbot`
-          holds runtime config: pk REGION/USER/TG_UPDATE_LOCK, beans in `dynamodb` (Enhanced Client),
+          holds runtime config: pk REGION/USER/PENDING_USER/ACCESS_REQUEST/TG_UPDATE_LOCK, beans in
+          `dynamodb` (Enhanced Client),
           optional in-memory cache (CONFIG_CACHE_ENABLED, CONFIG_CACHE_TTL_SEC); workflows write regions;
           bot token from Secrets Manager (BOT_TOKEN_SECRET_ID)
 Dedup:    a Telegram re-delivery is dropped by a conditional put of a TG_UPDATE_LOCK record (24 h TTL)
