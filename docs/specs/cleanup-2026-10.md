@@ -441,3 +441,7 @@ final shape) → H1. Each task is one commit series on
 - D-15 (T3) Third-party deprecation notes remain in the build output (`TelegramBotFactory` uses a
   deprecated telegrambots constructor, `FakeTable` overrides deprecated SDK methods); AC-2's
   "no deprecation warning" covers project APIs only.
+- D-16 (T5/T6) The tag-to-parser map is a public constant `UiAction.PARSERS` (an interface cannot
+  hold a private field); the records' `TAG`s are private. Over-long data is rejected by `encode()`,
+  not by the constructors. JUnit's params module is not a dependency, so the AC-6 table tests use
+  `assertAll` over lists.
