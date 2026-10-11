@@ -105,7 +105,7 @@ class TailscaleEcsNodeServiceTest {
   }
 
   @Test
-  @DisplayName("4 §4.1: listNodes(userId) matches RunBy against the given user id")
+  @DisplayName("4 §4.1, cleanup §4.5: listNodes(userId) matches RunBy against the given user id")
   void listNodesByUserId() {
     List<EcsNode> tasks = List.of(TASK);
     when(ecsManager.listTasks(Map.of("ServiceName", "tailscale-node", "RunBy", "7")))
@@ -115,7 +115,7 @@ class TailscaleEcsNodeServiceTest {
   }
 
   @Test
-  @DisplayName("4 §4.1: listNodes(null) lists every node of the service (root)")
+  @DisplayName("4 §4.1, cleanup §4.5: listNodes(null) lists every node of the service (root)")
   void listNodesOfAll() {
     List<EcsNode> tasks = List.of(TASK);
     when(ecsManager.listTasks(Map.of("ServiceName", "tailscale-node"))).thenReturn(tasks);

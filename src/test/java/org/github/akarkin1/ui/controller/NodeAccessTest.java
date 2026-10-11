@@ -16,7 +16,10 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.lenient;
 
-/** Nodes are owned by user id ({@code RunBy} = id) only. */
+/**
+ * Nodes are owned by user id ({@code RunBy} = id) and nothing else: the Phase 4 username fallback
+ * (Phase 4 D-3) is gone (cleanup-2026-10 §4.3, D-11).
+ */
 @ExtendWith(MockitoExtension.class)
 class NodeAccessTest {
 
@@ -44,7 +47,7 @@ class NodeAccessTest {
   }
 
   @Test
-  @DisplayName("2b AC-2, 4 AC-9: owner (RunBy = user id) with RUN_NODES may stop and view without confirmation")
+  @DisplayName("2b AC-2, 4 AC-9, cleanup AC-5: owner (RunBy = user id) with RUN_NODES may stop and view without confirmation")
   void ownerWithRunNodes() {
     assertAll(
         () -> assertTrue(access.canManageNodes(ALEX)),
@@ -54,7 +57,7 @@ class NodeAccessTest {
   }
 
   @Test
-  @DisplayName("4 AC-9 (goal 1): the owner is matched by id, so a renamed owner keeps the node")
+  @DisplayName("4 AC-9 (goal 1), cleanup AC-5: the owner is matched by id, so a renamed owner keeps the node")
   void renamedOwnerMatchedById() {
     TgUser renamed = new TgUser(7L, "alex_renamed");
     grant(renamed, Permission.RUN_NODES);
@@ -78,6 +81,52 @@ class NodeAccessTest {
         () -> assertFalse(access.needsConfirmation(anna, annasNode)),
         () -> assertTrue(access.canView(anna, annasNode)),
         () -> assertFalse(access.canView(anna, ALEX_NODE)));
+  }
+
+  @Test
+  @DisplayName("cleanup AC-5, D-11: a node whose RunBy is the caller's username is not owned: a non-root with RUN_NODES may neither stop nor view it")
+  void runByUsernameIsNotOwnedByNonRoot() {
+    EcsNode legacyNode = node("alex", null);
+
+    assertAll(
+        () -> assertFalse(access.canStop(ALEX, legacyNode)),
+        () -> assertFalse(access.needsConfirmation(ALEX, legacyNode)),
+        () -> assertFalse(access.canView(ALEX, legacyNode)));
+  }
+
+  @Test
+  @DisplayName("cleanup AC-5, D-11: a node whose RunBy is root's username is not root's own: stopping it needs confirmation")
+  void runByUsernameIsNotOwnedByRoot() {
+    EcsNode legacyNode = node("root", "root");
+
+    assertAll(
+        () -> assertTrue(access.canStop(ROOT, legacyNode)),
+        () -> assertTrue(access.needsConfirmation(ROOT, legacyNode)),
+        () -> assertTrue(access.canView(ROOT, legacyNode)));
+  }
+
+  @Test
+  @DisplayName("cleanup AC-5: RunBy matches the id only, even when RunBy and RunByName both hold the caller's username")
+  void runByUsernameWithMatchingRunByNameIsNotOwned() {
+    EcsNode legacyNode = node("alex", "alex");
+
+    assertAll(
+        () -> assertFalse(access.canStop(ALEX, legacyNode)),
+        () -> assertFalse(access.canView(ALEX, legacyNode)),
+        () -> assertTrue(access.canStop(ALEX, ALEX_NODE)),
+        () -> assertTrue(access.canView(ALEX, ALEX_NODE)));
+  }
+
+  @Test
+  @DisplayName("cleanup AC-5: a user without an id owns no node, not even one whose RunBy is its username")
+  void userWithoutIdOwnsNothing() {
+    TgUser carol = new TgUser(null, "carol");
+    grant(carol, Permission.RUN_NODES);
+    EcsNode carolsNode = node("carol", "carol");
+
+    assertAll(
+        () -> assertFalse(access.canStop(carol, carolsNode)),
+        () -> assertFalse(access.canView(carol, carolsNode)));
   }
 
   @Test

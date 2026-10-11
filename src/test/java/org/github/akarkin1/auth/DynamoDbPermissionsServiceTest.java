@@ -27,6 +27,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Records are built from and checked as DynamoDB attribute maps (pk, sk, username, permissions)
  * through the beans' real schemas, so the test does not depend on the beans' property names.
  */
+// Pending users are deprecated: pre-registration by username ended with 2026.10. Remove once
+// PENDING_USER records no longer exist (query pk = PENDING_USER); see docs/specs/cleanup-2026-10.md §4.3.
+@SuppressWarnings("removal")
 class DynamoDbPermissionsServiceTest {
 
   private final RecordingRequestMetrics metrics = new RecordingRequestMetrics();
@@ -252,7 +255,6 @@ class DynamoDbPermissionsServiceTest {
         .withItem(user("42", "alice", "RUN_NODES"));
     pendingUsers.withPages(List.of(pending("bob", "LIST_NODES")));
 
-    service.getUsers();
     service.getUsers();
     service.updateUserPermissions(new TgUser(42L, null), Set.of(Permission.LIST_NODES));
     service.updateUserPermissions(new TgUser(1L, "root"), Set.of());
