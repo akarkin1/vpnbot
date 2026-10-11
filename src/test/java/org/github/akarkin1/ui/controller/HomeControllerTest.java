@@ -119,7 +119,7 @@ class HomeControllerTest {
     controller.showHome(anna);
 
     assertEquals(new HomeModel("Anna", null, true, true, false, List.of(node), List.of("eu-central-1"),
-                               List.of("task-1")),
+                               List.of("task-1"), false, true),
                  capturedModel());
     verify(messenger).send(anna, HOME);
   }
