@@ -76,15 +76,23 @@ public class AccessScreens {
     return new Screen("⛔ ${ui.users.not-allowed}", List.of(), List.of(List.of(MENU)));
   }
 
-  /** {@code <b>First</b> (@username, id)}, or {@code <b>First</b> (id)} without a username. */
+  /**
+   * {@code <b>First Last</b> (@username, id)}; without a last name just {@code <b>First</b>},
+   * without a username {@code <b>First Last</b> (id)}.
+   */
   private static Requester requester(AccessRequest request) {
     if (StringUtils.isBlank(request.username())) {
-      return new Requester("<b>%s</b> (%s)",
-                           List.of(orDash(request.firstName()), request.userId()));
+      return new Requester("<b>%s</b> (%s)", List.of(fullName(request), request.userId()));
     }
     return new Requester("<b>%s</b> (@%s, %s)",
-                         List.of(orDash(request.firstName()), request.username(),
-                                 request.userId()));
+                         List.of(fullName(request), request.username(), request.userId()));
+  }
+
+  private static String fullName(AccessRequest request) {
+    String name = StringUtils.isBlank(request.lastName())
+        ? request.firstName()
+        : request.firstName() + " " + request.lastName();
+    return orDash(name);
   }
 
   private record Requester(String template, List<Object> params) {

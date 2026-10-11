@@ -50,10 +50,10 @@ class UsersControllerTest {
 
   private static final Integer MESSAGE_ID = 42;
 
-  private static final UiContext ROOT = new UiContext(1L, 1L, "root", "Root", "en");
-  private static final UiContext ADMIN = new UiContext(10L, 10L, "admin", "Admin", "en");
-  private static final UiContext DELETER = new UiContext(11L, 11L, "deleter", "Deleter", "en");
-  private static final UiContext READER = new UiContext(20L, 20L, "reader", "Reader", "en");
+  private static final UiContext ROOT = new UiContext(1L, 1L, "root", "Root", null, "en");
+  private static final UiContext ADMIN = new UiContext(10L, 10L, "admin", "Admin", null, "en");
+  private static final UiContext DELETER = new UiContext(11L, 11L, "deleter", "Deleter", null, "en");
+  private static final UiContext READER = new UiContext(20L, 20L, "reader", "Reader", null, "en");
   private static final TgUser ALICE = new TgUser(30L, "alice");
   private static final TgUser CAROL = new TgUser(null, "carol");
 

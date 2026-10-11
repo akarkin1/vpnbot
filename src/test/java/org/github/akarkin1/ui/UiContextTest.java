@@ -17,9 +17,9 @@ class UiContextTest {
   @Test
   @DisplayName("AC-12, 4 AC-1: context of a message comes from its chat and sender, with the sender's user id")
   void fromMessage() {
-    UiContext context = UiContext.fromUpdate(messageUpdate(user("alex", "Alex", "ru"), "hi"));
+    UiContext context = UiContext.fromUpdate(messageUpdate(user("alex", "Alex", "Smith", "ru"), "hi"));
 
-    assertEquals(new UiContext(CHAT_ID, USER_ID, "alex", "Alex", "ru"), context);
+    assertEquals(new UiContext(CHAT_ID, USER_ID, "alex", "Alex", "Smith", "ru"), context);
   }
 
   @Test
@@ -27,7 +27,7 @@ class UiContextTest {
   void fromCallbackQuery() {
     UiContext context = UiContext.fromUpdate(callbackUpdate(user("alex", "Alex", "ru"), "HOME", true));
 
-    assertEquals(new UiContext(CHAT_ID, USER_ID, "alex", "Alex", "ru"), context);
+    assertEquals(new UiContext(CHAT_ID, USER_ID, "alex", "Alex", null, "ru"), context);
   }
 
   @Test
@@ -35,7 +35,7 @@ class UiContextTest {
   void fromCallbackQueryWithoutMessage() {
     UiContext context = UiContext.fromUpdate(callbackUpdate(user("alex", "Alex", "ru"), "HOME", false));
 
-    assertEquals(new UiContext(USER_ID, USER_ID, "alex", "Alex", "ru"), context);
+    assertEquals(new UiContext(USER_ID, USER_ID, "alex", "Alex", null, "ru"), context);
   }
 
   @Test
@@ -46,7 +46,7 @@ class UiContextTest {
     assertEquals(new TgUser(USER_ID, "alex"),
                  UiContext.fromUpdate(callbackUpdate(user("alex", "Alex", "ru"), "HOME", true))
                      .user());
-    assertEquals(new TgUser(42L, "bob"), new UiContext(100L, 42L, "bob", "Bob", "en").user());
+    assertEquals(new TgUser(42L, "bob"), new UiContext(100L, 42L, "bob", "Bob", null, "en").user());
   }
 
   @Test

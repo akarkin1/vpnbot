@@ -82,7 +82,7 @@ final class ScreenTestSupport {
 
   /** The message as sent: rendered by the real renderer over the real message files. */
   static RenderedMessage render(Screen screen, String languageCode) {
-    UiContext context = new UiContext(1L, 1L, "viewer", "Viewer", languageCode);
+    UiContext context = new UiContext(1L, 1L, "viewer", "Viewer", null, languageCode);
     return new ScreenRenderer(new MainMessagesTranslator()).render(context, screen);
   }
 

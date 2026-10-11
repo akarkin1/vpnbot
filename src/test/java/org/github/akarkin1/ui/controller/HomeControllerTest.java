@@ -35,7 +35,7 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class HomeControllerTest {
 
-  private static final UiContext CONTEXT = new UiContext(100L, 7L, "alex", "Alex", "en-US");
+  private static final UiContext CONTEXT = new UiContext(100L, 7L, "alex", "Alex", null, "en-US");
   private static final TgUser ALEX = new TgUser(7L, "alex");
   private static final Integer MESSAGE_ID = 42;
   private static final Screen HOME = new Screen("home", List.of(), List.of());
@@ -136,7 +136,7 @@ class HomeControllerTest {
   @Test
   @DisplayName("4 AC-9 (was 2b AC-8 null username): a user without a username is authorized by the user id and lists own nodes by id")
   void userWithoutUsername() {
-    UiContext anna = new UiContext(100L, 11L, null, "Anna", "en-US");
+    UiContext anna = new UiContext(100L, 11L, null, "Anna", null, "en-US");
     TgUser annaUser = new TgUser(11L, null);
     EcsNode node = EcsNode.builder().id("task-1").runBy("11").build();
     lenient().when(authorizer.hasPermission(annaUser, Permission.LIST_NODES)).thenReturn(true);
@@ -157,7 +157,7 @@ class HomeControllerTest {
   @Test
   @DisplayName("AC-9, 2b AC-8: a user without permissions (and without a username) makes no node service calls and has no stoppable nodes")
   void userWithoutUsernameAndPermissions() {
-    UiContext anonymous = new UiContext(100L, 11L, null, "Alex", "en-US");
+    UiContext anonymous = new UiContext(100L, 11L, null, "Alex", null, "en-US");
     when(homeScreen.home(any())).thenReturn(HOME);
 
     controller.showHome(anonymous);

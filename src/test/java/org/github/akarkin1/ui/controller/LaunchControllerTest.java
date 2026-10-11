@@ -38,7 +38,7 @@ import static org.mockito.Mockito.when;
 class LaunchControllerTest {
 
   private static final String REGION = "eu-central-1";
-  private static final UiContext CONTEXT = new UiContext(100L, 7L, "alex", "Alex", "en-US");
+  private static final UiContext CONTEXT = new UiContext(100L, 7L, "alex", "Alex", null, "en-US");
   private static final TgUser ALEX = new TgUser(7L, "alex");
   private static final NodeOrigin OWNER = new NodeOrigin(7L, "alex", 100L, "en-US");
   private static final Integer MESSAGE_ID = 42;
@@ -89,7 +89,7 @@ class LaunchControllerTest {
   @Test
   @DisplayName("2a AC-1: a user without a username and without RUN_NODES is not allowed and makes no service calls")
   void noUsernameNotAllowed() {
-    UiContext anonymous = new UiContext(100L, 11L, null, "Alex", "en-US");
+    UiContext anonymous = new UiContext(100L, 11L, null, "Alex", null, "en-US");
 
     controller.launch(anonymous, MESSAGE_ID, REGION);
 
@@ -306,7 +306,7 @@ class LaunchControllerTest {
   @Test
   @DisplayName("2b AC-6, 4 AC-9: runNode receives the NodeOrigin built from the context (user id, username, chat id, language)")
   void runNodeReceivesOwnerFromContext() {
-    UiContext russian = new UiContext(555L, 12L, "masha", "Masha", "ru");
+    UiContext russian = new UiContext(555L, 12L, "masha", "Masha", null, "ru");
     when(authorizer.hasPermission(new TgUser(12L, "masha"), Permission.RUN_NODES)).thenReturn(true);
     supportRegion();
     when(nodeNotifications.build(russian, MESSAGE_ID, REGION)).thenReturn(ENV);
@@ -350,7 +350,7 @@ class LaunchControllerTest {
   @Test
   @DisplayName("2b AC-6: launchAnother by a user without a username and without RUN_NODES is not allowed and makes no service calls")
   void launchAnotherNoUsername() {
-    UiContext anonymous = new UiContext(100L, 11L, null, "Alex", "en-US");
+    UiContext anonymous = new UiContext(100L, 11L, null, "Alex", null, "en-US");
 
     controller.launchAnother(anonymous, MESSAGE_ID, REGION);
 
@@ -455,7 +455,7 @@ class LaunchControllerTest {
   @Test
   @DisplayName("4 AC-9: a user without a username but with RUN_NODES (granted by id) launches; the owner has the id and no username")
   void noUsernameWithRunNodesLaunches() {
-    UiContext anna = new UiContext(100L, 11L, null, "Anna", "en-US");
+    UiContext anna = new UiContext(100L, 11L, null, "Anna", null, "en-US");
     when(authorizer.hasPermission(new TgUser(11L, null), Permission.RUN_NODES)).thenReturn(true);
     supportRegion();
     when(nodeNotifications.build(anna, MESSAGE_ID, REGION)).thenReturn(ENV);

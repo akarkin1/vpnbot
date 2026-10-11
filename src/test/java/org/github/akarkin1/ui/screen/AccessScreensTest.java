@@ -27,7 +27,7 @@ class AccessScreensTest {
 
   private static final long USER_ID = 123456789L;
   private static final AccessRequest REQUEST =
-      new AccessRequest(USER_ID, "alex", "Alex", "ru", 1_760_097_600_123L);
+      new AccessRequest(USER_ID, "alex", "Alex", "Smith", "ru", 1_760_097_600_123L);
 
   private final AccessScreens screens = new AccessScreens();
 
@@ -90,19 +90,28 @@ class AccessScreensTest {
   // --- admin side ----------------------------------------------------------------------------
 
   @Test
-  @DisplayName("4 AC-7: adminRequest reads \"🙋 <b>First</b> (@username, id) asks for access to the bot.\"")
+  @DisplayName("4 AC-7: adminRequest reads \"🙋 <b>First Last</b> (@username, id) asks for access to the bot.\"")
   void adminRequestText() {
     Screen screen = screens.adminRequest(REQUEST, Set.of());
 
-    assertEquals("🙋 <b>Alex</b> (@alex, 123456789) asks for access to the bot.",
+    assertEquals("🙋 <b>Alex Smith</b> (@alex, 123456789) asks for access to the bot.",
                  render(screen, "en").text());
     assertTrue(screen.template().contains("${ui.access.asks}"), screen.template());
   }
 
   @Test
+  @DisplayName("4 AC-7, D-26: adminRequest without a last name shows the first name alone")
+  void adminRequestWithoutLastName() {
+    Screen screen = screens.adminRequest(new AccessRequest(USER_ID, "alex", "Alex", null, "en", 1L), Set.of());
+
+    assertEquals("🙋 <b>Alex</b> (@alex, 123456789) asks for access to the bot.",
+                 render(screen, "en").text());
+  }
+
+  @Test
   @DisplayName("4 AC-7: adminRequest without a username shows no @null")
   void adminRequestWithoutUsername() {
-    Screen screen = screens.adminRequest(new AccessRequest(USER_ID, null, "Alex", "en", 1L), Set.of());
+    Screen screen = screens.adminRequest(new AccessRequest(USER_ID, null, "Alex", null, "en", 1L), Set.of());
 
     String text = render(screen, "en").text();
     assertTrue(text.contains("123456789"), text);
@@ -152,7 +161,7 @@ class AccessScreensTest {
   @Test
   @DisplayName("4 AC-7: the first name is HTML-escaped (a param, not part of the template)")
   void adminRequestEscapesName() {
-    AccessRequest request = new AccessRequest(USER_ID, "eve", "<i>Eve</i> & 100%", "en", 1L);
+    AccessRequest request = new AccessRequest(USER_ID, "eve", "<i>Eve</i> & 100%", null, "en", 1L);
 
     Screen screen = screens.adminRequest(request, Set.of());
 
@@ -165,7 +174,7 @@ class AccessScreensTest {
   @Test
   @DisplayName("4 AC-7: every adminRequest callback for a 10-digit id fits in 64 bytes")
   void adminRequestCallbacksFit() {
-    AccessRequest request = new AccessRequest(9_999_999_999L, "u".repeat(32), "Alex", "en", 1L);
+    AccessRequest request = new AccessRequest(9_999_999_999L, "u".repeat(32), "Alex", null, "en", 1L);
 
     Screen screen = screens.adminRequest(request, EnumSet.allOf(UserRole.class));
 
@@ -201,7 +210,7 @@ class AccessScreensTest {
   @Test
   @DisplayName("4 AC-7: granted escapes the requester's name")
   void grantedEscapesName() {
-    AccessRequest request = new AccessRequest(USER_ID, "eve", "<Eve>", "en", 1L);
+    AccessRequest request = new AccessRequest(USER_ID, "eve", "<Eve>", null, "en", 1L);
 
     String text = render(screens.granted(request, Set.of(UserRole.USER_ADMIN)), "en").text();
 
@@ -247,7 +256,7 @@ class AccessScreensTest {
             screens.alreadyRequested(),
             screens.accessDeclined(),
             screens.adminRequest(REQUEST, Set.of()),
-            screens.adminRequest(new AccessRequest(USER_ID, null, "Alex", null, 1L), Set.of()),
+            screens.adminRequest(new AccessRequest(USER_ID, null, "Alex", null, null, 1L), Set.of()),
             screens.declined(REQUEST),
             screens.alreadyHandled(),
             screens.notAllowed())

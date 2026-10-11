@@ -98,7 +98,7 @@ public class NodeController {
     }
 
     UiContext owner = new UiContext(ownerChatId, parseId(task.getRunBy()), task.getRunByName(),
-                                    null, task.getLanguageCode());
+                                    null, null, task.getLanguageCode());
     try {
       messenger.send(owner, nodeScreens.stoppedByAdmin(task));
     } catch (RuntimeException e) {

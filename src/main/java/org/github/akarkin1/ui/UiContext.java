@@ -6,8 +6,9 @@ import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.User;
 
+/** The user and chat of a request; {@code username} and {@code lastName} are nullable. */
 public record UiContext(Long chatId, Long userId, String username, String firstName,
-                        String languageCode) {
+                        String lastName, String languageCode) {
 
   private static final String DEFAULT_LANGUAGE_CODE = "en-US";
 
@@ -27,7 +28,7 @@ public record UiContext(Long chatId, Long userId, String username, String firstN
   private static UiContext of(Long chatId, User user) {
     String languageCode = StringUtils.defaultIfBlank(user.getLanguageCode(), DEFAULT_LANGUAGE_CODE);
     return new UiContext(chatId, user.getId(), user.getUserName(), user.getFirstName(),
-                         languageCode);
+                         user.getLastName(), languageCode);
   }
 
   /** The user of the request. */

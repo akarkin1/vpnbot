@@ -31,7 +31,7 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class RunNodeCommandTest {
 
-  private static final UiContext EXPECTED_CONTEXT = new UiContext(CHAT_ID, USER_ID, "alex", null, "ru");
+  private static final UiContext EXPECTED_CONTEXT = new UiContext(CHAT_ID, USER_ID, "alex", null, null, "ru");
 
   @Mock
   private TailscaleNodeService nodeService;

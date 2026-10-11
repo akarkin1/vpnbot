@@ -90,7 +90,8 @@ Tap → `AccessController.request(context, messageId)`:
 Admins = users whose permissions include `USER_MANAGEMENT` or `ROOT_ACCESS`. A private chat's id
 equals the user id, so the notification goes to chat id = admin user id with the admin's language
 (the user record has none → the bot's default, D-4). The message:
-`🙋 <b>First Last</b> (@username, id) ${ui.access.asks}` with role **checkboxes** and two actions:
+`🙋 <b>First Last</b> (@username, id) ${ui.access.asks}` (just `First` when the account has no last
+name, no `(@…` part without a username) with role **checkboxes** and two actions:
 `[☐ ${ui.role.node-admin}] [☐ ${ui.role.read-only}]`, `[☐ ${ui.role.user-admin}]`,
 `[✅ ${ui.button.grant}] [✖ ${ui.button.decline}]`.
 
@@ -207,7 +208,7 @@ root targets even on a forged callback, `deleteUser(row.user())`, back to the li
 |---|---|---|
 | `USER` (changed) | user id | `username` (S, nullable), `permissions` (SS) |
 | `PENDING_USER` (new) | username (as typed by the admin, without `@`) | `permissions` (SS) |
-| `ACCESS_REQUEST` (new) | user id | `username` (S, nullable), `firstName` (S), `languageCode` (S), `requestedAt` (N, epoch ms), `expiresAt` (N, TTL = requestedAt + 7 days) |
+| `ACCESS_REQUEST` (new) | user id | `username` (S, nullable), `firstName` (S), `lastName` (S, nullable), `languageCode` (S), `requestedAt` (N, epoch ms), `expiresAt` (N, TTL = requestedAt + 7 days) |
 
 Beans `PendingUserRecord` and `AccessRequestRecord` in `dynamodb` (same style as the others, keys on
 Lombok getters); `ConfigTables` gains `pendingUsers()` and `accessRequests()`. Service `auth.DynamoDbAccessRequestService implements
@@ -240,12 +241,12 @@ public interface PermissionsService extends UserSignupService {
   Optional<TgUser> findByUsername(String username);
 }
 UserSignupService: updateUserPermissions(TgUser, Set<Permission>); deleteUser(TgUser); assignRolesToUser(TgUser, Set<UserRole>)
-public record AccessRequest(long userId, String username, String firstName, String languageCode, long requestedAt) {}
+public record AccessRequest(long userId, String username, String firstName, String lastName, String languageCode, long requestedAt) {}
 public interface AccessRequestService { Optional<AccessRequest> find(long userId); void create(AccessRequest r); void delete(long userId); }
 public final class RoleFormat { public static String describe(List<Permission> p, Translator t); }   // or Screen-side
 
 // ui
-UiContext(Long chatId, Long userId, String username, String firstName, String languageCode) + TgUser user()
+UiContext(Long chatId, Long userId, String username, String firstName, String lastName, String languageCode) + TgUser user()
 UiAction: requestAccess(), accessToggle(long userId, int mask, UserRole role), accessGrant(long userId, int mask), accessDecline(long userId), users(), user(String key), toggleRole(String key, UserRole), deleteUser(String key), confirmDeleteUser(String key)
          + Optional<Long> userId(), Optional<String> userKey(), OptionalInt roleMask(), Optional<UserRole> role()
 public final class RoleSet { static int encode(Set<UserRole>); static Set<UserRole> decode(int); }   // auth
@@ -391,8 +392,8 @@ Order: H1 → T1/T2 (deploy, observe the migration) → T3/T4 (deploy).
   (behaviour unchanged). `DynamoDbAccessRequestService.find` ignores expired records (TTL deletion
   lags). The no-access home keyboard is `[🙋 Request access]` followed by the usual Refresh/Help row.
   Admins are notified with the bot's default language (their record stores none).
-- D-22 (T4) The admin request message shows the first name only (`AccessRequest` holds no last
-  name), without "@null" when there is no username. A node admin shows Read-only as ticked too
+- D-22 (T4, superseded by D-26 for the name) The admin request message showed the first name only
+  (`AccessRequest` held no last name), without "@null" when there is no username. A node admin shows Read-only as ticked too
   (its permissions are a subset), and unticking Node admin leaves Read-only. Users are listed sorted by
   username case-insensitively, users without a username last. `grant` with an empty role set is a
   no-op (in addition to the router skipping mask 0).
@@ -409,3 +410,8 @@ Order: H1 → T1/T2 (deploy, observe the migration) → T3/T4 (deploy).
   `grant(..., Set<UserRole> roles)` and `decline(...)`: an `Optional` parameter is an anti-pattern
   (callers wrap values, the method branches on presence). Both share the permission and
   missing-record checks; behaviour is unchanged.
+- D-26 (review) The requester's last name is carried too: §4.3 always showed `First Last`, but §5/§7
+  (written from the Phase 2b `UiContext`, which held the first name only) had no last name, and T4
+  followed the data model (D-22). `UiContext`, `AccessRequest` and the `ACCESS_REQUEST` record gain a
+  nullable `lastName`; the admin message shows `First Last`, or `First` alone when Telegram has no
+  last name. Requests stored before this change have no `lastName` attribute and render as before.

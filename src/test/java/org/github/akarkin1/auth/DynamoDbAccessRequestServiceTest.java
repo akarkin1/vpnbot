@@ -28,7 +28,7 @@ class DynamoDbAccessRequestServiceTest {
   private static final long USER_ID = 123456789L;
   /** Requested "now", so the expected TTL is the same whether it is derived from the request or the clock. */
   private static final AccessRequest REQUEST =
-      new AccessRequest(USER_ID, "Some_User", "Alex", "ru", NOW.toEpochMilli());
+      new AccessRequest(USER_ID, "Some_User", "Alex", "Smith", "ru", NOW.toEpochMilli());
 
   private final RecordingRequestMetrics metrics = new RecordingRequestMetrics();
   private final FakeTable<AccessRequestRecord> table =
@@ -55,6 +55,7 @@ class DynamoDbAccessRequestServiceTest {
         "sk", AttributeValue.fromS("123456789"),
         "username", AttributeValue.fromS("Some_User"),
         "firstName", AttributeValue.fromS("Alex"),
+        "lastName", AttributeValue.fromS("Smith"),
         "languageCode", AttributeValue.fromS("ru"),
         "requestedAt", AttributeValue.fromN(String.valueOf(NOW.toEpochMilli())),
         "expiresAt", AttributeValue.fromN(String.valueOf(NOW.getEpochSecond() + SEVEN_DAYS_SECONDS))),
@@ -64,7 +65,7 @@ class DynamoDbAccessRequestServiceTest {
   @Test
   @DisplayName("4 §5: create of a user without a username writes no username attribute")
   void createWithoutUsername() {
-    service.create(new AccessRequest(USER_ID, null, "Alex", "en", NOW.toEpochMilli()));
+    service.create(new AccessRequest(USER_ID, null, "Alex", null, "en", NOW.toEpochMilli()));
 
     AccessRequestRecord item = table.puts().getFirst().item();
     assertFalse(table.schema().itemToMap(item, true).containsKey("username"));
@@ -124,6 +125,7 @@ class DynamoDbAccessRequestServiceTest {
     record.setUserId(String.valueOf(userId));
     record.setUsername("Some_User");
     record.setFirstName("Alex");
+    record.setLastName("Smith");
     record.setLanguageCode("ru");
     record.setRequestedAt(NOW.toEpochMilli());
     record.setExpiresAt(expiresAt);

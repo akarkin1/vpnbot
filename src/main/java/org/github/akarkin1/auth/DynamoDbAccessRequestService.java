@@ -35,7 +35,8 @@ public class DynamoDbAccessRequestService implements AccessRequestService {
     }
     long requestedAt = record.getRequestedAt() == null ? 0 : record.getRequestedAt();
     return Optional.of(new AccessRequest(userId, record.getUsername(), record.getFirstName(),
-                                         record.getLanguageCode(), requestedAt));
+                                         record.getLastName(), record.getLanguageCode(),
+                                         requestedAt));
   }
 
   @Override
@@ -44,6 +45,7 @@ public class DynamoDbAccessRequestService implements AccessRequestService {
     record.setUserId(String.valueOf(request.userId()));
     record.setUsername(request.username());
     record.setFirstName(request.firstName());
+    record.setLastName(request.lastName());
     record.setLanguageCode(request.languageCode());
     record.setRequestedAt(request.requestedAt());
     record.setExpiresAt(Instant.ofEpochMilli(request.requestedAt()).plus(REQUEST_TTL)

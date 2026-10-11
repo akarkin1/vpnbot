@@ -50,10 +50,10 @@ class NodeControllerTest {
   private static final NodeRef REF = new NodeRef(REGION, TASK_ID);
   private static final Integer MESSAGE_ID = 42;
 
-  private static final UiContext ALEX = new UiContext(100L, 7L, "alex", "Alex", "en-US");
-  private static final UiContext BOB = new UiContext(300L, 8L, "bob", "Bob", "en-US");
-  private static final UiContext READER = new UiContext(400L, 9L, "reader", "Reader", "en-US");
-  private static final UiContext ROOT = new UiContext(200L, 1L, "root", "Root", "en-US");
+  private static final UiContext ALEX = new UiContext(100L, 7L, "alex", "Alex", null, "en-US");
+  private static final UiContext BOB = new UiContext(300L, 8L, "bob", "Bob", null, "en-US");
+  private static final UiContext READER = new UiContext(400L, 9L, "reader", "Reader", null, "en-US");
+  private static final UiContext ROOT = new UiContext(200L, 1L, "root", "Root", null, "en-US");
 
   /** alex's node, started in Phase 4: RunBy = alex's id, tagged with alex's chat id and language. */
   private static final EcsNode ALEX_NODE = node("7", "100", "ru");
@@ -134,7 +134,7 @@ class NodeControllerTest {
   @Test
   @DisplayName("2b D-10: stop by a user without a username and without permissions shows notAllowed before any node-service call")
   void stopNullUsername() {
-    UiContext anonymous = new UiContext(500L, 50L, null, "Anon", "en-US");
+    UiContext anonymous = new UiContext(500L, 50L, null, "Anon", null, "en-US");
 
     controller.stop(anonymous, MESSAGE_ID, REF);
 
@@ -232,7 +232,7 @@ class NodeControllerTest {
   @Test
   @DisplayName("2b D-10: confirmStop by a user without a username and without permissions shows notAllowed before any node-service call")
   void confirmStopNullUsername() {
-    UiContext anonymous = new UiContext(500L, 50L, null, "Anon", "en-US");
+    UiContext anonymous = new UiContext(500L, 50L, null, "Anon", null, "en-US");
 
     controller.confirmStop(anonymous, MESSAGE_ID, REF);
 
@@ -383,7 +383,7 @@ class NodeControllerTest {
   @Test
   @DisplayName("2b D-10: use by a user without a username and without permissions shows notAllowed before any node-service call")
   void useNullUsername() {
-    UiContext anonymous = new UiContext(500L, 50L, null, "Anon", "en-US");
+    UiContext anonymous = new UiContext(500L, 50L, null, "Anon", null, "en-US");
 
     controller.use(anonymous, MESSAGE_ID, REF);
 
@@ -427,7 +427,7 @@ class NodeControllerTest {
   @Test
   @DisplayName("4 AC-9: a user without a username but with RUN_NODES (by id) may stop an own node (RunBy = id)")
   void stopByOwnerWithoutUsername() {
-    UiContext anna = new UiContext(600L, 11L, null, "Anna", "en-US");
+    UiContext anna = new UiContext(600L, 11L, null, "Anna", null, "en-US");
     grant(anna, Permission.RUN_NODES);
     when(nodeService.getNode(REGION, TASK_ID)).thenReturn(Optional.of(node("11", "600", "en")));
 

@@ -58,14 +58,14 @@ class AccessControllerTest {
   private static final Clock CLOCK = Clock.fixed(NOW, ZoneOffset.UTC);
   private static final long REQUESTER_ID = 7L;
 
-  private static final UiContext ROOT = new UiContext(1L, 1L, "root", "Root", "en");
-  private static final UiContext ADMIN = new UiContext(10L, 10L, "admin", "Admin", "en");
-  private static final UiContext READER = new UiContext(20L, 20L, "reader", "Reader", "en");
-  private static final UiContext REQUESTER = new UiContext(REQUESTER_ID, REQUESTER_ID, "newbie", "Newbie", "ru");
+  private static final UiContext ROOT = new UiContext(1L, 1L, "root", "Root", null, "en");
+  private static final UiContext ADMIN = new UiContext(10L, 10L, "admin", "Admin", null, "en");
+  private static final UiContext READER = new UiContext(20L, 20L, "reader", "Reader", null, "en");
+  private static final UiContext REQUESTER = new UiContext(REQUESTER_ID, REQUESTER_ID, "newbie", "Newbie", "Newman", "ru");
   private static final TgUser PENDING_ADMIN = new TgUser(null, "padmin");
 
   private static final AccessRequest REQUEST =
-      new AccessRequest(REQUESTER_ID, "newbie", "Newbie", "ru", 1_760_097_600_123L);
+      new AccessRequest(REQUESTER_ID, "newbie", "Newbie", "Newman", "ru", 1_760_097_600_123L);
 
   private static final Screen REQUESTED = screen("requested");
   private static final Screen ALREADY_REQUESTED = screen("alreadyRequested");
@@ -156,6 +156,7 @@ class AccessControllerTest {
     assertEquals(REQUESTER_ID, created.userId());
     assertEquals("newbie", created.username());
     assertEquals("Newbie", created.firstName());
+    assertEquals("Newman", created.lastName());
     assertEquals("ru", created.languageCode());
     assertEquals(NOW.toEpochMilli(), created.requestedAt());
     verify(messenger).edit(REQUESTER, MESSAGE_ID, REQUESTED);

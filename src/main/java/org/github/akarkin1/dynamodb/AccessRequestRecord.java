@@ -27,6 +27,8 @@ public class AccessRequestRecord {
   /** Nullable: not every Telegram user has a username. */
   private String username;
   private String firstName;
+  /** Nullable: a Telegram user need not have a last name. */
+  private String lastName;
   private String languageCode;
   /** Epoch millis. */
   private Long requestedAt;

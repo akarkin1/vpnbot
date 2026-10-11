@@ -50,7 +50,8 @@ public class AccessController {
     }
 
     AccessRequest request = new AccessRequest(user.id(), context.username(), context.firstName(),
-                                              context.languageCode(), clock.millis());
+                                              context.lastName(), context.languageCode(),
+                                              clock.millis());
     accessRequests.create(request);
     messenger.edit(context, messageId, accessScreens.requested());
     notifyAdmins(request);
@@ -128,7 +129,7 @@ public class AccessController {
     Screen screen = accessScreens.adminRequest(request, EnumSet.noneOf(UserRole.class));
     for (TgUser admin : admins) {
       // the user record has no language: the bot's default
-      UiContext adminChat = new UiContext(admin.id(), admin.id(), admin.username(), null, null);
+      UiContext adminChat = new UiContext(admin.id(), admin.id(), admin.username(), null, null, null);
       try {
         messenger.send(adminChat, screen);
       } catch (RuntimeException e) {
@@ -139,8 +140,9 @@ public class AccessController {
   }
 
   private void notifyRequester(AccessRequest request, Screen screen) {
-    UiContext requesterContext = new UiContext(request.userId(), request.userId(), request.username(),
-                                        request.firstName(), request.languageCode());
+    UiContext requesterContext = new UiContext(request.userId(), request.userId(),
+                                               request.username(), request.firstName(),
+                                               request.lastName(), request.languageCode());
     try {
       messenger.send(requesterContext, screen);
     } catch (RuntimeException e) {
