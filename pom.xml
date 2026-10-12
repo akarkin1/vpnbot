@@ -6,7 +6,7 @@
 
   <groupId>org.github.akarkin1</groupId>
   <artifactId>vpnbot</artifactId>
-  <version>2026.10-SNAPSHOT</version>
+  <version>2026.10</version>
 
   <properties>
     <maven.compiler.source>21</maven.compiler.source>

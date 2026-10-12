@@ -1,6 +1,6 @@
 # Phase 5 – region requests, release 2026.10
 
-Status: approved 2026-10-12; implemented on `feature/region-requests` (PR open), release per §11. Branch `feature/region-requests`, version `2026.10-SNAPSHOT`;
+Status: released as 2026.10 (branch `release/2026.10`, tag `v2026.10`). Branch `feature/region-requests`, version `2026.10-SNAPSHOT`;
 this is the last feature of release `2026.10` (§11).
 
 ## 1. Goal
@@ -260,8 +260,8 @@ Order: T1/T2 → T3/T4 (T3 wires T1's classes) → H1. Each pair merged before t
    not set up; request one with a second account → root gets the card; tap Deployed before
    deploying → "not deployed yet"; run "Deploy Tailscale ECS Resources" for that region; tap
    Deployed, notify → requester notified, region on the home card; Decline path with another region.
-6. On `main`: `pom.xml` `2026.10.1-SNAPSHOT` (D-7). A hotfix goes to `release/2026.10` (patch
-   version `2026.10.1`, same automatic deploy) and is merged back to `main`.
+6. Merge `release/2026.10` back to `main` (D-7): `main` holds the released version. A hotfix goes
+   to `release/2026.10` (patch version `2026.10.1`, same automatic deploy) and is merged back.
 
 ## 12. Decisions (review)
 
@@ -277,9 +277,10 @@ Order: T1/T2 → T3/T4 (T3 wires T1's classes) → H1. Each pair merged before t
 - D-5 Region requests expire after 30 days (access requests: 7): the decision needs a deploy.
 - D-6 `DescribeRegions` is timed under `MetricComponent.ECS` like the ECS and EC2 calls today (no
   new metric); it is one cached call per TTL.
-- D-7 (owner) After the release, `main` moves to `2026.10.1-SNAPSHOT`: the next release is the
-  patch of the current month until a release in a later month is cut, so the snapshot never names
-  a month that may slip. A release in a later month sets `YYYY.MM` at release time (one line).
+- D-7 (owner, revised at the release) `main` holds the last released version, not a snapshot: the
+  release branch is merged back after the release, and nothing deploys on a merge to `main`
+  (`ci-cd.yml` is manual or called by `release.yml`). The next release sets its version on its own
+  `release/<version>` branch.
 - D-8 The requester line of the admin message (`First Last (@username, id)`) is shared with the
   access request screen through one helper in `ui.screen`, so the two messages stay identical in
   form.
