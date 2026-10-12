@@ -1,6 +1,6 @@
 # Phase 5 – region requests, release 2026.10
 
-Status: approved 2026-10-12. Branch `feature/region-requests`, version `2026.10-SNAPSHOT`;
+Status: approved 2026-10-12; implemented on `feature/region-requests` (PR open), release per §11. Branch `feature/region-requests`, version `2026.10-SNAPSHOT`;
 this is the last feature of release `2026.10` (§11).
 
 ## 1. Goal
@@ -300,3 +300,15 @@ Order: T1/T2 → T3/T4 (T3 wires T1's classes) → H1. Each pair merged before t
 - D-12 (owner) A short `README.md` is part of this release: purpose, how it works, setup from
   scratch (secrets, variables, workflows, webhook) and the minimal stack with its idle and running
   cost. Written by the tech lead (H1).
+- D-13 (T3) The Regions screen hint carries its ⏳ in the Java template: `ui.regions.hint` plus a
+  new key `ui.regions.hint-pending` ("marks regions already requested."), since properties files
+  hold no emoji (CLAUDE.md). The rendered text equals §4.7.
+- D-14 (T3/T4) The city sort of the Regions screen lives in `RegionScreens.regions` (it owns the
+  `RegionLabels`, as `HomeScreen` does); the controller passes enabled − supported sorted by id.
+  Both the screen test and the controller test (with the real screen) pin the city order.
+- D-15 (T3) Texts are sentence tails with the label first, e.g. `📨 <b>label</b>: your request was
+  sent …`, `✖ <b>label</b>: your request was declined.`; the RU texts say "регион" where the
+  pronoun would be ambiguous. Emojis for `none`, `alreadyAvailable`, `unknown`, `requested` are the
+  implementer's (ℹ️, ℹ️, ⚠️, 📨). The requester line helper is `ui.screen.UserLine`.
+- D-16 (T3) `HomeController.canRequestRegions = canRunNodes || root`; `RegionController` checks
+  `RUN_NODES` then `ROOT_ACCESS`, root alone for decisions.

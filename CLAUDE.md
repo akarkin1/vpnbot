@@ -34,12 +34,15 @@ TailscaleVpnLambdaHandler  (API Gateway → Lambda entry point; the request flow
  ├─ UiRouter (ui)           button taps (callback queries: sealed UiAction records), /start, /menu, plain text
  │   ├─ HomeController, LaunchController, NodeController (stop/use) + NodeAccess (ui.controller)
  │   ├─ AccessController (request access → admins' role checkboxes), UsersController (users screen)
+ │   ├─ RegionController (Regions screen: enabled regions without infra → root users get
+ │   │   [Deployed, notify]/[Decline]; "ready" = the REGION record written last by the deploy workflow)
  │   ├─ *Screen classes (ui.screen): pure functions, data → Screen (template + params + buttons)
  │   └─ UiMessenger (ui.messenger): sends/edits Telegram messages, translates, HTML-escapes
  └─ SystemCommandDispatcher system commands /help, /version, /supportedRegions, /describeRoles
                             (dispatcher.command.*); replies are Screens with a Menu button; any other
                             "/command" gets the "not supported" reply with the /help list
-Services: TailscaleNodeService (tailscale) → EcsManager (ecs); Authorizer + PermissionsService (auth)
+Services: TailscaleNodeService (tailscale) → EcsManager (ecs); Authorizer + PermissionsService (auth);
+          RegionCatalog (ec2: DescribeRegions in the Lambda's region, cached); RegionRequestService (region)
 Identity: TgUser(id, username) – permissions and node ownership (RunBy tag) are keyed by the Telegram
           user id; new users come in through the Request access button. PENDING_USER records (users
           pre-registered by username before 2026.10) are still activated at first request by
@@ -48,7 +51,7 @@ Identity: TgUser(id, username) – permissions and node ownership (RunBy tag) ar
           read-only; roles (UserRole) are bundles of permissions, root is a permission (ROOT_ACCESS)
 Config:   Settings.fromEnvironment() reads the env and application.yml once (YamlApplicationConfiguration
           sections); nothing else reads System.getenv. DynamoDB table `vpnbot`
-          holds runtime config: pk REGION/USER/PENDING_USER/ACCESS_REQUEST/TG_UPDATE_LOCK, beans in
+          holds runtime config: pk REGION/USER/PENDING_USER/ACCESS_REQUEST/REGION_REQUEST/TG_UPDATE_LOCK, beans in
           `dynamodb` (Enhanced Client),
           optional in-memory cache (CONFIG_CACHE_ENABLED, CONFIG_CACHE_TTL_SEC); workflows write regions;
           bot token from Secrets Manager (BOT_TOKEN_SECRET_ID)
