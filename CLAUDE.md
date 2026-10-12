@@ -23,8 +23,8 @@ Planned work lives in `docs/roadmap.md`.
   publishes a version and moves the alias. `BotDependencies.build()` runs at publish time, not on first request.
   The jar lives in the S3 bucket named by the repository variable `LAMBDA_JAR_BUCKET`.
 - Versioning is calendar-based (`YYYY.MM[.N]`); `pom.xml` is the only place holding the version (the
-  workflows read it). `main` holds the last released version (no `-SNAPSHOT`); a release branch
-  `release/<version>` sets the new version and is merged back to `main`. `2.0` (branch `release/2.0`, tag `v2.0`)
+  workflows read it). After a release `main` continues as the next patch snapshot (`2026.10.1-SNAPSHOT`);
+  a release branch `release/<version>` sets the release version and is merged back to `main`. `2.0` (branch `release/2.0`, tag `v2.0`)
   is the last version before the button UI.
 
 ## Architecture
