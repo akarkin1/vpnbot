@@ -11,6 +11,10 @@ import org.github.akarkin1.ui.UiAction.ConfirmStop;
 import org.github.akarkin1.ui.UiAction.DeleteUser;
 import org.github.akarkin1.ui.UiAction.Help;
 import org.github.akarkin1.ui.UiAction.Home;
+import org.github.akarkin1.ui.UiAction.RegionDecline;
+import org.github.akarkin1.ui.UiAction.RegionDeployed;
+import org.github.akarkin1.ui.UiAction.RegionRequestAction;
+import org.github.akarkin1.ui.UiAction.Regions;
 import org.github.akarkin1.ui.UiAction.RequestAccess;
 import org.github.akarkin1.ui.UiAction.Run;
 import org.github.akarkin1.ui.UiAction.RunNew;
@@ -23,6 +27,7 @@ import org.github.akarkin1.ui.controller.AccessController;
 import org.github.akarkin1.ui.controller.HomeController;
 import org.github.akarkin1.ui.controller.LaunchController;
 import org.github.akarkin1.ui.controller.NodeController;
+import org.github.akarkin1.ui.controller.RegionController;
 import org.github.akarkin1.ui.controller.UsersController;
 import org.github.akarkin1.ui.messenger.UiMessenger;
 import org.github.akarkin1.ui.screen.ErrorScreen;
@@ -44,6 +49,7 @@ public class UiRouter {
   private final NodeController nodeController;
   private final AccessController accessController;
   private final UsersController usersController;
+  private final RegionController regionController;
   private final UiMessenger messenger;
   private final ErrorScreen errorScreen;
 
@@ -119,6 +125,10 @@ public class UiRouter {
       case ToggleRole(var key, var role) -> usersController.toggleRole(context, messageId, key, role);
       case DeleteUser(var key) -> usersController.confirmDelete(context, messageId, key);
       case ConfirmDeleteUser(var key) -> usersController.delete(context, messageId, key);
+      case Regions() -> regionController.show(context, messageId);
+      case RegionRequestAction(var regionId) -> regionController.request(context, messageId, regionId);
+      case RegionDeployed(var regionId) -> regionController.deployed(context, messageId, regionId);
+      case RegionDecline(var regionId) -> regionController.decline(context, messageId, regionId);
     }
   }
 

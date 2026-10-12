@@ -72,6 +72,7 @@ Resources:
                   - "ecs:TagResource"
                   - "tag:GetResources"
                   - "ec2:DescribeNetworkInterfaces"  # public IPs of the nodes
+                  - "ec2:DescribeRegions"  # regions enabled for the account (region requests)
                 Effect: Allow
                 Resource: "*"
               # Config table: regions, user permissions, Telegram update locks

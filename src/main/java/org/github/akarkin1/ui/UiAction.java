@@ -20,6 +20,8 @@ import java.util.function.Function;
  *
  * <p>{@code <id>} is a Telegram user id, {@code <mask>} the {@link RoleSet} bitmask of the selected
  * roles and {@code <key>} a {@code TgUser.key()}: the id, or {@code @username} of a pending user.
+ * {@code <regionId>} of the region request actions is an AWS region id without {@code ':'} or
+ * whitespace.
  */
 public sealed interface UiAction {
 
@@ -43,7 +45,11 @@ public sealed interface UiAction {
       Map.entry(ShowUser.TAG, ShowUser::parse),
       Map.entry(ToggleRole.TAG, ToggleRole::parse),
       Map.entry(DeleteUser.TAG, DeleteUser::parse),
-      Map.entry(ConfirmDeleteUser.TAG, ConfirmDeleteUser::parse));
+      Map.entry(ConfirmDeleteUser.TAG, ConfirmDeleteUser::parse),
+      Map.entry(Regions.TAG, Regions::parse),
+      Map.entry(RegionRequestAction.TAG, RegionRequestAction::parse),
+      Map.entry(RegionDeployed.TAG, RegionDeployed::parse),
+      Map.entry(RegionDecline.TAG, RegionDecline::parse));
 
   /**
    * The callback data.
@@ -365,6 +371,77 @@ public sealed interface UiAction {
     }
   }
 
+  /** {@code REGIONS}: the Regions screen, regions that can be requested. */
+  record Regions() implements UiAction {
+    private static final String TAG = "REGIONS";
+
+    @Override
+    public String encode() {
+      return render(TAG);
+    }
+
+    public static Optional<Regions> parse(String arg) {
+      return arg == null ? Optional.of(new Regions()) : Optional.empty();
+    }
+  }
+
+  /**
+   * {@code REGION_REQ:<regionId>}: request a region (named so as not to clash with
+   * {@code region.RegionRequest}).
+   */
+  record RegionRequestAction(String regionId) implements UiAction {
+    private static final String TAG = "REGION_REQ";
+
+    public RegionRequestAction {
+      requireRequestRegionId(regionId);
+    }
+
+    @Override
+    public String encode() {
+      return render(TAG, regionId);
+    }
+
+    public static Optional<RegionRequestAction> parse(String arg) {
+      return isRequestRegionId(arg) ? Optional.of(new RegionRequestAction(arg)) : Optional.empty();
+    }
+  }
+
+  /** {@code REGION_DONE:<regionId>}: a root user reports the region deployed, notify the requester. */
+  record RegionDeployed(String regionId) implements UiAction {
+    private static final String TAG = "REGION_DONE";
+
+    public RegionDeployed {
+      requireRequestRegionId(regionId);
+    }
+
+    @Override
+    public String encode() {
+      return render(TAG, regionId);
+    }
+
+    public static Optional<RegionDeployed> parse(String arg) {
+      return isRequestRegionId(arg) ? Optional.of(new RegionDeployed(arg)) : Optional.empty();
+    }
+  }
+
+  /** {@code REGION_DECLINE:<regionId>}: a root user declines a region request. */
+  record RegionDecline(String regionId) implements UiAction {
+    private static final String TAG = "REGION_DECLINE";
+
+    public RegionDecline {
+      requireRequestRegionId(regionId);
+    }
+
+    @Override
+    public String encode() {
+      return render(TAG, regionId);
+    }
+
+    public static Optional<RegionDecline> parse(String arg) {
+      return isRequestRegionId(arg) ? Optional.of(new RegionDecline(arg)) : Optional.empty();
+    }
+  }
+
   // --- factories (the screens build their buttons with these) ---------------------------------
 
   static Home home() {
@@ -429,6 +506,22 @@ public sealed interface UiAction {
 
   static ConfirmDeleteUser confirmDeleteUser(String key) {
     return new ConfirmDeleteUser(key);
+  }
+
+  static Regions regions() {
+    return new Regions();
+  }
+
+  static RegionRequestAction regionRequest(String regionId) {
+    return new RegionRequestAction(regionId);
+  }
+
+  static RegionDeployed regionDeployed(String regionId) {
+    return new RegionDeployed(regionId);
+  }
+
+  static RegionDecline regionDecline(String regionId) {
+    return new RegionDecline(regionId);
   }
 
   // --- encoding and validation ---------------------------------------------------------------
@@ -500,6 +593,12 @@ public sealed interface UiAction {
            && username.chars().noneMatch(c -> c == ':' || Character.isWhitespace(c));
   }
 
+  /** A region id of the region request actions: not blank, no {@code ':'} or whitespace. */
+  private static boolean isRequestRegionId(String regionId) {
+    return StringUtils.isNotBlank(regionId)
+           && regionId.chars().noneMatch(c -> c == ':' || Character.isWhitespace(c));
+  }
+
   private static boolean isNotAsciiDigits(String value) {
     return !value.chars().allMatch(c -> c >= '0' && c <= '9');
   }
@@ -507,6 +606,12 @@ public sealed interface UiAction {
   private static void requireRegionId(String regionId) {
     if (StringUtils.isBlank(regionId)) {
       throw new IllegalArgumentException("Blank region id: " + regionId);
+    }
+  }
+
+  private static void requireRequestRegionId(String regionId) {
+    if (!isRequestRegionId(regionId)) {
+      throw new IllegalArgumentException("Invalid region id: " + regionId);
     }
   }
 

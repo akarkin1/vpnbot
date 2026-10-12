@@ -19,6 +19,8 @@ public class HomeScreen {
       Button.action("❓ ${ui.button.help}", UiAction.help()));
   private static final List<Button> REQUEST_ACCESS_ROW = List.of(
       Button.action("🙋 ${ui.button.request-access}", UiAction.requestAccess()));
+  private static final List<Button> OTHER_REGION_ROW = List.of(
+      Button.action("🌍 ${ui.button.other-region}", UiAction.regions()));
   private static final List<Button> USERS_ROW = List.of(
       Button.action("👥 ${ui.button.users}", UiAction.users()));
 
@@ -86,6 +88,9 @@ public class HomeScreen {
     }
     if (model.canRunNodes()) {
       keyboard.addAll(regionRows(model.regionIds()));
+    }
+    if (model.canRequestRegions()) {
+      keyboard.add(OTHER_REGION_ROW);
     }
     keyboard.addAll(stopRows(model));
     if (model.canManageUsers()) {

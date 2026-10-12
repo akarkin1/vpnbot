@@ -16,12 +16,15 @@ Planned work lives in `docs/roadmap.md`.
 - Shell script tests (need `jq`): `.github/scripts/region-item-test.sh`, `.github/scripts/publish-live-version-test.sh`,
   `scripts/migrate-pending-users-test.sh`.
 - `java-tests.yml` runs the build and the shell script tests on pull requests.
-- Deployment is manual via GitHub Actions (`.github/workflows/deploy-*.yml`). API Gateway invokes the
+- Deployment: a push to `main` runs `ci-cd.yml` (jar + alias); a push to `release/**` runs `release.yml`,
+  which calls `ci-cd.yml`, the Lambda stack deploy and the ECS deploy of every registered region as
+  reusable workflows; the `deploy-*.yml` workflows stay manual for one-off deploys. API Gateway invokes the
   Lambda alias `live` (SnapStart): every code/config deploy ends with `publish-live-version.sh`, which
   publishes a version and moves the alias. `BotDependencies.build()` runs at publish time, not on first request.
   The jar lives in the S3 bucket named by the repository variable `LAMBDA_JAR_BUCKET`.
-- Versioning is calendar-based (`YYYY.MM[.N]`, e.g. `2026.10-SNAPSHOT` while in progress); `pom.xml` is
-  the only place holding the version (the workflows read it). `2.0` (branch `release/2.0`, tag `v2.0`)
+- Versioning is calendar-based (`YYYY.MM[.N]`, e.g. `2026.10-SNAPSHOT` while in progress; after a release
+  `main` continues as the patch snapshot, `2026.10.1-SNAPSHOT`); `pom.xml` is the only place holding the
+  version (the workflows read it). `2.0` (branch `release/2.0`, tag `v2.0`)
   is the last version before the button UI.
 
 ## Architecture
@@ -33,12 +36,15 @@ TailscaleVpnLambdaHandler  (API Gateway → Lambda entry point; the request flow
  ├─ UiRouter (ui)           button taps (callback queries: sealed UiAction records), /start, /menu, plain text
  │   ├─ HomeController, LaunchController, NodeController (stop/use) + NodeAccess (ui.controller)
  │   ├─ AccessController (request access → admins' role checkboxes), UsersController (users screen)
+ │   ├─ RegionController (Regions screen: enabled regions without infra → root users get
+ │   │   [Deployed, notify]/[Decline]; "ready" = the REGION record written last by the deploy workflow)
  │   ├─ *Screen classes (ui.screen): pure functions, data → Screen (template + params + buttons)
  │   └─ UiMessenger (ui.messenger): sends/edits Telegram messages, translates, HTML-escapes
  └─ SystemCommandDispatcher system commands /help, /version, /supportedRegions, /describeRoles
                             (dispatcher.command.*); replies are Screens with a Menu button; any other
                             "/command" gets the "not supported" reply with the /help list
-Services: TailscaleNodeService (tailscale) → EcsManager (ecs); Authorizer + PermissionsService (auth)
+Services: TailscaleNodeService (tailscale) → EcsManager (ecs); Authorizer + PermissionsService (auth);
+          RegionCatalog (ec2: DescribeRegions in the Lambda's region, cached); RegionRequestService (region)
 Identity: TgUser(id, username) – permissions and node ownership (RunBy tag) are keyed by the Telegram
           user id; new users come in through the Request access button. PENDING_USER records (users
           pre-registered by username before 2026.10) are still activated at first request by
@@ -47,7 +53,7 @@ Identity: TgUser(id, username) – permissions and node ownership (RunBy tag) ar
           read-only; roles (UserRole) are bundles of permissions, root is a permission (ROOT_ACCESS)
 Config:   Settings.fromEnvironment() reads the env and application.yml once (YamlApplicationConfiguration
           sections); nothing else reads System.getenv. DynamoDB table `vpnbot`
-          holds runtime config: pk REGION/USER/PENDING_USER/ACCESS_REQUEST/TG_UPDATE_LOCK, beans in
+          holds runtime config: pk REGION/USER/PENDING_USER/ACCESS_REQUEST/REGION_REQUEST/TG_UPDATE_LOCK, beans in
           `dynamodb` (Enhanced Client),
           optional in-memory cache (CONFIG_CACHE_ENABLED, CONFIG_CACHE_TTL_SEC); workflows write regions;
           bot token from Secrets Manager (BOT_TOKEN_SECRET_ID)

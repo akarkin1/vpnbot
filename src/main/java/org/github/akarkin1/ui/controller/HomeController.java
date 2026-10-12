@@ -41,7 +41,7 @@ public class HomeController {
     TgUser user = context.user();
     if (user.id() == null) {
       return new HomeModel(context.firstName(), context.username(), false, false, false, List.of(),
-                           List.of(), List.of(), false, false);
+                           List.of(), List.of(), false, false, false);
     }
 
     boolean canListNodes = authorizer.hasPermission(user, Permission.LIST_NODES);
@@ -50,6 +50,7 @@ public class HomeController {
     boolean canManageUsers = allNodes || authorizer.hasPermission(user, Permission.USER_MANAGEMENT);
     boolean hasAccess = canListNodes || canRunNodes || canManageUsers
                         || UserAccess.hasAccess(authorizer, user);
+    boolean canRequestRegions = canRunNodes || allNodes;
 
     List<EcsNode> nodes = canListNodes
         ? nodeService.listNodes(allNodes ? null : String.valueOf(user.id()))
@@ -63,7 +64,8 @@ public class HomeController {
         .toList();
 
     return new HomeModel(context.firstName(), context.username(), canListNodes, canRunNodes,
-                         allNodes, nodes, regionIds, stoppableTaskIds, canManageUsers, hasAccess);
+                         allNodes, nodes, regionIds, stoppableTaskIds, canManageUsers, hasAccess,
+                         canRequestRegions);
   }
 
 }

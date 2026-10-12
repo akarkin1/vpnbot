@@ -35,7 +35,7 @@ class SettingsTest {
   }
 
   @Test
-  @DisplayName("3 AC-A8, 3 AC-A12, 2a §4.5: the defaults – table vpnbot, cache off, TTL 300 s, metrics on")
+  @DisplayName("3 AC-A8, 3 AC-A12, 2a §4.5, 5 AC-9: the defaults – table vpnbot, cache off, TTL 300 s, metrics on, AWS region eu-central-1")
   void defaults() {
     Settings settings = Settings.from(MINIMAL_ENV::get, new YamlApplicationConfiguration());
 
@@ -44,11 +44,12 @@ class SettingsTest {
         () -> assertFalse(settings.configCacheEnabled()),
         () -> assertEquals(Duration.ofSeconds(300), settings.configCacheTtl()),
         () -> assertTrue(settings.metricsEnabled()),
-        () -> assertEquals("secret-id", settings.webhookSecretTokenId()));
+        () -> assertEquals("secret-id", settings.webhookSecretTokenId()),
+        () -> assertEquals("eu-central-1", settings.awsRegion()));
   }
 
   @Test
-  @DisplayName("§4.7 rule 1: the env values are passed through, flags are parsed case-insensitively")
+  @DisplayName("§4.7 rule 1, 5 §6: the env values (incl. AWS_REGION) are passed through, flags are parsed case-insensitively")
   void envValuesPassedThrough() {
     Map<String, String> env = new HashMap<>(MINIMAL_ENV);
     env.put("CONFIG_TABLE_NAME", "vpnbot-test");
@@ -57,6 +58,7 @@ class SettingsTest {
     env.put("METRICS_ENABLED", "FALSE");
     env.put("CONFIG_CACHE_ENABLED", "True");
     env.put("CONFIG_CACHE_TTL_SEC", "42");
+    env.put("AWS_REGION", "eu-west-2");
 
     Settings settings = Settings.from(env::get, new YamlApplicationConfiguration());
 
@@ -66,7 +68,8 @@ class SettingsTest {
         () -> assertEquals("vpn_bot", settings.botUsername()),
         () -> assertFalse(settings.metricsEnabled()),
         () -> assertTrue(settings.configCacheEnabled()),
-        () -> assertEquals(Duration.ofSeconds(42), settings.configCacheTtl()));
+        () -> assertEquals(Duration.ofSeconds(42), settings.configCacheTtl()),
+        () -> assertEquals("eu-west-2", settings.awsRegion()));
   }
 
   @Test

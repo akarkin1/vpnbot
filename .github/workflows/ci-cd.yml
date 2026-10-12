@@ -9,6 +9,8 @@ env:
 
 on:
   workflow_dispatch:
+  # Called by release.yml on a push to release/**
+  workflow_call:
   push:
     paths:
       - 'src/main/java/**'
@@ -16,6 +18,11 @@ on:
       - '.github/workflows/ci-cd.yml'
     branches:
       - main
+
+# One deploy at a time; a second push waits for the running one
+concurrency:
+  group: vpnbot-lambda-deploy
+  cancel-in-progress: false
 
 jobs:
   ci-cd-build:
@@ -60,4 +67,3 @@ jobs:
     # API Gateway invokes the alias, so the new code is live only once a version is published
     - name: Publish Version And Point Alias `live`
       run: .github/scripts/publish-live-version.sh vpnbot live
-      

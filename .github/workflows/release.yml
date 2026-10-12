@@ -1,0 +1,64 @@
+name: Release
+
+# A push to release/<version> deploys everything at that version: the Lambda code (jar + alias), the
+# Lambda stack (IAM, environment, Telegram menu) and every registered region (ECS stack + node image).
+# The manual workflows stay as they are for one-off deploys.
+on:
+  push:
+    branches:
+      - 'release/**'
+
+concurrency:
+  group: vpnbot-lambda-deploy
+  cancel-in-progress: false
+
+jobs:
+  lambda-code:
+    name: Lambda code
+    uses: ./.github/workflows/ci-cd.yml
+    secrets: inherit
+
+  lambda-stack:
+    name: Lambda stack
+    needs: lambda-code
+    uses: ./.github/workflows/deploy-tgbot-lambda.yml
+    with:
+      region: ${{ vars.CONFIG_BASE_REGION }}
+    secrets: inherit
+
+  list-regions:
+    name: Registered regions
+    runs-on: ubuntu-latest
+    outputs:
+      regions: ${{ steps.query.outputs.regions }}
+    steps:
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ vars.CONFIG_BASE_REGION }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      - name: Query The REGION Records
+        id: query
+        run: |
+          REGIONS=$(aws dynamodb query --table-name vpnbot --region "${{ vars.CONFIG_BASE_REGION }}" \
+            --key-condition-expression 'pk = :p' --expression-attribute-values '{":p":{"S":"REGION"}}' \
+            --query 'Items[].sk.S' --output json | jq -c .)
+          echo "Registered regions: $REGIONS"
+          echo "regions=$REGIONS" >> "$GITHUB_OUTPUT"
+
+  regions:
+    name: Region ${{ matrix.region }}
+    needs: list-regions
+    if: ${{ needs.list-regions.outputs.regions != '[]' }}
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        region: ${{ fromJson(needs.list-regions.outputs.regions) }}
+    uses: ./.github/workflows/deploy-vpn-ecs-resources.yml
+    with:
+      region: ${{ matrix.region }}
+      run-cfn-deploy: 'true'
+      run-docker: 'true'
+    secrets: inherit
