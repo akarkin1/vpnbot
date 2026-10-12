@@ -50,11 +50,11 @@ class RegionScreensTest {
   // --- Regions screen (§4.2) -----------------------------------------------------------------
 
   @Test
-  @DisplayName("5 §4.2: the Regions screen reads \"🌍 <b>${ui.regions.title}</b>\\n${ui.regions.hint}\" without params")
+  @DisplayName("5 §4.2: the Regions screen reads \"🌍 <b>${ui.regions.title}</b>\\n${ui.regions.hint} ⏳ ${ui.regions.hint-pending}\" without params (the emoji stays in Java)")
   void regionsText() {
     Screen screen = screens.regions(List.of("eu-central-1"), Set.of());
 
-    assertEquals("🌍 <b>${ui.regions.title}</b>\n${ui.regions.hint}", screen.template());
+    assertEquals("🌍 <b>${ui.regions.title}</b>\n${ui.regions.hint} ⏳ ${ui.regions.hint-pending}", screen.template());
     assertEquals(List.of(), screen.params());
   }
 
@@ -125,7 +125,8 @@ class RegionScreensTest {
     for (String language : List.of("en", "ru")) {
       String text = render(screen, language).text();
       assertEquals("🌍 <b>" + messages.value(language, "ui.regions.title") + "</b>\n"
-                   + messages.value(language, "ui.regions.hint"),
+                   + messages.value(language, "ui.regions.hint") + " ⏳ "
+                   + messages.value(language, "ui.regions.hint-pending"),
                    text);
       assertEquals(List.of(FRANKFURT, "⏳ 🇬🇧 London", "🏠 " + messages.value(language, "ui.button.menu")),
                    renderedLabels(screen, language));
@@ -399,7 +400,7 @@ class RegionScreensTest {
         .flatMap(screen -> buttons(screen).stream())
         .map(Button::label)
         .toList());
-    List<String> keys = List.of("ui.regions.title", "ui.regions.hint", "ui.regions.none",
+    List<String> keys = List.of("ui.regions.title", "ui.regions.hint", "ui.regions.hint-pending", "ui.regions.none",
                                 "ui.regions.not-allowed", "ui.regions.requested",
                                 "ui.regions.already-requested", "ui.regions.already-available",
                                 "ui.regions.unknown", "ui.regions.asks", "ui.regions.requested-by",

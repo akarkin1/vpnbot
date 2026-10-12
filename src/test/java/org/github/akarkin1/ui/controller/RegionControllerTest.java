@@ -190,7 +190,7 @@ class RegionControllerTest {
     controller(new RegionScreens(LABELS)).show(REQUESTER, MESSAGE_ID);
 
     Screen screen = editedScreen(REQUESTER);
-    assertEquals("🌍 <b>${ui.regions.title}</b>\n${ui.regions.hint}", screen.template());
+    assertEquals("🌍 <b>${ui.regions.title}</b>\n${ui.regions.hint} ⏳ ${ui.regions.hint-pending}", screen.template());
     assertEquals(List.of(
                      List.of(region("⏳ 🇬🇧 London", "eu-west-2"),
                              region("🇮🇳 mumbai", "ap-south-1"),
