@@ -73,8 +73,8 @@ globe flag (`RegionLabels` already does that).
 5. Else create `RegionRequest(regionId, userId, username, firstName, lastName, languageCode,
    requestedAt)`, edit to `${ui.regions.requested}` (with the label) + Menu, and notify every root
    user (D-1) with `RegionScreens.adminRequest(request)`:
-   `🌍 <b>First Last</b> (@username, id) ${ui.regions.asks} 🇩🇪 Frankfurt <code>eu-central-1</code>`
-   (the region id in `<code>` so it is tap-to-copy for the deploy workflow, like the IP on the node
+   `🌍 <b>First Last</b> (@username, id) ${ui.regions.asks} 🇩🇪 Frankfurt, <code>eu-central-1</code>`
+   (a comma, then the region id in `<code>` so it is tap-to-copy for the deploy workflow, like the IP on the node
    card; label and id are params) and the buttons `[✅ ${ui.button.deployed-notify}]` (`UiAction.regionDeployed(regionId)`) and
    `[✖ ${ui.button.decline}]` (`UiAction.regionDecline(regionId)`). The requester line is the
    same `First Last (@username, id)` block as the access request (reuse it: move `Requester` into a
@@ -91,11 +91,11 @@ Both: caller must be root (D-1), else `${ui.regions.not-allowed}`; no open reque
   admin message to `RegionScreens.notDeployedYet(request)`: the same text plus
   `⚠️ ${ui.regions.not-deployed-yet}` and the same two buttons, nothing else changes (the config
   cache may lag up to its TTL, the hint says so). If it is → delete the request, edit to the closed
-  variant `✅ 🇩🇪 Frankfurt <code>eu-central-1</code> ${ui.regions.requested-by} <b>First Last</b>
+  variant `✅ 🇩🇪 Frankfurt, <code>eu-central-1</code> ${ui.regions.requested-by} <b>First Last</b>
   (@username, id): ${ui.regions.deployed-admin}` (no buttons; the closed variants put the region
   first and drop "asks for", D-10), notify the requester in their language with
   `✅ ${ui.regions.available}` (region label) and `[🏠 Menu]`.
-- **Decline**: delete the request, edit to `✖ 🇩🇪 Frankfurt <code>eu-central-1</code>
+- **Decline**: delete the request, edit to `✖ 🇩🇪 Frankfurt, <code>eu-central-1</code>
   ${ui.regions.requested-by} <b>First Last</b> (@username, id): ${ui.regions.declined-admin}` (no
   buttons), notify the requester with `✖ ${ui.regions.declined}` (region label), no buttons.
 - A failing requester notification is logged and does not fail the decision (as for access).
