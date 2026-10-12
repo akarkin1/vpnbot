@@ -3,6 +3,7 @@ package org.github.akarkin1.startup;
 import org.github.akarkin1.auth.PermissionsService;
 import org.github.akarkin1.deduplication.UpdateEventsRegistry;
 import org.github.akarkin1.ec2.Ec2ClientPool;
+import org.github.akarkin1.ec2.RegionCatalog;
 import org.github.akarkin1.tailscale.TailscaleNodeService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -51,13 +52,15 @@ class SnapStartPrimerTest {
   private UpdateEventsRegistry eventsRegistry;
   @Mock
   private AbsSender sender;
+  @Mock
+  private RegionCatalog regionCatalog;
 
   private SnapStartPrimer primer;
 
   @BeforeEach
   void setUp() {
     primer = new SnapStartPrimer(nodeService, ec2ClientPool, permissionsService, eventsRegistry,
-                                 sender);
+                                 sender, regionCatalog);
   }
 
   @Test

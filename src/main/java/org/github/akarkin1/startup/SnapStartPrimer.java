@@ -5,6 +5,7 @@ import lombok.extern.log4j.Log4j2;
 import org.github.akarkin1.auth.PermissionsService;
 import org.github.akarkin1.deduplication.UpdateEventsRegistry;
 import org.github.akarkin1.ec2.Ec2ClientPool;
+import org.github.akarkin1.ec2.RegionCatalog;
 import org.github.akarkin1.tailscale.TailscaleNodeService;
 import org.telegram.telegrambots.meta.api.methods.GetMe;
 import org.telegram.telegrambots.meta.api.objects.Update;
@@ -16,9 +17,10 @@ import java.util.TreeSet;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Runs the DynamoDB, ECS/EC2 and Telegram request paths once at init, so that their class loading
- * and client setup end up in the SnapStart snapshot instead of slowing down the first request after
- * a restore. Results are discarded and failures are only logged: priming never breaks the init.
+ * Runs the DynamoDB, ECS/EC2 (incl. the region catalog) and Telegram request paths once at init,
+ * so that their class loading and client setup end up in the SnapStart snapshot instead of slowing
+ * down the first request after a restore. Results are discarded and failures are only logged:
+ * priming never breaks the init.
  */
 @Log4j2
 @RequiredArgsConstructor
@@ -37,6 +39,7 @@ public class SnapStartPrimer {
   private final PermissionsService permissionsService;
   private final UpdateEventsRegistry eventsRegistry;
   private final AbsSender sender;
+  private final RegionCatalog regionCatalog;
 
   public void prime() {
     long begin = System.nanoTime();
@@ -44,6 +47,7 @@ public class SnapStartPrimer {
     runStep("nodes", () -> nodeService.listNodes(PRIMER_USER));
     List<String> regionIds = new ArrayList<>();
     runStep("regions", () -> regionIds.addAll(new TreeSet<>(nodeService.getSupportedRegionIds())));
+    runStep("regionCatalog", regionCatalog::enabledRegions);
     for (String regionId : regionIds) {
       runStep("node " + regionId, () -> nodeService.getNode(regionId, PRIMER_TASK_ID));
       runStep("ec2 " + regionId, () -> ec2ClientPool.prime(regionId));
