@@ -83,13 +83,14 @@ EC2 instance that needs AMI patching.
   contact); "Request access" button → admins get role checkboxes → requester notified; Users screen
   with role toggles and 🗑; housekeeping: `java-tests.yml` on pull requests, node image on Python 3.11.
 - **Clean-up 2026.10** (spec: `docs/specs/cleanup-2026-10.md`, branch `feature/cleanup-3.0`,
-  implemented – PR open, to deploy): system commands only (`/help`, `/version`, `/supportedRegions`, `/describeRoles`), the
+  merged and deployed 2026-10-11): system commands only (`/help`, `/version`, `/supportedRegions`, `/describeRoles`), the
   rest retired with `TgRequestContext` and `BotCommunicator`; pending users deprecated (removed
   later, once none is left); composition root `VpnBot`; sealed `UiAction`; `LAMBDA_JAR_BUCKET`, version read from the pom; calendar versioning
   (`2026.10`; `2.0` = `release/2.0`).
-- **Phase 5 – region requests**: "🌍 Other region…" lists regions enabled in the account
-  (`ec2:DescribeRegions`) that are not set up yet; tapping one sends the admin a request with
-  `[✅ Deployed, notify] [✖ Decline]`.
+- **Phase 5 – region requests** (spec: `docs/specs/region-requests-phase5.md`, branch
+  `feature/region-requests`, spec in review): "🌍 Other region…" lists regions enabled in the account
+  (`ec2:DescribeRegions`) that are not set up yet; tapping one sends the root users a request with
+  `[✅ Deployed, notify] [✖ Decline]`; last feature of release 2026.10.
 - **Extras**: deep links (`t.me/<bot>?start=run_<region>`), custom node names from the UI,
   "still running" reminder every N hours (no automatic stop – long downloads are legitimate).
 
