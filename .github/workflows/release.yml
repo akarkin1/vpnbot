@@ -12,8 +12,10 @@ on:
 permissions:
   contents: read
 
+# One release at a time. The group must differ from the called workflows' groups: a nested workflow
+# waiting for its own caller's group never starts
 concurrency:
-  group: vpnbot-lambda-deploy
+  group: vpnbot-release
   cancel-in-progress: false
 
 jobs:
