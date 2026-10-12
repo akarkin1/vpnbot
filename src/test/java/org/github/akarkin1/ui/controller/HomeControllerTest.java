@@ -74,7 +74,7 @@ class HomeControllerTest {
     controller.showHome(CONTEXT);
 
     assertEquals(new HomeModel("Alex", "alex", true, true, false, NODES, List.of("eu-central-1"),
-                               List.of(), false, true),
+                               List.of(), false, true, true),
                  capturedModel());
   }
 
@@ -88,7 +88,7 @@ class HomeControllerTest {
     controller.showHome(CONTEXT);
 
     verify(nodeService).listNodes(null);
-    assertEquals(new HomeModel("Alex", "alex", true, false, true, NODES, List.of(), List.of(), true, true),
+    assertEquals(new HomeModel("Alex", "alex", true, false, true, NODES, List.of(), List.of(), true, true, true),
                  capturedModel());
   }
 
@@ -102,7 +102,7 @@ class HomeControllerTest {
 
     verifyNoInteractions(nodeService);
     assertEquals(new HomeModel("Alex", "alex", false, false, false, List.of(), List.of(), List.of(),
-                               true, true),
+                               true, true, false),
                  capturedModel());
   }
 
@@ -149,7 +149,7 @@ class HomeControllerTest {
     controller.showHome(anna);
 
     assertEquals(new HomeModel("Anna", null, true, true, false, List.of(node), List.of("eu-central-1"),
-                               List.of("task-1"), false, true),
+                               List.of("task-1"), false, true, true),
                  capturedModel());
     verify(messenger).send(anna, HOME);
   }
@@ -163,7 +163,7 @@ class HomeControllerTest {
     controller.showHome(anonymous);
 
     verifyNoInteractions(nodeService, nodeAccess);
-    assertEquals(new HomeModel("Alex", null, false, false, false, List.of(), List.of(), List.of(), false, false),
+    assertEquals(new HomeModel("Alex", null, false, false, false, List.of(), List.of(), List.of(), false, false, false),
                  capturedModel());
     verify(messenger).send(anonymous, HOME);
   }
@@ -176,7 +176,7 @@ class HomeControllerTest {
     controller.showHome(CONTEXT);
 
     verifyNoInteractions(nodeService);
-    assertEquals(new HomeModel("Alex", "alex", false, false, false, List.of(), List.of(), List.of(), false, false),
+    assertEquals(new HomeModel("Alex", "alex", false, false, false, List.of(), List.of(), List.of(), false, false, false),
                  capturedModel());
   }
 
@@ -190,7 +190,7 @@ class HomeControllerTest {
     controller.showHome(CONTEXT);
 
     verify(nodeService, never()).getSupportedRegionIds();
-    assertEquals(new HomeModel("Alex", "alex", true, false, false, NODES, List.of(), List.of(), false, true),
+    assertEquals(new HomeModel("Alex", "alex", true, false, false, NODES, List.of(), List.of(), false, true, false),
                  capturedModel());
   }
 
@@ -205,7 +205,7 @@ class HomeControllerTest {
 
     verify(nodeService, never()).listNodes(any());
     assertEquals(new HomeModel("Alex", "alex", false, true, false, List.of(), List.of("eu-central-1"),
-                               List.of(), false, true),
+                               List.of(), false, true, true),
                  capturedModel());
   }
 
@@ -227,7 +227,7 @@ class HomeControllerTest {
     controller.showHome(CONTEXT);
 
     assertEquals(new HomeModel("Alex", "alex", true, true, false, nodes, List.of("eu-central-1"),
-                               List.of("task-1", "task-3"), false, true),
+                               List.of("task-1", "task-3"), false, true, true),
                  capturedModel());
   }
 
@@ -289,7 +289,7 @@ class HomeControllerTest {
 
     controller.refreshHome(CONTEXT, MESSAGE_ID);
 
-    assertEquals(new HomeModel("Alex", "alex", true, false, false, NODES, List.of(), List.of(), false, true),
+    assertEquals(new HomeModel("Alex", "alex", true, false, false, NODES, List.of(), List.of(), false, true, false),
                  capturedModel());
   }
 
