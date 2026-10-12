@@ -74,7 +74,7 @@ class HomeControllerTest {
     controller.showHome(CONTEXT);
 
     assertEquals(new HomeModel("Alex", "alex", true, true, false, NODES, List.of("eu-central-1"),
-                               List.of(), false, true),
+                               List.of(), false, true, true),
                  capturedModel());
   }
 
@@ -88,7 +88,8 @@ class HomeControllerTest {
     controller.showHome(CONTEXT);
 
     verify(nodeService).listNodes(null);
-    assertEquals(new HomeModel("Alex", "alex", true, false, true, NODES, List.of(), List.of(), true, true),
+    assertEquals(new HomeModel("Alex", "alex", true, false, true, NODES, List.of(), List.of(), true, true,
+                               true),
                  capturedModel());
   }
 
@@ -102,7 +103,7 @@ class HomeControllerTest {
 
     verifyNoInteractions(nodeService);
     assertEquals(new HomeModel("Alex", "alex", false, false, false, List.of(), List.of(), List.of(),
-                               true, true),
+                               true, true, false),
                  capturedModel());
   }
 
@@ -149,7 +150,7 @@ class HomeControllerTest {
     controller.showHome(anna);
 
     assertEquals(new HomeModel("Anna", null, true, true, false, List.of(node), List.of("eu-central-1"),
-                               List.of("task-1"), false, true),
+                               List.of("task-1"), false, true, true),
                  capturedModel());
     verify(messenger).send(anna, HOME);
   }
@@ -163,7 +164,8 @@ class HomeControllerTest {
     controller.showHome(anonymous);
 
     verifyNoInteractions(nodeService, nodeAccess);
-    assertEquals(new HomeModel("Alex", null, false, false, false, List.of(), List.of(), List.of(), false, false),
+    assertEquals(new HomeModel("Alex", null, false, false, false, List.of(), List.of(), List.of(), false, false,
+                               false),
                  capturedModel());
     verify(messenger).send(anonymous, HOME);
   }
@@ -176,7 +178,8 @@ class HomeControllerTest {
     controller.showHome(CONTEXT);
 
     verifyNoInteractions(nodeService);
-    assertEquals(new HomeModel("Alex", "alex", false, false, false, List.of(), List.of(), List.of(), false, false),
+    assertEquals(new HomeModel("Alex", "alex", false, false, false, List.of(), List.of(), List.of(), false, false,
+                               false),
                  capturedModel());
   }
 
@@ -190,7 +193,8 @@ class HomeControllerTest {
     controller.showHome(CONTEXT);
 
     verify(nodeService, never()).getSupportedRegionIds();
-    assertEquals(new HomeModel("Alex", "alex", true, false, false, NODES, List.of(), List.of(), false, true),
+    assertEquals(new HomeModel("Alex", "alex", true, false, false, NODES, List.of(), List.of(), false, true,
+                               false),
                  capturedModel());
   }
 
@@ -205,7 +209,7 @@ class HomeControllerTest {
 
     verify(nodeService, never()).listNodes(any());
     assertEquals(new HomeModel("Alex", "alex", false, true, false, List.of(), List.of("eu-central-1"),
-                               List.of(), false, true),
+                               List.of(), false, true, true),
                  capturedModel());
   }
 
@@ -227,7 +231,7 @@ class HomeControllerTest {
     controller.showHome(CONTEXT);
 
     assertEquals(new HomeModel("Alex", "alex", true, true, false, nodes, List.of("eu-central-1"),
-                               List.of("task-1", "task-3"), false, true),
+                               List.of("task-1", "task-3"), false, true, true),
                  capturedModel());
   }
 
@@ -256,6 +260,56 @@ class HomeControllerTest {
     controller.showHome(CONTEXT);
 
     assertEquals(List.of(), capturedModel().stoppableTaskIds());
+  }
+
+  @Test
+  @DisplayName("5 AC-1, D-2: a user with RUN_NODES may request regions")
+  void runNodesMayRequestRegions() {
+    grant(Permission.RUN_NODES);
+    when(nodeService.getSupportedRegionIds()).thenReturn(Set.of());
+    when(homeScreen.home(any())).thenReturn(HOME);
+
+    controller.showHome(CONTEXT);
+
+    HomeModel model = capturedModel();
+    assertTrue(model.canRequestRegions());
+    assertEquals(List.of(), model.regionIds(), "no region set up yet: the button is still offered");
+  }
+
+  @Test
+  @DisplayName("5 AC-1, D-2: a root user may request regions (root implies running nodes)")
+  void rootMayRequestRegions() {
+    grant(Permission.ROOT_ACCESS);
+    lenient().when(nodeService.listNodes(any())).thenReturn(List.of());
+    lenient().when(nodeService.getSupportedRegionIds()).thenReturn(Set.of());
+    when(homeScreen.home(any())).thenReturn(HOME);
+
+    controller.refreshHome(CONTEXT, MESSAGE_ID);
+
+    assertTrue(capturedModel().canRequestRegions());
+  }
+
+  @Test
+  @DisplayName("5 AC-1: a read-only user may not request regions")
+  void readOnlyMayNotRequestRegions() {
+    grant(Permission.LIST_NODES, Permission.SUPPORTED_REGIONS);
+    when(nodeService.listNodes("7")).thenReturn(List.of());
+    when(homeScreen.home(any())).thenReturn(HOME);
+
+    controller.showHome(CONTEXT);
+
+    assertFalse(capturedModel().canRequestRegions());
+  }
+
+  @Test
+  @DisplayName("5 AC-1, D-1: a user admin (USER_MANAGEMENT, DELETE_USERS) without RUN_NODES may not request regions")
+  void userAdminMayNotRequestRegions() {
+    grant(Permission.USER_MANAGEMENT, Permission.DELETE_USERS);
+    when(homeScreen.home(any())).thenReturn(HOME);
+
+    controller.showHome(CONTEXT);
+
+    assertFalse(capturedModel().canRequestRegions());
   }
 
   @Test
@@ -289,7 +343,8 @@ class HomeControllerTest {
 
     controller.refreshHome(CONTEXT, MESSAGE_ID);
 
-    assertEquals(new HomeModel("Alex", "alex", true, false, false, NODES, List.of(), List.of(), false, true),
+    assertEquals(new HomeModel("Alex", "alex", true, false, false, NODES, List.of(), List.of(), false, true,
+                               false),
                  capturedModel());
   }
 
