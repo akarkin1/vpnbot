@@ -21,7 +21,7 @@ class ConfigTablesTest {
   private DynamoDbClient dynamoDbClient;
 
   @Test
-  @DisplayName("3 AC-A13, 4 §5: the typed views (incl. pending users, access requests) are views of the one named table")
+  @DisplayName("3 AC-A13, 4 §5, 5 §5: the typed views (incl. pending users, access requests, region requests) are views of the one named table")
   void viewsOfOneTable() {
     DynamoDbEnhancedClient client = DynamoDbEnhancedClient.builder()
         .dynamoDbClient(dynamoDbClient)
@@ -34,12 +34,15 @@ class ConfigTablesTest {
     assertEquals("vpnbot", tables.pendingUsers().tableName());
     assertEquals("vpnbot", tables.updateLocks().tableName());
     assertEquals("vpnbot", tables.accessRequests().tableName());
+    assertEquals("vpnbot", tables.regionRequests().tableName());
     assertEquals(RegionRecord.class, tables.regions().tableSchema().itemType().rawClass());
     assertEquals(UserRecord.class, tables.users().tableSchema().itemType().rawClass());
     assertEquals(PendingUserRecord.class, tables.pendingUsers().tableSchema().itemType().rawClass());
     assertEquals(TgUpdateLock.class, tables.updateLocks().tableSchema().itemType().rawClass());
     assertEquals(AccessRequestRecord.class,
                  tables.accessRequests().tableSchema().itemType().rawClass());
+    assertEquals(RegionRequestRecord.class,
+                 tables.regionRequests().tableSchema().itemType().rawClass());
     verifyNoInteractions(dynamoDbClient);
   }
 
