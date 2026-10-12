@@ -16,15 +16,15 @@ Planned work lives in `docs/roadmap.md`.
 - Shell script tests (need `jq`): `.github/scripts/region-item-test.sh`, `.github/scripts/publish-live-version-test.sh`,
   `scripts/migrate-pending-users-test.sh`.
 - `java-tests.yml` runs the build and the shell script tests on pull requests.
-- Deployment: a push to `main` runs `ci-cd.yml` (jar + alias); a push to `release/**` runs `release.yml`,
-  which calls `ci-cd.yml`, the Lambda stack deploy and the ECS deploy of every registered region as
-  reusable workflows; the `deploy-*.yml` workflows stay manual for one-off deploys. API Gateway invokes the
+- Deployment: nothing deploys on a merge to `main`. A push to `release/**` runs `release.yml`, which calls
+  `ci-cd.yml` (jar + alias), the Lambda stack deploy and the ECS deploy of every registered region as
+  reusable workflows; `ci-cd.yml` and the `deploy-*.yml` workflows are run by hand otherwise. API Gateway invokes the
   Lambda alias `live` (SnapStart): every code/config deploy ends with `publish-live-version.sh`, which
   publishes a version and moves the alias. `BotDependencies.build()` runs at publish time, not on first request.
   The jar lives in the S3 bucket named by the repository variable `LAMBDA_JAR_BUCKET`.
-- Versioning is calendar-based (`YYYY.MM[.N]`, e.g. `2026.10-SNAPSHOT` while in progress; after a release
-  `main` continues as the patch snapshot, `2026.10.1-SNAPSHOT`); `pom.xml` is the only place holding the
-  version (the workflows read it). `2.0` (branch `release/2.0`, tag `v2.0`)
+- Versioning is calendar-based (`YYYY.MM[.N]`); `pom.xml` is the only place holding the version (the
+  workflows read it). `main` holds the last released version (no `-SNAPSHOT`); a release branch
+  `release/<version>` sets the new version and is merged back to `main`. `2.0` (branch `release/2.0`, tag `v2.0`)
   is the last version before the button UI.
 
 ## Architecture

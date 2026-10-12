@@ -7,17 +7,10 @@ env:
   LAMBDA_JAR_BUCKET: ${{ vars.LAMBDA_JAR_BUCKET }}
   LAMBDA_REGION: ${{ vars.CONFIG_BASE_REGION }}
 
+# Run by hand, or by release.yml on a push to release/**. A merge to main deploys nothing (owner).
 on:
   workflow_dispatch:
-  # Called by release.yml on a push to release/**
   workflow_call:
-  push:
-    paths:
-      - 'src/main/java/**'
-      - 'src/main/resources/**'
-      - '.github/workflows/ci-cd.yml'
-    branches:
-      - main
 
 jobs:
   ci-cd-build:
