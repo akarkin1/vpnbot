@@ -23,12 +23,17 @@ import org.github.akarkin1.dispatcher.command.HelpCommand;
 import org.github.akarkin1.dispatcher.command.SupportedRegionCommand;
 import org.github.akarkin1.dispatcher.command.VersionCommand;
 import org.github.akarkin1.dynamodb.ConfigTables;
+import org.github.akarkin1.ec2.CachedRegionCatalog;
 import org.github.akarkin1.ec2.Ec2ClientPool;
+import org.github.akarkin1.ec2.Ec2RegionCatalog;
+import org.github.akarkin1.ec2.RegionCatalog;
 import org.github.akarkin1.ecs.EcsClientPool;
 import org.github.akarkin1.ecs.EcsManager;
 import org.github.akarkin1.ecs.EcsManagerImpl;
 import org.github.akarkin1.metrics.EmfRequestMetrics;
 import org.github.akarkin1.metrics.RequestMetrics;
+import org.github.akarkin1.region.DynamoDbRegionRequestService;
+import org.github.akarkin1.region.RegionRequestService;
 import org.github.akarkin1.startup.SnapStartPrimer;
 import org.github.akarkin1.tailscale.TailscaleEcsNodeService;
 import org.github.akarkin1.tailscale.TailscaleNodeService;
@@ -84,6 +89,8 @@ public final class BotDependencies {
   @SuppressWarnings("removal")
   private final PendingUserActivator pendingUserActivator;
   private final SnapStartPrimer primer;
+  private final RegionCatalog regionCatalog;
+  private final RegionRequestService regionRequests;
 
   /** The bot over the real AWS and Telegram clients, configured from the environment, primed. */
   public static BotDependencies build() {
@@ -116,6 +123,8 @@ public final class BotDependencies {
 
     Ec2ClientPool ec2ClientPool = new Ec2ClientPool(externals.ec2Clients());
     TailscaleNodeService nodeService = nodeService(tables, externals, ec2ClientPool, metrics);
+    this.regionCatalog = regionCatalog(ec2ClientPool, settings, clock, metrics);
+    this.regionRequests = new DynamoDbRegionRequestService(tables.regionRequests(), clock, metrics);
 
     PermissionsService permissionsService = permissionsService(tables, settings, clock, metrics);
     Authorizer authorizer = new WhiteListAuthorizer(settings.auth(), permissionsService);
@@ -128,7 +137,7 @@ public final class BotDependencies {
     this.systemCommands = systemCommands(settings, messenger, authorizer, nodeService);
 
     this.primer = new SnapStartPrimer(nodeService, ec2ClientPool, permissionsService, updateEvents,
-                                      sender);
+                                      sender, regionCatalog);
   }
 
   public UiRouter router() {
@@ -223,6 +232,16 @@ public final class BotDependencies {
       return configService;
     }
     return new CachedTaskConfigService(configService, settings.configCacheTtl(), clock);
+  }
+
+  /** The regions enabled for the account, read in the Lambda's region; cached like the config. */
+  private static RegionCatalog regionCatalog(Ec2ClientPool ec2ClientPool, Settings settings,
+                                             Clock clock, RequestMetrics metrics) {
+    RegionCatalog catalog = new Ec2RegionCatalog(ec2ClientPool, settings.awsRegion(), metrics);
+    if (!settings.configCacheEnabled()) {
+      return catalog;
+    }
+    return new CachedRegionCatalog(catalog, settings.configCacheTtl(), clock);
   }
 
   // tg

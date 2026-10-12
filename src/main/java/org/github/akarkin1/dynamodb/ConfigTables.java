@@ -10,7 +10,8 @@ public record ConfigTables(DynamoDbTable<RegionRecord> regions,
                            // Pre-registration by username ended with 2026.10. Remove once PENDING_USER records no longer exist (query pk = PENDING_USER); see docs/specs/cleanup-2026-10.md §4.3.
                            @SuppressWarnings("removal") DynamoDbTable<PendingUserRecord> pendingUsers,
                            DynamoDbTable<TgUpdateLock> updateLocks,
-                           DynamoDbTable<AccessRequestRecord> accessRequests) {
+                           DynamoDbTable<AccessRequestRecord> accessRequests,
+                           DynamoDbTable<RegionRequestRecord> regionRequests) {
 
   // Pre-registration by username ended with 2026.10. Remove once PENDING_USER records no longer exist (query pk = PENDING_USER); see docs/specs/cleanup-2026-10.md §4.3.
   @SuppressWarnings("removal")
@@ -20,7 +21,8 @@ public record ConfigTables(DynamoDbTable<RegionRecord> regions,
         client.table(tableName, TableSchema.fromBean(UserRecord.class)),
         client.table(tableName, TableSchema.fromBean(PendingUserRecord.class)),
         client.table(tableName, TableSchema.fromBean(TgUpdateLock.class)),
-        client.table(tableName, TableSchema.fromBean(AccessRequestRecord.class)));
+        client.table(tableName, TableSchema.fromBean(AccessRequestRecord.class)),
+        client.table(tableName, TableSchema.fromBean(RegionRequestRecord.class)));
   }
 
   /**
