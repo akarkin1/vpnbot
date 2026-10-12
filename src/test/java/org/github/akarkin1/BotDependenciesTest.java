@@ -294,7 +294,8 @@ class BotDependenciesTest {
     YamlApplicationConfiguration yaml = MainApplicationYaml.load();
     return new Settings(TABLE_NAME, BOT_TOKEN_SECRET_ID, BOT_USERNAME,
                         metricsEnabled, configCacheEnabled, Duration.ofMinutes(5), APP_VERSION,
-                        yaml.getAuth(), yaml.getEcs(), yaml.getAws(), SECRET_TOKEN_ID);
+                        yaml.getAuth(), yaml.getEcs(), yaml.getAws(), SECRET_TOKEN_ID,
+                        REGION.id());
   }
 
   private DynamoDbEnhancedClient dynamoDb() {

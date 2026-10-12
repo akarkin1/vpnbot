@@ -29,6 +29,8 @@ import java.util.function.Function;
  * @param webhookSecretTokenId the Secrets Manager id of the webhook secret token that
  *                             authenticates API Gateway requests ({@code BOT_SECRET_TOKEN_ID},
  *                             required)
+ * @param awsRegion            the Lambda's own AWS region ({@code AWS_REGION}, set by Lambda,
+ *                             default {@code eu-central-1}); the region catalog is read there
  */
 public record Settings(String configTableName,
                        String botTokenSecretId,
@@ -40,7 +42,8 @@ public record Settings(String configTableName,
                        AuthConfiguration auth,
                        EcsConfiguration ecs,
                        AWSConfiguration aws,
-                       String webhookSecretTokenId) {
+                       String webhookSecretTokenId,
+                       String awsRegion) {
 
   private static final String APP_CONFIG_YAML = "application.yml";
 
@@ -51,6 +54,7 @@ public record Settings(String configTableName,
   private static final String CONFIG_TABLE_NAME_ENV = "CONFIG_TABLE_NAME";
   private static final String METRICS_ENABLED_ENV = "METRICS_ENABLED";
   private static final String BOT_TOKEN_SECRET_ID_ENV = "BOT_TOKEN_SECRET_ID";
+  private static final String AWS_REGION_ENV = "AWS_REGION";
 
   /** Reads the process environment and {@code application.yml} from the classpath. */
   public static Settings fromEnvironment() {
@@ -74,7 +78,8 @@ public record Settings(String configTableName,
         appConfig.getAuth(),
         appConfig.getEcs(),
         appConfig.getAws(),
-        webhookSecretTokenId);
+        webhookSecretTokenId,
+        envOrDefault(env, AWS_REGION_ENV, "eu-central-1"));
   }
 
   private static String envOrDefault(Function<String, String> env, String name,
