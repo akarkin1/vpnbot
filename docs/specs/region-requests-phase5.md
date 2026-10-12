@@ -1,6 +1,6 @@
 # Phase 5 – region requests, release 2026.10
 
-Status: draft for review, 2026-10-12. Branch `feature/region-requests`, version `2026.10-SNAPSHOT`;
+Status: approved 2026-10-12. Branch `feature/region-requests`, version `2026.10-SNAPSHOT`;
 this is the last feature of release `2026.10` (§11).
 
 ## 1. Goal
