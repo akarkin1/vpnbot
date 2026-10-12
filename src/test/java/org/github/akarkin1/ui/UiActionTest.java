@@ -71,6 +71,7 @@ class UiActionTest {
       new Row(new UiAction.ConfirmDeleteUser("@alice"), "USER_DEL_CONFIRM:@alice"),
       new Row(new UiAction.Regions(), "REGIONS"),
       new Row(new UiAction.RegionRequestAction("eu-central-1"), "REGION_REQ:eu-central-1"),
+      new Row(new UiAction.RegionRequestAction("ap-southeast-7"), "REGION_REQ:ap-southeast-7"),
       new Row(new UiAction.RegionDeployed("eu-central-1"), "REGION_DONE:eu-central-1"),
       new Row(new UiAction.RegionDecline("eu-central-1"), "REGION_DECLINE:eu-central-1"));
 
@@ -92,7 +93,7 @@ class UiActionTest {
     Set<Class<?>> covered = WIRE_FORMAT.stream().map(row -> row.action().getClass())
         .collect(Collectors.toSet());
 
-    assertEquals(20, permitted.size(), "the 16 records of §4.4 and the 4 of region requests");
+    assertEquals(20, permitted.size(), "the 16 records of cleanup §4.4 and the 4 of region requests §7");
     assertEquals(permitted, covered);
   }
 
@@ -203,7 +204,11 @@ class UiActionTest {
         () -> assertEquals(new UiAction.ShowUser("@alice"), UiAction.user("@alice")),
         () -> assertEquals(new UiAction.ToggleRole("123", READ_ONLY), UiAction.toggleRole("123", READ_ONLY)),
         () -> assertEquals(new UiAction.DeleteUser("@alice"), UiAction.deleteUser("@alice")),
-        () -> assertEquals(new UiAction.ConfirmDeleteUser("123"), UiAction.confirmDeleteUser("123")));
+        () -> assertEquals(new UiAction.ConfirmDeleteUser("123"), UiAction.confirmDeleteUser("123")),
+        () -> assertEquals(new UiAction.Regions(), UiAction.regions()),
+        () -> assertEquals(new UiAction.RegionRequestAction("eu-central-1"), UiAction.regionRequest("eu-central-1")),
+        () -> assertEquals(new UiAction.RegionDeployed("eu-central-1"), UiAction.regionDeployed("eu-central-1")),
+        () -> assertEquals(new UiAction.RegionDecline("eu-central-1"), UiAction.regionDecline("eu-central-1")));
   }
 
   @Test
@@ -226,7 +231,11 @@ class UiActionTest {
         () -> assertEquals("USER:@alice", UiAction.user("@alice").encode()),
         () -> assertEquals("USER_ROLE:123:READ_ONLY", UiAction.toggleRole("123", READ_ONLY).encode()),
         () -> assertEquals("USER_DEL:@alice", UiAction.deleteUser("@alice").encode()),
-        () -> assertEquals("USER_DEL_CONFIRM:123", UiAction.confirmDeleteUser("123").encode()));
+        () -> assertEquals("USER_DEL_CONFIRM:123", UiAction.confirmDeleteUser("123").encode()),
+        () -> assertEquals("REGIONS", UiAction.regions().encode()),
+        () -> assertEquals("REGION_REQ:eu-central-1", UiAction.regionRequest("eu-central-1").encode()),
+        () -> assertEquals("REGION_DONE:eu-central-1", UiAction.regionDeployed("eu-central-1").encode()),
+        () -> assertEquals("REGION_DECLINE:eu-central-1", UiAction.regionDecline("eu-central-1").encode()));
   }
 
   // --- invalid data --------------------------------------------------------------------------
@@ -250,7 +259,12 @@ class UiActionTest {
         "USER:alice", "USER:@a:b", "USER:@", "USER: ", "USER:@ ", "USER:@a b", "USER:0", "USER:-5",
         "USER_ROLE:123", "USER_ROLE:123:", "USER_ROLE:123:ROOT", "USER_ROLE::NODE_ADMIN",
         "USER_ROLE:alice:NODE_ADMIN", "USER_ROLE:@a:b:NODE_ADMIN",
-        "USER_DEL:alice", "USER_DEL:@", "USER_DEL_CONFIRM:alice", "USER_DEL_CONFIRM:@a:b"};
+        "USER_DEL:alice", "USER_DEL:@", "USER_DEL_CONFIRM:alice", "USER_DEL_CONFIRM:@a:b",
+        "regions", "REGIONS:x", "REGIONS:", "REGION_REQ", "REGION_REQ:", "REGION_REQ: ", "REGION_REQ:a b",
+        "REGION_REQ:a:b", "REGION_REQ:eu-central-1:x", "REGION_REQ:eu-central-1 ", "REGION_REQ:\teu-central-1",
+        "REGION_DONE", "REGION_DONE:", "REGION_DONE: ", "REGION_DONE:a b", "REGION_DONE:a:b",
+        "REGION_DECLINE", "REGION_DECLINE:", "REGION_DECLINE: ", "REGION_DECLINE:a b",
+        "REGION_DECLINE:a:b", "region_req:eu-central-1"};
     assertAll(Arrays.stream(invalid)
                   .map(data -> (Executable) () -> assertEquals(Optional.empty(), UiAction.decode(data),
                                                                "decode(" + data + ")")));
@@ -326,6 +340,59 @@ class UiActionTest {
         () -> assertDoesNotThrow(() -> new UiAction.ShowUser("@a")),
         () -> assertDoesNotThrow(() -> new UiAction.ShowUser("@alice_99")),
         () -> assertDoesNotThrow(() -> new UiAction.ToggleRole("@" + USERNAME_32, USER_ADMIN)));
+  }
+
+  // --- region requests (Phase 5 §7, AC-7) ----------------------------------------------------
+
+  @Test
+  @DisplayName("5 AC-7: REGIONS, REGION_REQ, REGION_DONE and REGION_DECLINE decode to the typed records with the region id")
+  void regionActionsDecodeToTypedRecords() {
+    assertAll(
+        () -> assertInstanceOf(UiAction.Regions.class, UiAction.decode("REGIONS").orElseThrow()),
+        () -> assertEquals("eu-central-1", assertInstanceOf(
+            UiAction.RegionRequestAction.class, UiAction.decode("REGION_REQ:eu-central-1").orElseThrow()).regionId()),
+        () -> assertEquals("eu-central-1", assertInstanceOf(
+            UiAction.RegionDeployed.class, UiAction.decode("REGION_DONE:eu-central-1").orElseThrow()).regionId()),
+        () -> assertEquals("eu-central-1", assertInstanceOf(
+            UiAction.RegionDecline.class, UiAction.decode("REGION_DECLINE:eu-central-1").orElseThrow()).regionId()));
+  }
+
+  @Test
+  @DisplayName("5 §7, AC-7: the region records reject a blank region id or one with ':' or whitespace (IllegalArgumentException), in the constructors and the factories")
+  void regionActionsRejectInvalidRegionIds() {
+    List<Executable> checks = new ArrayList<>();
+    for (String regionId : Arrays.asList(null, "", " ", "a:b", "a b", "eu-central-1\t", "\neu-central-1")) {
+      checks.add(() -> assertThrows(IllegalArgumentException.class,
+                                    () -> new UiAction.RegionRequestAction(regionId), "REGION_REQ " + regionId));
+      checks.add(() -> assertThrows(IllegalArgumentException.class,
+                                    () -> new UiAction.RegionDeployed(regionId), "REGION_DONE " + regionId));
+      checks.add(() -> assertThrows(IllegalArgumentException.class,
+                                    () -> new UiAction.RegionDecline(regionId), "REGION_DECLINE " + regionId));
+      checks.add(() -> assertThrows(IllegalArgumentException.class,
+                                    () -> UiAction.regionRequest(regionId), "regionRequest " + regionId));
+      checks.add(() -> assertThrows(IllegalArgumentException.class,
+                                    () -> UiAction.regionDeployed(regionId), "regionDeployed " + regionId));
+      checks.add(() -> assertThrows(IllegalArgumentException.class,
+                                    () -> UiAction.regionDecline(regionId), "regionDecline " + regionId));
+    }
+    assertAll(checks);
+  }
+
+  @Test
+  @DisplayName("5 AC-7: the region actions of the longest AWS region ids stay under 64 bytes and round-trip")
+  void regionActionsUnderLimit() {
+    List<UiAction> actions = new ArrayList<>();
+    for (String regionId : List.of("ap-southeast-7", "us-gov-west-1", "il-central-1", "mx-central-1")) {
+      actions.add(UiAction.regionRequest(regionId));
+      actions.add(UiAction.regionDeployed(regionId));
+      actions.add(UiAction.regionDecline(regionId));
+    }
+
+    assertAll(actions.stream().map(action -> (Executable) () -> {
+      String data = action.encode();
+      assertTrue(data.getBytes(StandardCharsets.UTF_8).length < 64, data);
+      assertEquals(Optional.of(action), UiAction.decode(data), data);
+    }));
   }
 
   // --- 64-byte limit -------------------------------------------------------------------------

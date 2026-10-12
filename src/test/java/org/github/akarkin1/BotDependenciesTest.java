@@ -14,6 +14,7 @@ import org.github.akarkin1.dynamodb.RegionRecord;
 import org.github.akarkin1.dynamodb.TgUpdateLock;
 import org.github.akarkin1.dynamodb.UserRecord;
 import org.github.akarkin1.metrics.EmfRequestMetrics;
+import org.github.akarkin1.ui.TelegramUpdates;
 import org.github.akarkin1.ui.UiContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -24,6 +25,7 @@ import org.mockito.stubbing.Answer;
 import org.telegram.telegrambots.meta.api.methods.BotApiMethod;
 import org.telegram.telegrambots.meta.api.methods.GetMe;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.bots.AbsSender;
@@ -235,6 +237,28 @@ class BotDependenciesTest {
         () -> assertTrue(telegramCalls.stream().anyMatch(GetMe.class::isInstance), telegramCalls.toString()),
         () -> assertEquals(List.of(BOT_TOKEN), senderTokens, "one sender, made from the resolved bot token"),
         () -> assertTrue(secretIds.contains(BOT_TOKEN_SECRET_ID), secretIds.toString()));
+  }
+
+  @Test
+  @DisplayName("5 AC-9: root's REGIONS tap runs through the router into the wired RegionController: the catalog asks EC2 in Settings.awsRegion and the tapped message is edited, no error is sent")
+  void regionsTapReachesRegionController() {
+    BotDependencies bot = bot(true, false);
+    User root = TelegramUpdates.user(ROOT.username(), "Root", "en");
+    root.setId(ROOT.id());
+
+    bot.router().handle(TelegramUpdates.callbackUpdate(root, "REGIONS", true));
+
+    List<EditMessageText> edits = telegramCalls.stream()
+        .filter(EditMessageText.class::isInstance)
+        .map(EditMessageText.class::cast)
+        .toList();
+    assertAll(
+        () -> assertEquals(1, edits.size(), telegramCalls.toString()),
+        () -> assertEquals(String.valueOf(TelegramUpdates.CHAT_ID), edits.getFirst().getChatId()),
+        () -> assertEquals(TelegramUpdates.MESSAGE_ID, edits.getFirst().getMessageId()),
+        () -> assertEquals(List.of(), sentMessages(), "no generic error message"),
+        () -> assertTrue(ec2Calls(LAMBDA_REGION).contains("describeRegions"),
+                         "catalog not asked in " + LAMBDA_REGION + ": " + ec2CallsByRegion));
   }
 
   @Test

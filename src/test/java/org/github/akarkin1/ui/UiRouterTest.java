@@ -33,6 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
@@ -73,6 +74,97 @@ class UiRouterTest {
   void setUp() {
     router = new UiRouter(homeController, launchController, nodeController, accessController,
                           usersController, regionController, messenger, errorScreen);
+  }
+
+  // --- Phase 5 (§4.2–§4.4, AC-7): region requests ---------------------------------------------
+
+  @Test
+  @DisplayName("5 AC-7: REGIONS callback is answered first, then shows the Regions screen")
+  void regionsCallback() {
+    router.handle(callbackUpdate("REGIONS"));
+
+    InOrder inOrder = inOrder(messenger, regionController);
+    inOrder.verify(messenger).answerCallback(CALLBACK_ID);
+    inOrder.verify(regionController).show(CONTEXT, MESSAGE_ID);
+    verifyNoMoreInteractions(regionController);
+    verifyNoInteractions(homeController, launchController, accessController, usersController);
+  }
+
+  @Test
+  @DisplayName("5 AC-7: REGION_REQ:<id> callback is answered first, then requests the region")
+  void regionRequestCallback() {
+    router.handle(callbackUpdate("REGION_REQ:eu-central-1"));
+
+    InOrder inOrder = inOrder(messenger, regionController);
+    inOrder.verify(messenger).answerCallback(CALLBACK_ID);
+    inOrder.verify(regionController).request(CONTEXT, MESSAGE_ID, "eu-central-1");
+    verifyNoMoreInteractions(regionController);
+    verifyNoInteractions(homeController, launchController);
+  }
+
+  @Test
+  @DisplayName("5 AC-7: REGION_DONE:<id> callback is answered first, then decides the request as deployed")
+  void regionDeployedCallback() {
+    router.handle(callbackUpdate("REGION_DONE:eu-central-1"));
+
+    InOrder inOrder = inOrder(messenger, regionController);
+    inOrder.verify(messenger).answerCallback(CALLBACK_ID);
+    inOrder.verify(regionController).deployed(CONTEXT, MESSAGE_ID, "eu-central-1");
+    verify(regionController, never()).decline(any(), any(), anyString());
+    verifyNoInteractions(homeController, launchController);
+  }
+
+  @Test
+  @DisplayName("5 AC-7: REGION_DECLINE:<id> callback is answered first, then declines the request")
+  void regionDeclineCallback() {
+    router.handle(callbackUpdate("REGION_DECLINE:eu-central-1"));
+
+    InOrder inOrder = inOrder(messenger, regionController);
+    inOrder.verify(messenger).answerCallback(CALLBACK_ID);
+    inOrder.verify(regionController).decline(CONTEXT, MESSAGE_ID, "eu-central-1");
+    verify(regionController, never()).deployed(any(), any(), anyString());
+    verifyNoInteractions(homeController, launchController);
+  }
+
+  @Test
+  @DisplayName("5 AC-7: the data the region factories encode reaches the region controller with the same region id")
+  void factoryEncodedRegionActionsRoundTripThroughRouter() {
+    router.handle(callbackUpdate(UiAction.regions().encode()));
+    router.handle(callbackUpdate(UiAction.regionRequest("ap-southeast-7").encode()));
+    router.handle(callbackUpdate(UiAction.regionDeployed("ap-southeast-7").encode()));
+    router.handle(callbackUpdate(UiAction.regionDecline("ap-southeast-7").encode()));
+
+    verify(regionController).show(CONTEXT, MESSAGE_ID);
+    verify(regionController).request(CONTEXT, MESSAGE_ID, "ap-southeast-7");
+    verify(regionController).deployed(CONTEXT, MESSAGE_ID, "ap-southeast-7");
+    verify(regionController).decline(CONTEXT, MESSAGE_ID, "ap-southeast-7");
+  }
+
+  @Test
+  @DisplayName("5 AC-7: invalid region data (REGION_REQ:, REGION_REQ:a b, REGION_REQ:a:b, REGIONS:x, …) is answered and refreshes home, the region controller is not called")
+  void invalidRegionDataRefreshesHome() {
+    List<String> invalid = List.of("REGION_REQ:", "REGION_REQ:a b", "REGION_REQ:a:b", "REGIONS:x",
+                                   "REGION_DONE:", "REGION_DONE:a:b", "REGION_DECLINE: ",
+                                   "REGION_DECLINE:a b");
+    for (String data : invalid) {
+      router.handle(callbackUpdate(data));
+    }
+
+    verify(messenger, times(invalid.size())).answerCallback(CALLBACK_ID);
+    verify(homeController, times(invalid.size())).refreshHome(CONTEXT, MESSAGE_ID);
+    verifyNoInteractions(regionController, launchController, nodeController, accessController,
+                         usersController);
+  }
+
+  @Test
+  @DisplayName("5 AC-7: a region controller exception sends the generic error and is not thrown")
+  void regionControllerExceptionSendsGenericError() {
+    when(errorScreen.generic()).thenReturn(ERROR);
+    doThrow(new IllegalStateException("ec2 down")).when(regionController).show(CONTEXT, MESSAGE_ID);
+
+    assertDoesNotThrow(() -> router.handle(callbackUpdate("REGIONS")));
+
+    verify(messenger).send(CONTEXT, ERROR);
   }
 
   // --- Phase 4 (§4.5): access requests and the Users screen ----------------------------------
@@ -254,7 +346,8 @@ class UiRouterTest {
     verify(messenger, times(invalid.size())).answerCallback(CALLBACK_ID);
     verify(homeController, times(invalid.size())).refreshHome(CONTEXT, MESSAGE_ID);
     verifyNoMoreInteractions(homeController);
-    verifyNoInteractions(launchController, nodeController, accessController, usersController);
+    verifyNoInteractions(launchController, nodeController, accessController, usersController,
+                         regionController);
   }
 
   @Test
