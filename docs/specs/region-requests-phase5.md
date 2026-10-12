@@ -16,7 +16,7 @@ A user who can run nodes can ask for a region that is not set up yet, from the b
    **Deployed, notify**: the bot checks that the region is now supported, closes the request and
    tells the requester the region is available. **Decline** closes it and tells the requester.
 
-Release 2026.10 follows (§11): version `2026.10`, tag, GitHub release, deploy, then `2026.11-SNAPSHOT`.
+Release 2026.10 follows (§11): version `2026.10`, tag, GitHub release, deploy, then `2026.10.1-SNAPSHOT`.
 
 ## 2. Non-goals
 
@@ -250,8 +250,7 @@ Order: T1/T2 → T3/T4 (T3 wires T1's classes) → H1. Each pair merged before t
    deploying → "not deployed yet"; run "Deploy Tailscale ECS Resources" for that region (or pick a
    region you really want); tap Deployed, notify → requester notified, region on the home card;
    Decline path with another region.
-5. Next development commit on `main`: `pom.xml` `2026.11-SNAPSHOT` (the next expected release;
-   changed at release time if it slips, D-7).
+5. Next development commit on `main`: `pom.xml` `2026.10.1-SNAPSHOT` (D-7).
 
 ## 12. Decisions (review)
 
@@ -267,8 +266,9 @@ Order: T1/T2 → T3/T4 (T3 wires T1's classes) → H1. Each pair merged before t
 - D-5 Region requests expire after 30 days (access requests: 7): the decision needs a deploy.
 - D-6 `DescribeRegions` is timed under `MetricComponent.ECS` like the ECS and EC2 calls today (no
   new metric); it is one cached call per TTL.
-- D-7 After the release, `main` moves to `2026.11-SNAPSHOT`; if the next release lands in another
-  month, the release commit changes it then (one line).
+- D-7 (owner) After the release, `main` moves to `2026.10.1-SNAPSHOT`: the next release is the
+  patch of the current month until a release in a later month is cut, so the snapshot never names
+  a month that may slip. A release in a later month sets `YYYY.MM` at release time (one line).
 - D-8 The requester line of the admin message (`First Last (@username, id)`) is shared with the
   access request screen through one helper in `ui.screen`, so the two messages stay identical in
   form.
