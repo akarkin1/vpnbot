@@ -8,6 +8,10 @@ on:
     branches:
       - 'release/**'
 
+# The called workflows may not request more than this (a nested job asking for more fails at startup)
+permissions:
+  contents: read
+
 concurrency:
   group: vpnbot-lambda-deploy
   cancel-in-progress: false
