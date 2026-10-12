@@ -45,6 +45,7 @@ import org.github.akarkin1.ui.controller.HomeController;
 import org.github.akarkin1.ui.controller.LaunchController;
 import org.github.akarkin1.ui.controller.NodeAccess;
 import org.github.akarkin1.ui.controller.NodeController;
+import org.github.akarkin1.ui.controller.RegionController;
 import org.github.akarkin1.ui.controller.UsersController;
 import org.github.akarkin1.ui.messenger.NodeNotifications;
 import org.github.akarkin1.ui.messenger.ScreenRenderer;
@@ -57,6 +58,7 @@ import org.github.akarkin1.ui.screen.HomeScreen;
 import org.github.akarkin1.ui.screen.LaunchScreens;
 import org.github.akarkin1.ui.screen.NodeScreens;
 import org.github.akarkin1.ui.screen.RegionLabels;
+import org.github.akarkin1.ui.screen.RegionScreens;
 import org.github.akarkin1.ui.screen.UsersScreen;
 import org.telegram.telegrambots.meta.bots.AbsSender;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
@@ -133,7 +135,7 @@ public final class BotDependencies {
     ScreenRenderer renderer = new ScreenRenderer(new ResourceBasedTranslator());
     this.messenger = new TelegramUiMessenger(sender, renderer, metrics);
     this.router = router(settings, clock, metrics, tables, renderer, messenger, nodeService,
-                         authorizer, permissionsService);
+                         authorizer, permissionsService, regionCatalog, regionRequests);
     this.systemCommands = systemCommands(settings, messenger, authorizer, nodeService);
 
     this.primer = new SnapStartPrimer(nodeService, ec2ClientPool, permissionsService, updateEvents,
@@ -257,7 +259,9 @@ public final class BotDependencies {
   private static UiRouter router(Settings settings, Clock clock, RequestMetrics metrics,
                                  ConfigTables tables, ScreenRenderer renderer,
                                  UiMessenger messenger, TailscaleNodeService nodeService,
-                                 Authorizer authorizer, PermissionsService permissionsService) {
+                                 Authorizer authorizer, PermissionsService permissionsService,
+                                 RegionCatalog regionCatalog,
+                                 RegionRequestService regionRequests) {
     RegionLabels regionLabels = new RegionLabels(settings.aws().getRegionCities(),
                                                  settings.aws().getRegionCountries());
     NodeAccess nodeAccess = new NodeAccess(authorizer);
@@ -275,8 +279,11 @@ public final class BotDependencies {
         messenger, new AccessScreens(), clock);
     UsersController usersController = new UsersController(permissionsService, authorizer,
                                                           messenger, new UsersScreen());
+    RegionController regionController = new RegionController(
+        regionCatalog, nodeService, regionRequests, permissionsService, authorizer, messenger,
+        new RegionScreens(regionLabels), clock);
     return new UiRouter(homeController, launchController, nodeController, accessController,
-                        usersController, messenger, new ErrorScreen());
+                        usersController, regionController, messenger, new ErrorScreen());
   }
 
   private static AccessRequestService accessRequests(ConfigTables tables, Clock clock,

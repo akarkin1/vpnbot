@@ -5,6 +5,7 @@ import org.github.akarkin1.ui.controller.AccessController;
 import org.github.akarkin1.ui.controller.HomeController;
 import org.github.akarkin1.ui.controller.LaunchController;
 import org.github.akarkin1.ui.controller.NodeController;
+import org.github.akarkin1.ui.controller.RegionController;
 import org.github.akarkin1.ui.controller.UsersController;
 import org.github.akarkin1.ui.messenger.UiMessenger;
 import org.github.akarkin1.ui.screen.ErrorScreen;
@@ -60,6 +61,8 @@ class UiRouterTest {
   @Mock
   private UsersController usersController;
   @Mock
+  private RegionController regionController;
+  @Mock
   private UiMessenger messenger;
   @Mock
   private ErrorScreen errorScreen;
@@ -69,7 +72,7 @@ class UiRouterTest {
   @BeforeEach
   void setUp() {
     router = new UiRouter(homeController, launchController, nodeController, accessController,
-                          usersController, messenger, errorScreen);
+                          usersController, regionController, messenger, errorScreen);
   }
 
   // --- Phase 4 (§4.5): access requests and the Users screen ----------------------------------
