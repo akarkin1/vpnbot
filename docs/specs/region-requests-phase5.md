@@ -319,4 +319,5 @@ Order: T1/T2 → T3/T4 (T3 wires T1's classes) → H1. Each pair merged before t
   `REGION` records and calls `deploy-vpn-ecs-resources.yml` for each (stack + image, two at a time,
   `fail-fast: false`). The three workflows gained a `workflow_call` trigger and read their inputs
   from the `inputs` context; their manual triggers are unchanged. The jar → stack order keeps the
-  stack's `Code` key valid; a `concurrency` group serialises Lambda deploys.
+  stack's `Code` key valid; a `concurrency` group serialises Lambda deploys. Regions are always
+  redeployed, with no change detection: one release means the same code everywhere (owner).
