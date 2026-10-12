@@ -68,7 +68,11 @@ class UiActionTest {
       new Row(new UiAction.DeleteUser("@alice"), "USER_DEL:@alice"),
       new Row(new UiAction.DeleteUser("123"), "USER_DEL:123"),
       new Row(new UiAction.ConfirmDeleteUser("123"), "USER_DEL_CONFIRM:123"),
-      new Row(new UiAction.ConfirmDeleteUser("@alice"), "USER_DEL_CONFIRM:@alice"));
+      new Row(new UiAction.ConfirmDeleteUser("@alice"), "USER_DEL_CONFIRM:@alice"),
+      new Row(new UiAction.Regions(), "REGIONS"),
+      new Row(new UiAction.RegionRequestAction("eu-central-1"), "REGION_REQ:eu-central-1"),
+      new Row(new UiAction.RegionDeployed("eu-central-1"), "REGION_DONE:eu-central-1"),
+      new Row(new UiAction.RegionDecline("eu-central-1"), "REGION_DECLINE:eu-central-1"));
 
   // --- the record set ------------------------------------------------------------------------
 
@@ -88,7 +92,7 @@ class UiActionTest {
     Set<Class<?>> covered = WIRE_FORMAT.stream().map(row -> row.action().getClass())
         .collect(Collectors.toSet());
 
-    assertEquals(16, permitted.size(), "the 16 records of §4.4");
+    assertEquals(20, permitted.size(), "the 16 records of §4.4 and the 4 of region requests");
     assertEquals(permitted, covered);
   }
 
