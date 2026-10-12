@@ -73,8 +73,9 @@ globe flag (`RegionLabels` already does that).
 5. Else create `RegionRequest(regionId, userId, username, firstName, lastName, languageCode,
    requestedAt)`, edit to `${ui.regions.requested}` (with the label) + Menu, and notify every root
    user (D-1) with `RegionScreens.adminRequest(request)`:
-   `🌍 <b>First Last</b> (@username, id) ${ui.regions.asks} 🇩🇪 Frankfurt (eu-central-1)` and the
-   buttons `[✅ ${ui.button.deployed-notify}]` (`UiAction.regionDeployed(regionId)`) and
+   `🌍 <b>First Last</b> (@username, id) ${ui.regions.asks} 🇩🇪 Frankfurt <code>eu-central-1</code>`
+   (the region id in `<code>` so it is tap-to-copy for the deploy workflow, like the IP on the node
+   card; label and id are params) and the buttons `[✅ ${ui.button.deployed-notify}]` (`UiAction.regionDeployed(regionId)`) and
    `[✖ ${ui.button.decline}]` (`UiAction.regionDecline(regionId)`). The requester line is the
    same `First Last (@username, id)` block as the access request (reuse it: move `Requester` into a
    shared helper in `ui.screen`, e.g. `UserLine`, used by both screens).
@@ -89,11 +90,14 @@ Both: caller must be root (D-1), else `${ui.regions.not-allowed}`; no open reque
 - **Deployed, notify**: if the region is *not* in `nodeService.getSupportedRegionIds()` → edit the
   admin message to `RegionScreens.notDeployedYet(request)`: the same text plus
   `⚠️ ${ui.regions.not-deployed-yet}` and the same two buttons, nothing else changes (the config
-  cache may lag up to its TTL, the hint says so). If it is → delete the request, edit to
-  `✅ … ${ui.regions.deployed-admin}` (no buttons), notify the requester in their language with
+  cache may lag up to its TTL, the hint says so). If it is → delete the request, edit to the closed
+  variant `✅ 🇩🇪 Frankfurt <code>eu-central-1</code> ${ui.regions.requested-by} <b>First Last</b>
+  (@username, id): ${ui.regions.deployed-admin}` (no buttons; the closed variants put the region
+  first and drop "asks for", D-10), notify the requester in their language with
   `✅ ${ui.regions.available}` (region label) and `[🏠 Menu]`.
-- **Decline**: delete the request, edit to `✖ … ${ui.regions.declined-admin}` (no buttons), notify
-  the requester with `✖ ${ui.regions.declined}` (region label), no buttons.
+- **Decline**: delete the request, edit to `✖ 🇩🇪 Frankfurt <code>eu-central-1</code>
+  ${ui.regions.requested-by} <b>First Last</b> (@username, id): ${ui.regions.declined-admin}` (no
+  buttons), notify the requester with `✖ ${ui.regions.declined}` (region label), no buttons.
 - A failing requester notification is logged and does not fail the decision (as for access).
 - The first decision wins: the second admin's tap finds no request → already handled.
 
@@ -127,7 +131,8 @@ same-day decision. `find`/`findAll` ignore expired records like the access reque
 | `ui.regions.unknown` | This region can't be set up. | Этот регион нельзя настроить. |
 | `ui.regions.asks` | asks for a node region: | просит регион для ноды: |
 | `ui.regions.not-deployed-yet` | The region isn't in the list of supported regions yet. Run the deploy workflow first; the list refreshes within a few minutes. | Регион ещё не в списке поддерживаемых. Сначала запустите деплой; список обновится в течение нескольких минут. |
-| `ui.regions.deployed-admin` | deployed and the requester notified. | развёрнут, запросивший уведомлён. |
+| `ui.regions.requested-by` | requested by | запросил(а) |
+| `ui.regions.deployed-admin` | deployed, the requester notified. | развёрнут, запросивший уведомлён. |
 | `ui.regions.declined-admin` | declined. | отклонён. |
 | `ui.regions.already-handled` | This request has already been handled. | Этот запрос уже обработан. |
 | `ui.regions.available` | %s is now available – pick it in the menu. | Регион %s теперь доступен – выберите его в меню. |
@@ -243,8 +248,9 @@ Order: T1/T2 → T3/T4 (T3 wires T1's classes) → H1. Each pair merged before t
    CLAUDE.md say "2026.10 released"; tag `v2026.10` (pushed by the owner, the session cannot push
    tags); GitHub release "vpnbot 2026.10" with the notes the tech lead drafts (UI phases 2a–4,
    DynamoDB config, SnapStart, no Lambda VPC, system commands, composition root, region requests).
-3. Deploy: "VPN Bot Lambda CI-CD" (jar `vpnbot-2026.10.jar`), then "Deploy VPN Configurer Lambda
-   Resources" (the IAM change `ec2:DescribeRegions`, version `2026.10` from the pom).
+3. Deploy: the merge of the release commit triggers "VPN Bot Lambda CI-CD" (jar
+   `vpnbot-2026.10.jar`); then run "Deploy VPN Configurer Lambda Resources" by hand (the IAM change
+   `ec2:DescribeRegions`, version `2026.10` from the pom).
 4. Smoke test: home card shows `[🌍 Other region…]`; the Regions screen lists the enabled regions
    not set up; request one with a second account → root gets the message; tap Deployed before
    deploying → "not deployed yet"; run "Deploy Tailscale ECS Resources" for that region (or pick a
@@ -272,6 +278,12 @@ Order: T1/T2 → T3/T4 (T3 wires T1's classes) → H1. Each pair merged before t
 - D-8 The requester line of the admin message (`First Last (@username, id)`) is shared with the
   access request screen through one helper in `ui.screen`, so the two messages stay identical in
   form.
+- D-9 (owner) A root user may request a region too and then receives their own request message:
+  it works as a to-do card (deploy, tap Deployed, the bot confirms). The requester is not excluded
+  from the admin list.
+- D-10 (owner) The region id is rendered in `<code>` (tap-to-copy, like the node card's IP) in the
+  admin message and its closed variants; the closed variants lead with the region and say
+  "requested by", since "asks for" reads wrong once the request is decided.
 
 ## 13. Decision log
 
