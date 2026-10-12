@@ -1,6 +1,5 @@
 package org.github.akarkin1.ui.screen;
 
-import org.apache.commons.lang3.StringUtils;
 import org.github.akarkin1.auth.AccessRequest;
 import org.github.akarkin1.auth.UserRole;
 import org.github.akarkin1.ui.UiAction;
@@ -10,7 +9,6 @@ import java.util.List;
 import java.util.Set;
 
 import static org.github.akarkin1.ui.screen.CommonButtons.MENU;
-import static org.github.akarkin1.ui.screen.NodeFormat.orDash;
 
 /** The screens of the access request: the requester's side and the admins' message. */
 public class AccessScreens {
@@ -34,14 +32,14 @@ public class AccessScreens {
     keyboard.add(List.of(Button.action("✅ ${ui.button.grant}", UiAction.accessGrant(userId, selected)),
                          Button.action("✖ ${ui.button.decline}", UiAction.accessDecline(userId))));
 
-    Requester requester = requester(request);
+    UserLine requester = requester(request);
     return new Screen("🙋 " + requester.template() + " ${ui.access.asks}", requester.params(),
                       keyboard);
   }
 
   /** The admin's message after granting: who and which roles, no buttons. */
   public Screen granted(AccessRequest request, Set<UserRole> roles) {
-    Requester requester = requester(request);
+    UserLine requester = requester(request);
     return new Screen("✅ " + requester.template() + " ${ui.access.granted-admin} "
                       + RoleFormat.names(roles),
                       requester.params(), List.of());
@@ -49,7 +47,7 @@ public class AccessScreens {
 
   /** The admin's message after declining, no buttons. */
   public Screen declined(AccessRequest request) {
-    Requester requester = requester(request);
+    UserLine requester = requester(request);
     return new Screen("✖ " + requester.template() + " ${ui.access.declined-admin}",
                       requester.params(), List.of());
   }
@@ -74,26 +72,9 @@ public class AccessScreens {
     return new Screen("⛔ ${ui.users.not-allowed}", List.of(), List.of(List.of(MENU)));
   }
 
-  /**
-   * {@code <b>First Last</b> (@username, id)}; without a last name just {@code <b>First</b>},
-   * without a username {@code <b>First Last</b> (id)}.
-   */
-  private static Requester requester(AccessRequest request) {
-    if (StringUtils.isBlank(request.username())) {
-      return new Requester("<b>%s</b> (%s)", List.of(fullName(request), request.userId()));
-    }
-    return new Requester("<b>%s</b> (@%s, %s)",
-                         List.of(fullName(request), request.username(), request.userId()));
-  }
-
-  private static String fullName(AccessRequest request) {
-    String name = StringUtils.isBlank(request.lastName())
-        ? request.firstName()
-        : request.firstName() + " " + request.lastName();
-    return orDash(name);
-  }
-
-  private record Requester(String template, List<Object> params) {
+  private static UserLine requester(AccessRequest request) {
+    return UserLine.of(request.userId(), request.username(), request.firstName(),
+                       request.lastName());
   }
 
 }
