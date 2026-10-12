@@ -277,10 +277,10 @@ Order: T1/T2 → T3/T4 (T3 wires T1's classes) → H1. Each pair merged before t
 - D-5 Region requests expire after 30 days (access requests: 7): the decision needs a deploy.
 - D-6 `DescribeRegions` is timed under `MetricComponent.ECS` like the ECS and EC2 calls today (no
   new metric); it is one cached call per TTL.
-- D-7 (owner, final) After the release, `release/<version>` is merged back and `main` moves to the
-  next patch snapshot (`2026.10.1-SNAPSHOT`) in a follow-up PR; nothing deploys on a merge to `main`
-  (`ci-cd.yml` is manual or called by `release.yml`), so the snapshot never reaches production
-  by accident. The next release sets its version on its own release branch.
+- D-7 (owner, final: git-flow) `develop` is the integration branch and carries the next patch snapshot
+  (`2026.10.1-SNAPSHOT`); `release/<version>` is cut from it, sets the version and deploys on push;
+  afterwards `main` is fast-forwarded to the release (so `main` = production, tagged) and the release is
+  merged back into `develop`. Nothing deploys on a merge to `develop` or `main`.
 - D-8 The requester line of the admin message (`First Last (@username, id)`) is shared with the
   access request screen through one helper in `ui.screen`, so the two messages stay identical in
   form.

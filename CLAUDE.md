@@ -16,16 +16,18 @@ Planned work lives in `docs/roadmap.md`.
 - Shell script tests (need `jq`): `.github/scripts/region-item-test.sh`, `.github/scripts/publish-live-version-test.sh`,
   `scripts/migrate-pending-users-test.sh`.
 - `java-tests.yml` runs the build and the shell script tests on pull requests.
-- Deployment: nothing deploys on a merge to `main`. A push to `release/**` runs `release.yml`, which calls
+- Deployment: nothing deploys on a merge to `develop` or `main`. A push to `release/**` runs `release.yml`, which calls
   `ci-cd.yml` (jar + alias), the Lambda stack deploy and the ECS deploy of every registered region as
   reusable workflows; `ci-cd.yml` and the `deploy-*.yml` workflows are run by hand otherwise. API Gateway invokes the
   Lambda alias `live` (SnapStart): every code/config deploy ends with `publish-live-version.sh`, which
   publishes a version and moves the alias. `BotDependencies.build()` runs at publish time, not on first request.
   The jar lives in the S3 bucket named by the repository variable `LAMBDA_JAR_BUCKET`.
-- Versioning is calendar-based (`YYYY.MM[.N]`); `pom.xml` is the only place holding the version (the
-  workflows read it). After a release `main` continues as the next patch snapshot (`2026.10.1-SNAPSHOT`);
-  a release branch `release/<version>` sets the release version and is merged back to `main`. `2.0` (branch `release/2.0`, tag `v2.0`)
-  is the last version before the button UI.
+- Branches (git-flow): `develop` is the integration branch (feature PRs land here, version = next patch
+  snapshot, e.g. `2026.10.1-SNAPSHOT`); `release/<version>` is cut from `develop`, sets the version, and its
+  push deploys; after the deploy it is fast-forwarded into `main` (always = production, carries the tags)
+  and merged back into `develop`. Versioning is calendar-based (`YYYY.MM[.N]`); `pom.xml` is the only
+  place holding the version (the workflows read it). `2.0` (branch `release/2.0`, tag `v2.0`) is the last
+  version before the button UI.
 
 ## Architecture
 
@@ -101,6 +103,7 @@ same message into the stopped card – all via the Telegram Bot API.
 
 ## Workflow
 
-- Branches: `feature/<short-meaningful-name>`; small focused commits with imperative messages.
+- Branches: `feature/<short-meaningful-name>` off `develop`, PRs into `develop`; small focused commits with
+  imperative messages.
 - Feature specs live in `docs/specs/`; implement them as written and record deviations in the
   spec's decision log.

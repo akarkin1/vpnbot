@@ -58,11 +58,12 @@ No NAT, no EC2 instances, nothing running while no node is up.
 
 ## Release
 
-A push to a `release/<version>` branch, e.g. `release/2026.10` with the pom set to that version, runs
-the *Release* workflow: the code, the Lambda stack (IAM, environment, Telegram menu) and every
-registered region (ECS stack and node image) at that version. Tag the release branch (`v2026.10`), merge it
-back to `main` and move `main` to the next patch snapshot (`2026.10.1-SNAPSHOT`). Nothing deploys on a
-merge to `main`; the other workflows are run by hand.
+Git-flow: `develop` is where features land (version = next patch snapshot), `main` is what runs in
+production. To release, cut `release/<version>` from `develop`, set the pom to that version and push: the
+*Release* workflow deploys the code, the Lambda stack (IAM, environment, Telegram menu) and every
+registered region (ECS stack and node image). Then tag it (`v2026.10`), fast-forward `main` to it and merge
+it back into `develop`. Nothing deploys on a merge to `develop` or `main`; the other workflows are run by
+hand.
 
 ## Development
 
