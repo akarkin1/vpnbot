@@ -84,14 +84,6 @@ jobs:
           template: cloudformation/ecs-vpn-server.yml
           no-fail-on-empty-changeset: "1"
           parameter-overrides: 'EcsClusterName=${{ github.event.inputs.cluster-name }},EcrRepositoryName=${{ github.event.inputs.repository-name }},TailscaleAuthTokenSecretId=${{ env.TAILSCALE_AUTH_TOKEN_SECRET_ID }},TailscaleAuthTokenSecretRegion=${{ env.TAILSCALE_AUTH_TOKEN_REGION }},TgBotTokenSecretId=${{ env.TG_BOT_TOKEN_SECRET_ID }}'
-      - name: Register Region In DynamoDB
-        id: register-region
-        if: ${{ github.event.inputs.run-cfn-deploy == 'true' }}
-        run: |
-          aws cloudformation describe-stacks --stack-name ${{ env.STACK_NAME }} --query 'Stacks[0].Outputs' --output json > ./stack-outputs.json
-          ITEM=$(.github/scripts/region-item.sh "${{ github.event.inputs.region }}" ./stack-outputs.json)
-          echo "$ITEM"
-          aws dynamodb put-item --table-name "${{ env.CONFIG_TABLE_NAME }}" --region "${{ env.CONFIG_TABLE_REGION }}" --item "$ITEM"
       - name: Login to Amazon ECR
         id: login-to-ecr
         if: ${{ github.event.inputs.run-docker == 'true' }}
@@ -110,3 +102,12 @@ jobs:
             ./docker/;
           docker push $ECR_REPO_URL:$BUILD_TAG
           docker push $ECR_REPO_URL:latest
+      # Last: the REGION record is what the bot treats as "region ready" (region-requests-phase5 D-11)
+      - name: Register Region In DynamoDB
+        id: register-region
+        if: ${{ github.event.inputs.run-cfn-deploy == 'true' }}
+        run: |
+          aws cloudformation describe-stacks --stack-name ${{ env.STACK_NAME }} --query 'Stacks[0].Outputs' --output json > ./stack-outputs.json
+          ITEM=$(.github/scripts/region-item.sh "${{ github.event.inputs.region }}" ./stack-outputs.json)
+          echo "$ITEM"
+          aws dynamodb put-item --table-name "${{ env.CONFIG_TABLE_NAME }}" --region "${{ env.CONFIG_TABLE_REGION }}" --item "$ITEM"

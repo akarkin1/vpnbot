@@ -87,6 +87,10 @@ globe flag (`RegionLabels` already does that).
 Both: caller must be root (D-1), else `${ui.regions.not-allowed}`; no open request for the region →
 `${ui.regions.already-handled}` (no buttons), done.
 
+- **Readiness** = the `REGION` record exists (`nodeService.getSupportedRegionIds()` contains the id). The
+  record is written by the deploy workflow from the stack outputs (cluster, task definition, subnet,
+  security group; the script fails on a missing output) and, from this phase on, only after the node
+  image has been pushed to ECR (D-11) – so a present record means the whole infrastructure is there.
 - **Deployed, notify**: if the region is *not* in `nodeService.getSupportedRegionIds()` → edit the
   admin message to `RegionScreens.notDeployedYet(request)`: the same text plus
   `⚠️ ${ui.regions.not-deployed-yet}` and the same two buttons, nothing else changes (the config
@@ -288,3 +292,11 @@ Order: T1/T2 → T3/T4 (T3 wires T1's classes) → H1. Each pair merged before t
 ## 13. Decision log
 
 (filled during implementation: `SPEC DEVIATION`s and their resolutions)
+- D-11 (owner's concern) "Region ready" is the `REGION` record, and the deploy workflow now writes it
+  as its last step, after the ECR image push (before, the record came right after the stack and
+  before the image, so a node start in that window would have failed). The Deployed tap itself
+  starts nothing; it only closes the request once the record exists, and a premature tap gets
+  "not deployed yet" with the buttons kept.
+- D-12 (owner) A short `README.md` is part of this release: purpose, how it works, setup from
+  scratch (secrets, variables, workflows, webhook) and the minimal stack with its idle and running
+  cost. Written by the tech lead (H1).
