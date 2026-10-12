@@ -32,6 +32,7 @@ import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.ec2.Ec2Client;
 import software.amazon.awssdk.services.ec2.model.DescribeNetworkInterfacesResponse;
+import software.amazon.awssdk.services.ec2.model.DescribeRegionsResponse;
 import software.amazon.awssdk.services.ecs.EcsClient;
 import software.amazon.awssdk.services.ecs.model.DescribeTasksResponse;
 import software.amazon.awssdk.services.ecs.model.ListTasksResponse;
@@ -95,6 +96,11 @@ class BotDependenciesTest {
   private static final String BOT_USERNAME = "vpn_bot";
   private static final String APP_VERSION = "2026.10-test";
   private static final Region REGION = Region.EU_CENTRAL_1;
+  /**
+   * Settings.awsRegion, the Lambda's own region where the region catalog asks EC2. Deliberately
+   * not the configured node region, so the test sees which client the catalog uses.
+   */
+  private static final Region LAMBDA_REGION = Region.EU_WEST_1;
 
   private static final UiContext ROOT_CONTEXT = new UiContext(10L, 1L, "root", "Root", null, "en");
   private static final TgUser ROOT = ROOT_CONTEXT.user();
@@ -112,15 +118,16 @@ class BotDependenciesTest {
   private final List<Region> ec2Regions = new CopyOnWriteArrayList<>();
   private final List<String> ecsCalls = new CopyOnWriteArrayList<>();
   private final List<String> ec2Calls = new CopyOnWriteArrayList<>();
+  /** One EC2 client mock per region; each records its calls here too. */
+  private final Map<Region, Ec2Client> ec2Clients = new ConcurrentHashMap<>();
+  private final Map<Region, List<String>> ec2CallsByRegion = new ConcurrentHashMap<>();
 
   private final AbsSender sender = mock(AbsSender.class, this::telegram);
-  private final EcsClient ecs = recordingMock(EcsClient.class, ecsCalls, Map.of(
+  private final EcsClient ecs = recordingMock(EcsClient.class, ecsCalls::add, Map.of(
       "listTasks", invocation -> ListTasksResponse.builder().build(),
       "describeTasks", invocation -> DescribeTasksResponse.builder().build()));
-  private final Ec2Client ec2 = recordingMock(Ec2Client.class, ec2Calls, Map.of(
-      "describeNetworkInterfaces", invocation -> DescribeNetworkInterfacesResponse.builder().build()));
   private final SecretsManagerClient secrets = recordingMock(SecretsManagerClient.class,
-                                                             new CopyOnWriteArrayList<>(),
+                                                             name -> { },
                                                              Map.of("getSecretValue", this::secret));
 
   @BeforeEach
@@ -200,7 +207,7 @@ class BotDependenciesTest {
   }
 
   @Test
-  @DisplayName("AC-9, §4.7 rule 7: prime() runs without throwing and every priming step reaches its mock (DynamoDB, ECS and EC2 of the configured region, Telegram getMe), so nothing goes elsewhere")
+  @DisplayName("AC-9, §4.7 rule 7, 5 AC-9: prime() runs without throwing and every priming step reaches its mock (DynamoDB, ECS and EC2 of the configured region, EC2 DescribeRegions in Settings.awsRegion, Telegram getMe), so nothing goes elsewhere")
   void primeUsesOnlyTheMocks() {
     BotDependencies bot = bot(true, false);
 
@@ -218,6 +225,13 @@ class BotDependenciesTest {
         () -> assertTrue(ecsCalls.containsAll(List.of("listTasks", "describeTasks")), ecsCalls.toString()),
         () -> assertTrue(ec2Regions.contains(REGION), "EC2 client of " + REGION + ": " + ec2Regions),
         () -> assertTrue(ec2Calls.contains("describeNetworkInterfaces"), ec2Calls.toString()),
+        () -> assertTrue(ec2Regions.contains(LAMBDA_REGION),
+                         "EC2 client of the Lambda's region " + LAMBDA_REGION + ": " + ec2Regions),
+        () -> assertEquals(1, ec2Calls(LAMBDA_REGION).stream()
+                              .filter("describeRegions"::equals).count(),
+                           "region catalog not primed in " + LAMBDA_REGION + ": " + ec2CallsByRegion),
+        () -> assertFalse(ec2Calls(REGION).contains("describeRegions"),
+                          "DescribeRegions outside the Lambda's region: " + ec2CallsByRegion),
         () -> assertTrue(telegramCalls.stream().anyMatch(GetMe.class::isInstance), telegramCalls.toString()),
         () -> assertEquals(List.of(BOT_TOKEN), senderTokens, "one sender, made from the resolved bot token"),
         () -> assertTrue(secretIds.contains(BOT_TOKEN_SECRET_ID), secretIds.toString()));
@@ -294,7 +308,8 @@ class BotDependenciesTest {
     YamlApplicationConfiguration yaml = MainApplicationYaml.load();
     return new Settings(TABLE_NAME, BOT_TOKEN_SECRET_ID, BOT_USERNAME,
                         metricsEnabled, configCacheEnabled, Duration.ofMinutes(5), APP_VERSION,
-                        yaml.getAuth(), yaml.getEcs(), yaml.getAws(), SECRET_TOKEN_ID);
+                        yaml.getAuth(), yaml.getEcs(), yaml.getAws(), SECRET_TOKEN_ID,
+                        LAMBDA_REGION.id());
   }
 
   private DynamoDbEnhancedClient dynamoDb() {
@@ -323,9 +338,29 @@ class BotDependenciesTest {
     return ecs;
   }
 
+  /**
+   * The region's EC2 client: answers the network interface lookup (EC2 priming) and
+   * DescribeRegions (the region catalog, one enabled region) with fixed results.
+   */
   private Ec2Client ec2Client(Region region) {
     ec2Regions.add(region);
-    return ec2;
+    return ec2Clients.computeIfAbsent(region, r -> {
+      List<String> regionCalls = ec2CallsByRegion.computeIfAbsent(r, k -> new CopyOnWriteArrayList<>());
+      return recordingMock(Ec2Client.class, name -> {
+        ec2Calls.add(name);
+        regionCalls.add(name);
+      }, Map.of(
+          "describeNetworkInterfaces", invocation -> DescribeNetworkInterfacesResponse.builder().build(),
+          "describeRegions", invocation -> DescribeRegionsResponse.builder()
+              .regions(software.amazon.awssdk.services.ec2.model.Region.builder()
+                           .regionName(REGION.id())
+                           .build())
+              .build()));
+    });
+  }
+
+  private List<String> ec2Calls(Region region) {
+    return ec2CallsByRegion.getOrDefault(region, List.of());
   }
 
   private Object secret(InvocationOnMock invocation) {
@@ -375,14 +410,14 @@ class BotDependenciesTest {
    * A mock of an SDK client that records the name of every client method called and answers the
    * named ones; any other method gets Mockito's default (null, empty).
    */
-  private static <T> T recordingMock(Class<T> type, List<String> calls,
+  private static <T> T recordingMock(Class<T> type, Consumer<String> calls,
                                      Map<String, Answer<?>> answers) {
     return mock(type, invocation -> {
       String name = invocation.getMethod().getName();
       if (invocation.getMethod().getDeclaringClass() == Object.class) {
         return RETURNS_DEFAULTS.answer(invocation);
       }
-      calls.add(name);
+      calls.accept(name);
       Answer<?> answer = answers.get(name);
       return answer == null ? RETURNS_DEFAULTS.answer(invocation) : answer.answer(invocation);
     });
