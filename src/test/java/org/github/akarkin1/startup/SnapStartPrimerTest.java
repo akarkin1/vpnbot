@@ -3,6 +3,7 @@ package org.github.akarkin1.startup;
 import org.github.akarkin1.auth.PermissionsService;
 import org.github.akarkin1.deduplication.UpdateEventsRegistry;
 import org.github.akarkin1.ec2.Ec2ClientPool;
+import org.github.akarkin1.ec2.RegionCatalog;
 import org.github.akarkin1.tailscale.TailscaleNodeService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -30,6 +31,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -51,17 +53,19 @@ class SnapStartPrimerTest {
   private UpdateEventsRegistry eventsRegistry;
   @Mock
   private AbsSender sender;
+  @Mock
+  private RegionCatalog regionCatalog;
 
   private SnapStartPrimer primer;
 
   @BeforeEach
   void setUp() {
     primer = new SnapStartPrimer(nodeService, ec2ClientPool, permissionsService, eventsRegistry,
-                                 sender);
+                                 sender, regionCatalog);
   }
 
   @Test
-  @DisplayName("AC-P5: with two regions prime() runs permissions, listNodes, getNode + EC2 prime per region (sorted), register and getMe in this order, nothing else")
+  @DisplayName("AC-P5, 5 AC-6: with two regions prime() runs permissions, listNodes, getNode + EC2 prime per region (sorted), the region catalog once after the regions step, register and getMe in this order, nothing else")
   void primesAllStepsInOrderWithRegions() throws TelegramApiException {
     // Reverse iteration order: the primer has to sort the regions itself.
     when(nodeService.getSupportedRegionIds()).thenReturn(new LinkedHashSet<>(List.of(US, EU)));
@@ -80,14 +84,15 @@ class SnapStartPrimerTest {
     ArgumentCaptor<Update> update = ArgumentCaptor.forClass(Update.class);
     inOrder.verify(eventsRegistry).register(update.capture());
     inOrder.verify(sender).execute(any(GetMe.class));
+    verifyRegionCatalogAfterRegionsStep();
     verifyNoMoreInteractions(permissionsService, nodeService, ec2ClientPool, eventsRegistry,
-                             sender);
+                             sender, regionCatalog);
 
     assertEquals(SnapStartPrimer.PRIMER_UPDATE_ID, update.getValue().getUpdateId());
   }
 
   @Test
-  @DisplayName("AC-P1/AC-P5: with no supported regions the per-region steps are skipped, nothing else is called")
+  @DisplayName("AC-P1/AC-P5, 5 AC-6: with no supported regions the per-region steps are skipped, the region catalog still runs once, nothing else is called")
   void primesAllStepsInOrderWithoutRegions() throws TelegramApiException {
     when(nodeService.getSupportedRegionIds()).thenReturn(Set.of());
 
@@ -100,7 +105,9 @@ class SnapStartPrimerTest {
     ArgumentCaptor<Update> update = ArgumentCaptor.forClass(Update.class);
     inOrder.verify(eventsRegistry).register(update.capture());
     inOrder.verify(sender).execute(any(GetMe.class));
-    verifyNoMoreInteractions(permissionsService, nodeService, eventsRegistry, sender);
+    verifyRegionCatalogAfterRegionsStep();
+    verifyNoMoreInteractions(permissionsService, nodeService, eventsRegistry, sender,
+                             regionCatalog);
     verifyNoInteractions(ec2ClientPool);
 
     assertEquals(SnapStartPrimer.PRIMER_UPDATE_ID, update.getValue().getUpdateId());
@@ -197,7 +204,7 @@ class SnapStartPrimerTest {
   }
 
   @Test
-  @DisplayName("AC-P5: a failing getSupportedRegionIds skips only the per-region steps")
+  @DisplayName("AC-P5, 5 AC-6: a failing getSupportedRegionIds skips only the per-region steps (the region catalog still runs)")
   void supportedRegionsFailureSkipsOnlyRegionSteps() throws TelegramApiException {
     when(nodeService.getSupportedRegionIds()).thenThrow(new RuntimeException("dynamodb down"));
 
@@ -207,8 +214,20 @@ class SnapStartPrimerTest {
     verify(nodeService).listNodes(SnapStartPrimer.PRIMER_USER);
     verify(nodeService, never()).getNode(anyString(), anyString());
     verifyNoInteractions(ec2ClientPool);
+    verify(regionCatalog, times(1)).enabledRegions();
     verify(eventsRegistry).register(any(Update.class));
     verify(sender).execute(any(GetMe.class));
+  }
+
+  @Test
+  @DisplayName("5 AC-6, §4.5: a failing region catalog step (EC2 DescribeRegions) is logged, not thrown, and the other steps still run")
+  void regionCatalogFailureIsSwallowed() throws TelegramApiException {
+    givenTwoRegions();
+    when(regionCatalog.enabledRegions()).thenThrow(new RuntimeException("ec2 describe regions failed"));
+
+    assertDoesNotThrow(primer::prime);
+
+    verifyAllStepsCalled();
   }
 
   @Test
@@ -231,7 +250,22 @@ class SnapStartPrimerTest {
     verify(nodeService).getNode(US, SnapStartPrimer.PRIMER_TASK_ID);
     verify(ec2ClientPool).prime(EU);
     verify(ec2ClientPool).prime(US);
+    verify(regionCatalog, times(1)).enabledRegions();
     verify(eventsRegistry).register(any(Update.class));
     verify(sender).execute(any(GetMe.class));
+  }
+
+  /**
+   * 5 §4.5: one {@code enabledRegions()} call after the regions step (the supported regions read)
+   * and before the update lock step. Whether it comes before or after the per-region steps is
+   * left open.
+   */
+  private void verifyRegionCatalogAfterRegionsStep() {
+    InOrder afterRegions = inOrder(nodeService, regionCatalog);
+    afterRegions.verify(nodeService).getSupportedRegionIds();
+    afterRegions.verify(regionCatalog, times(1)).enabledRegions();
+    InOrder beforeUpdateLock = inOrder(regionCatalog, eventsRegistry);
+    beforeUpdateLock.verify(regionCatalog).enabledRegions();
+    beforeUpdateLock.verify(eventsRegistry).register(any(Update.class));
   }
 }
