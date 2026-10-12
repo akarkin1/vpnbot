@@ -247,20 +247,21 @@ Order: T1/T2 → T3/T4 (T3 wires T1's classes) → H1. Each pair merged before t
 
 ## 11. Release 2026.10 and deploy checklist (owner)
 
-1. Merge the Phase 5 PR into `main`.
-2. Release commit on `main` (tech lead prepares a PR): `pom.xml` `2026.10`; roadmap and
-   CLAUDE.md say "2026.10 released"; tag `v2026.10` (pushed by the owner, the session cannot push
-   tags); GitHub release "vpnbot 2026.10" with the notes the tech lead drafts (UI phases 2a–4,
-   DynamoDB config, SnapStart, no Lambda VPC, system commands, composition root, region requests).
-3. Deploy: the merge of the release commit triggers "VPN Bot Lambda CI-CD" (jar
-   `vpnbot-2026.10.jar`); then run "Deploy VPN Configurer Lambda Resources" by hand (the IAM change
-   `ec2:DescribeRegions`, version `2026.10` from the pom).
-4. Smoke test: home card shows `[🌍 Other region…]`; the Regions screen lists the enabled regions
-   not set up; request one with a second account → root gets the message; tap Deployed before
-   deploying → "not deployed yet"; run "Deploy Tailscale ECS Resources" for that region (or pick a
-   region you really want); tap Deployed, notify → requester notified, region on the home card;
-   Decline path with another region.
-5. Next development commit on `main`: `pom.xml` `2026.10.1-SNAPSHOT` (D-7).
+1. Merge the Phase 5 PR into `main` (its push to `main` runs CI-CD: jar `2026.10-SNAPSHOT`, alias
+   moved; the IAM change still needs a stack deploy, which step 3 does).
+2. Branch `release/2026.10` from `main`; on it set `pom.xml` to `2026.10`, README/roadmap/CLAUDE.md
+   say "2026.10 released"; push.
+3. The push to `release/**` runs CI-CD and then the stack deploy automatically (D-17): jar
+   `vpnbot-2026.10.jar`, stack update with `LambdaSourceVersion=2026.10` and the `ec2:DescribeRegions`
+   statement, version published behind `live`, Telegram menu registered. Watch both jobs go green.
+4. Tag `v2026.10` on the release branch (the owner pushes the tag); GitHub release "vpnbot 2026.10"
+   with the notes the tech lead drafts.
+5. Smoke test: home card shows `[🌍 Other region…]`; the Regions screen lists the enabled regions
+   not set up; request one with a second account → root gets the card; tap Deployed before
+   deploying → "not deployed yet"; run "Deploy Tailscale ECS Resources" for that region; tap
+   Deployed, notify → requester notified, region on the home card; Decline path with another region.
+6. On `main`: `pom.xml` `2026.10.1-SNAPSHOT` (D-7). A hotfix goes to `release/2026.10` (patch
+   version `2026.10.1`, same automatic deploy) and is merged back to `main`.
 
 ## 12. Decisions (review)
 
@@ -312,3 +313,9 @@ Order: T1/T2 → T3/T4 (T3 wires T1's classes) → H1. Each pair merged before t
   implementer's (ℹ️, ℹ️, ⚠️, 📨). The requester line helper is `ui.screen.UserLine`.
 - D-16 (T3) `HomeController.canRequestRegions = canRunNodes || root`; `RegionController` checks
   `RUN_NODES` then `ROOT_ACCESS`, root alone for decisions.
+- D-17 (owner) A push to a `release/**` branch deploys automatically: `ci-cd.yml` runs on
+  `release/**` too (paths now include `pom.xml`, the stack template and the stack workflow) and,
+  on a release branch only, calls `deploy-tgbot-lambda.yml` as a reusable workflow after the jar
+  upload (`workflow_call`, region = `CONFIG_BASE_REGION`, secrets inherited). The chain keeps the
+  order jar → stack, so the stack's `Code` key always exists. A `concurrency` group serialises
+  deploys. Region (ECS) deploys stay manual: they are per region and need an input.

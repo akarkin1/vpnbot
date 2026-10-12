@@ -56,6 +56,13 @@ No NAT, no EC2 instances, nothing running while no node is up.
 9. Open the bot, tap *Menu*. Invite your friends' Tailscale accounts to your tailnet; they request
    access in the bot.
 
+## Release
+
+A push to `main` deploys the bot code (jar and alias). A push to a `release/<version>` branch, e.g.
+`release/2026.10` with the pom set to that version, deploys the code **and** the Lambda stack (IAM,
+environment, Telegram menu) in one run. Tag the release branch (`v2026.10`) and let `main` continue as
+the next patch snapshot. Region infrastructure is deployed per region by hand.
+
 ## Development
 
 `mvn -B verify` builds and tests the bot; the node agent tests run with

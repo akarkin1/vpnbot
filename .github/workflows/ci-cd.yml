@@ -13,9 +13,18 @@ on:
     paths:
       - 'src/main/java/**'
       - 'src/main/resources/**'
+      - 'pom.xml'
+      - 'cloudformation/vpn-configurer-lambda.yml'
       - '.github/workflows/ci-cd.yml'
+      - '.github/workflows/deploy-tgbot-lambda.yml'
     branches:
       - main
+      - 'release/**'
+
+# One deploy at a time; a second push waits for the running one
+concurrency:
+  group: vpnbot-lambda-deploy
+  cancel-in-progress: false
 
 jobs:
   ci-cd-build:
@@ -61,3 +70,12 @@ jobs:
     - name: Publish Version And Point Alias `live`
       run: .github/scripts/publish-live-version.sh vpnbot live
       
+
+  # A push to release/** also deploys the stack (IAM, environment, version behind `live`) once the jar is up
+  deploy-stack:
+    needs: ci-cd-build
+    if: startsWith(github.ref, 'refs/heads/release/')
+    uses: ./.github/workflows/deploy-tgbot-lambda.yml
+    with:
+      region: ${{ vars.CONFIG_BASE_REGION }}
+    secrets: inherit
