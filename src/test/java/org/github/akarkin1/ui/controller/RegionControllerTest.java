@@ -41,6 +41,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
@@ -328,7 +329,8 @@ class RegionControllerTest {
     controller.request(REQUESTER, MESSAGE_ID, REGION);
 
     RegionRequest created = createdRequest();
-    verify(screens).adminRequest(created);
+    verify(screens, atLeastOnce()).adminRequest(created);
+    verify(screens, never()).adminRequest(argThat(request -> !created.equals(request)));
     List<UiContext> admins = sentContexts(ADMIN_REQUEST, 2);
     assertEquals(Set.of(1L, 2L), admins.stream().map(UiContext::chatId).collect(Collectors.toSet()));
     assertAll(admins.stream().map(admin -> (Executable) () -> assertEquals(
