@@ -58,11 +58,11 @@ No NAT, no EC2 instances, nothing running while no node is up.
 
 ## Release
 
-A push to `main` deploys the bot code (jar and alias). A push to a `release/<version>` branch, e.g.
-`release/2026.10` with the pom set to that version, runs the *Release* workflow: the code, the Lambda
-stack (IAM, environment, Telegram menu) and every registered region (ECS stack and node image) at that
-version. Tag the release branch (`v2026.10`) and let `main` continue as the next patch snapshot. The
-manual workflows stay for one-off deploys.
+A push to a `release/<version>` branch, e.g. `release/2026.10` with the pom set to that version, runs
+the *Release* workflow: the code, the Lambda stack (IAM, environment, Telegram menu) and every
+registered region (ECS stack and node image) at that version. Tag the release branch (`v2026.10`) and
+merge it back to `main`, which always holds the last released version. Nothing deploys on a merge to
+`main`; the other workflows are run by hand.
 
 ## Development
 
