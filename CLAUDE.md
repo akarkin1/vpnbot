@@ -16,9 +16,9 @@ Planned work lives in `docs/roadmap.md`.
 - Shell script tests (need `jq`): `.github/scripts/region-item-test.sh`, `.github/scripts/publish-live-version-test.sh`,
   `scripts/migrate-pending-users-test.sh`.
 - `java-tests.yml` runs the build and the shell script tests on pull requests.
-- Deployment: a push to `main` runs `ci-cd.yml` (jar + alias); a push to `release/**` also runs the Lambda
-  stack deploy (`deploy-tgbot-lambda.yml`, called as a reusable workflow); region (ECS) deploys are manual
-  (`.github/workflows/deploy-*.yml`). API Gateway invokes the
+- Deployment: a push to `main` runs `ci-cd.yml` (jar + alias); a push to `release/**` runs `release.yml`,
+  which calls `ci-cd.yml`, the Lambda stack deploy and the ECS deploy of every registered region as
+  reusable workflows; the `deploy-*.yml` workflows stay manual for one-off deploys. API Gateway invokes the
   Lambda alias `live` (SnapStart): every code/config deploy ends with `publish-live-version.sh`, which
   publishes a version and moves the alias. `BotDependencies.build()` runs at publish time, not on first request.
   The jar lives in the S3 bucket named by the repository variable `LAMBDA_JAR_BUCKET`.

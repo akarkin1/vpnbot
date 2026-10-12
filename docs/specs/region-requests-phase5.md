@@ -251,9 +251,9 @@ Order: T1/T2 → T3/T4 (T3 wires T1's classes) → H1. Each pair merged before t
    moved; the IAM change still needs a stack deploy, which step 3 does).
 2. Branch `release/2026.10` from `main`; on it set `pom.xml` to `2026.10`, README/roadmap/CLAUDE.md
    say "2026.10 released"; push.
-3. The push to `release/**` runs CI-CD and then the stack deploy automatically (D-17): jar
-   `vpnbot-2026.10.jar`, stack update with `LambdaSourceVersion=2026.10` and the `ec2:DescribeRegions`
-   statement, version published behind `live`, Telegram menu registered. Watch both jobs go green.
+3. The push to `release/**` runs the `Release` workflow (D-17): jar `vpnbot-2026.10.jar` and alias,
+   the stack update with `LambdaSourceVersion=2026.10` and the `ec2:DescribeRegions` statement,
+   the Telegram menu, and every registered region's stack and node image. Watch the run go green.
 4. Tag `v2026.10` on the release branch (the owner pushes the tag); GitHub release "vpnbot 2026.10"
    with the notes the tech lead drafts.
 5. Smoke test: home card shows `[🌍 Other region…]`; the Regions screen lists the enabled regions
@@ -313,9 +313,10 @@ Order: T1/T2 → T3/T4 (T3 wires T1's classes) → H1. Each pair merged before t
   implementer's (ℹ️, ℹ️, ⚠️, 📨). The requester line helper is `ui.screen.UserLine`.
 - D-16 (T3) `HomeController.canRequestRegions = canRunNodes || root`; `RegionController` checks
   `RUN_NODES` then `ROOT_ACCESS`, root alone for decisions.
-- D-17 (owner) A push to a `release/**` branch deploys automatically: `ci-cd.yml` runs on
-  `release/**` too (paths now include `pom.xml`, the stack template and the stack workflow) and,
-  on a release branch only, calls `deploy-tgbot-lambda.yml` as a reusable workflow after the jar
-  upload (`workflow_call`, region = `CONFIG_BASE_REGION`, secrets inherited). The chain keeps the
-  order jar → stack, so the stack's `Code` key always exists. A `concurrency` group serialises
-  deploys. Region (ECS) deploys stay manual: they are per region and need an input.
+- D-17 (owner) A push to a `release/**` branch deploys everything at that version through a
+  separate workflow, `release.yml`: it calls `ci-cd.yml` (jar + alias), then
+  `deploy-tgbot-lambda.yml` (stack, region = `CONFIG_BASE_REGION`), and, in parallel, queries the
+  `REGION` records and calls `deploy-vpn-ecs-resources.yml` for each (stack + image, two at a time,
+  `fail-fast: false`). The three workflows gained a `workflow_call` trigger and read their inputs
+  from the `inputs` context; their manual triggers are unchanged. The jar → stack order keeps the
+  stack's `Code` key valid; a `concurrency` group serialises Lambda deploys.
